@@ -1,5 +1,6 @@
 'use client'; // This marks the file as a client component
 import type { Metadata } from 'next'
+import React from 'react';
 import {
   ClerkProvider,
   SignInButton,

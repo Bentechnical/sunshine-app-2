@@ -1,48 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";  // This is the correct import
+import { clerkClient } from "@clerk/nextjs/server";  // Correct import for Clerk in Next.js API routes
 
 export async function POST(req: NextRequest) {
-  console.log("API route hit");
-
-  // Extract the webhook payload
-  const data = await req.json();
-  console.log("Webhook Payload:", data);
-
-  // Correctly access the user ID
-  const userId = data.id; // Directly access data.id from the payload
-  if (!userId) {
-    return new NextResponse("User ID is missing", { status: 400 });
-  }
-
-  // Assuming the role is coming in the payload as well
-  const role = data.role;
-  if (!role) {
-    return new NextResponse("Role is missing", { status: 400 });
-  }
-
   try {
-    // Use clerkClient to interact with Clerk's user management API
-    const updatedUser = await clerkClient.users.updateUser(userId, {
-      publicMetadata: {
-        role: role, // Assign the role to the user's public metadata
-      },
-    });
+    const data = await req.json();
+    console.log("Received Data:", data);  // Debug log to ensure data is received properly
 
-    // Log the updated user to verify that the metadata is being updated
-    console.log("Updated User:", updatedUser);
+    const userId = data.id;
+    const role = data.role;
 
-    // Check if the public metadata is correctly updated
-    if (updatedUser.publicMetadata?.role === role) {
-      console.log(`Successfully assigned role: ${role} to user ID: ${userId}`);
-    } else {
-      console.error(`Failed to assign role to user ID: ${userId}`);
+    if (!userId || !role) {
+      console.error("Missing userId or role");
+      return new NextResponse("User ID or Role is missing", { status: 400 });
     }
 
-    return new NextResponse("Role assigned successfully", { status: 200 });
+    // Use clerkClient to update user metadata
+    const updatedUser = await clerkClient.users.updateUser(userId, {
+      publicMetadata: { role },
+    });
+
+    console.log("Updated User:", updatedUser);  // Debug log for the updated user
+
+    // Check if the role was successfully updated
+    return updatedUser.publicMetadata?.role === role
+      ? new NextResponse("Role assigned successfully", { status: 200 })
+      : new NextResponse("Failed to assign role", { status: 400 });
   } catch (error) {
     console.error("Error processing webhook:", error);
-
-    // Log the error in detail to help diagnose the issue
     return new NextResponse(`Error processing webhook: ${error.message}`, { status: 500 });
   }
 }
