@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^5.1.6",
+    "@clerk/nextjs": "^6.12.3",
     "@tailwindcss/cli": "^4.0.10",
     "next": "15.2.1",
     "react": "^19.0.0",
