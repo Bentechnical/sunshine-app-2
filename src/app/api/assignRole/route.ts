@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse("User ID or Role is missing", { status: 400 });
     }
 
-    // Use clerkClient to update user metadata
+    // Use clerkClient to update user metadatas
     const updatedUser = await clerkClient.users.updateUser(userId, {
       publicMetadata: { role },
     });
