@@ -1,35 +1,40 @@
-'use client'; // This marks the file as a client component
+'use client';
 
-import { useClerk, useUser } from '@clerk/clerk-react'; // Import Clerk hooks
+import { useClerk, useUser } from '@clerk/clerk-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const AdminDashboard = () => {
-  const { isLoaded, user } = useUser(); // Get Clerk user data
-  const { signOut } = useClerk(); // Use signOut from useClerk hook
+  const { isLoaded, user } = useUser();
+  const { signOut } = useClerk();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isLoading, setIsLoading] = useState(false); // Loading state for sign-out
-  const [error, setError] = useState(null); // Error state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
   const router = useRouter();
-  
-  // State for role management
+
+  // Role state management
   const [selectedRole, setSelectedRole] = useState('');
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [roleUpdateMessage, setRoleUpdateMessage] = useState({ type: '', message: '' });
 
-  // UseEffect to make sure the user data is fully loaded and set initial role
+  // Load role from localStorage if available
   useEffect(() => {
+    const storedRole = localStorage.getItem('selectedRole');
+    if (storedRole) {
+      setSelectedRole(storedRole);
+    }
+
     if (isLoaded && user) {
-      // Set the initial selected role based on user's current role
+      // Optionally, sync user role to localStorage if needed
       setSelectedRole(user.publicMetadata?.role || '');
-    } else if (isLoaded && !user) {
-      // This case handles if the user isn't signed in
-      console.log("User is not signed in");
     }
   }, [isLoaded, user]);
-  
+
   const handleRoleChange = (e) => {
-    setSelectedRole(e.target.value);
+    const newRole = e.target.value;
+    setSelectedRole(newRole);
+    // Save the selected role to localStorage
+    localStorage.setItem('selectedRole', newRole);
   };
 
   const updateUserRole = async () => {
@@ -37,12 +42,11 @@ const AdminDashboard = () => {
       setRoleUpdateMessage({ type: 'error', message: 'Please select a role' });
       return;
     }
-
+  
     setIsUpdatingRole(true);
     setRoleUpdateMessage({ type: '', message: '' });
-
+  
     try {
-      // Call your API to update the role
       const response = await fetch("/api/assign-role", {
         method: "POST",
         headers: {
@@ -53,17 +57,19 @@ const AdminDashboard = () => {
           role: selectedRole,
         }),
       });
-
+  
       if (response.ok) {
         setRoleUpdateMessage({ 
           type: 'success', 
-          message: 'Role updated successfully! Refresh to see changes.' 
+          message: 'Role updated successfully!' 
         });
-        
-        // Force a refresh to update the UI with the new role
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+  
+        // Explicitly refresh the user data from Clerk
+        await user.refresh();  // Refresh user data from Clerk
+        setRoleUpdateMessage({
+          type: 'success',
+          message: 'Role updated successfully! You should see the new role.',
+        });
       } else {
         const errorData = await response.text();
         setRoleUpdateMessage({ 
@@ -80,18 +86,19 @@ const AdminDashboard = () => {
       setIsUpdatingRole(false);
     }
   };
+  
 
   const handleSignOut = async () => {
-    setIsLoading(true); // Set loading to true when sign-out starts
-    setError(null); // Clear any previous errors
+    setIsLoading(true);
+    setError(null);
     try {
-      await signOut(); // Perform sign-out
-      router.push('/sign-in'); // Redirect to sign-in page after sign-out
+      await signOut();
+      router.push('/sign-in');
     } catch (error) {
       setError("Error signing out. Please try again.");
-      console.error("Error signing out:", error); // Log error for debugging
+      console.error("Error signing out:", error);
     } finally {
-      setIsLoading(false); // Reset loading state after operation completes
+      setIsLoading(false);
     }
   };
 
@@ -194,23 +201,22 @@ const AdminDashboard = () => {
         <div className="mt-6">
           <button
             onClick={handleSignOut}
-            disabled={isLoading} // Disable the button if loading
+            disabled={isLoading}
             className="w-full py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200 disabled:bg-gray-400"
           >
             {isLoading ? 'Signing out...' : 'Sign Out'}
           </button>
-          {error && <p className="text-red-500 mt-2">{error}</p>} {/* Display error message if any */}
+          {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 p-6 bg-gray-100">
         <h2 className="text-3xl font-semibold mb-6">Admin Dashboard</h2>
-
+        
         {/* User Information */}
         <div className="bg-white shadow-lg rounded-lg p-5 mb-6">
           <h3 className="text-xl font-semibold mb-4">Logged in as:</h3>
-          {/* Ensure user.emailAddresses is available */}
           {user ? (
             <>
               <p className="text-lg text-gray-700">
@@ -226,35 +232,6 @@ const AdminDashboard = () => {
           ) : (
             <p className="text-lg text-gray-700">User information not available</p>
           )}
-        </div>
-
-        {/* Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          {['Total Users', 'Total Sessions', 'Pending Verifications', 'Notifications'].map((stat, index) => (
-            <div key={index} className="bg-white shadow-lg rounded-lg p-5">
-              <h3 className="text-lg font-medium">{stat}</h3>
-              <p className="text-3xl font-bold">{Math.floor(Math.random() * 1000)}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Placeholder Data Notice */}
-        <div className="bg-gray-200 p-4 rounded-lg mb-6 text-center text-gray-700">
-          <p><strong>Note:</strong> The data shown above (total users, sessions, etc.) is just placeholder data and is not real.</p>
-        </div>
-
-        {/* Recent Activities */}
-        <div className="bg-white shadow-lg rounded-lg p-5">
-          <h3 className="text-xl font-semibold mb-4">Recent Activities</h3>
-          <ul className="space-y-3">
-            {[
-              'New user "Jane Doe" signed up.',
-              'Session #342 was successfully completed.',
-              'Dog "Max" has been verified.',
-            ].map((activity, index) => (
-              <li key={index} className="text-gray-600">{activity}</li>
-            ))}
-          </ul>
         </div>
       </div>
     </div>

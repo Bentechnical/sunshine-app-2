@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 
+
+// Define the types for the incoming data
+interface UserData {
+  id?: string;
+  role?: string;
+  data?: {
+    id?: string;
+    public_metadata?: {
+      role?: string;
+    };
+  };
+}
 export async function POST(req: NextRequest) {
   try {
     // Parse the incoming JSON request
@@ -8,8 +20,10 @@ export async function POST(req: NextRequest) {
     console.log("Received Data:", data);
 
     // Extract the user ID and role from the request
-    const userId = data.id;
-    const role = data.role;
+    const userId = data.id || data.data?.id;
+    const role = data.role || data.data?.public_metadata?.role;
+    console.log("Extracted userId:", userId);
+    console.log("Extracted role:", role);
 
     // Validate that both userId and role are provided
     if (!userId || !role) {
