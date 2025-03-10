@@ -6,22 +6,80 @@ import { useRouter } from 'next/navigation';
 
 const AdminDashboard = () => {
   const { isLoaded, user } = useUser(); // Get Clerk user data
-
-  
   const { signOut } = useClerk(); // Use signOut from useClerk hook
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false); // Loading state for sign-out
-  const [error, setError] = useState<string | null>(null); // Error state
+  const [error, setError] = useState(null); // Error state
   const router = useRouter();
+  
+  // State for role management
+  const [selectedRole, setSelectedRole] = useState('');
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [roleUpdateMessage, setRoleUpdateMessage] = useState({ type: '', message: '' });
 
-  // UseEffect to make sure the user data is fully loaded
+  // UseEffect to make sure the user data is fully loaded and set initial role
   useEffect(() => {
-    if (isLoaded && !user) {
+    if (isLoaded && user) {
+      // Set the initial selected role based on user's current role
+      setSelectedRole(user.publicMetadata?.role || '');
+    } else if (isLoaded && !user) {
       // This case handles if the user isn't signed in
       console.log("User is not signed in");
     }
   }, [isLoaded, user]);
   
+  const handleRoleChange = (e) => {
+    setSelectedRole(e.target.value);
+  };
+
+  const updateUserRole = async () => {
+    if (!selectedRole) {
+      setRoleUpdateMessage({ type: 'error', message: 'Please select a role' });
+      return;
+    }
+
+    setIsUpdatingRole(true);
+    setRoleUpdateMessage({ type: '', message: '' });
+
+    try {
+      // Call your API to update the role
+      const response = await fetch("/api/assign-role", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: user.id,
+          role: selectedRole,
+        }),
+      });
+
+      if (response.ok) {
+        setRoleUpdateMessage({ 
+          type: 'success', 
+          message: 'Role updated successfully! Refresh to see changes.' 
+        });
+        
+        // Force a refresh to update the UI with the new role
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        const errorData = await response.text();
+        setRoleUpdateMessage({ 
+          type: 'error', 
+          message: `Failed to update role: ${errorData}` 
+        });
+      }
+    } catch (error) {
+      setRoleUpdateMessage({ 
+        type: 'error', 
+        message: `Error updating role: ${error.message}` 
+      });
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
 
   const handleSignOut = async () => {
     setIsLoading(true); // Set loading to true when sign-out starts
@@ -36,7 +94,6 @@ const AdminDashboard = () => {
       setIsLoading(false); // Reset loading state after operation completes
     }
   };
-
 
   if (!isLoaded) {
     return (
@@ -96,6 +153,40 @@ const AdminDashboard = () => {
             >
               Settings
             </button>
+          </div>
+        </div>
+
+        {/* Role Management Section */}
+        <div className="border-t border-gray-700 pt-4 mt-4">
+          <h3 className="text-lg font-medium mb-2">Update Your Role</h3>
+          <div className="space-y-3">
+            <select
+              value={selectedRole}
+              onChange={handleRoleChange}
+              className="w-full px-3 py-2 bg-gray-700 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Role</option>
+              <option value="user">User</option>
+              <option value="volunteer">Volunteer</option>
+              <option value="admin">Admin</option>
+              <option value="individual">Individual</option>
+            </select>
+            <button
+              onClick={updateUserRole}
+              disabled={isUpdatingRole}
+              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 disabled:bg-gray-500"
+            >
+              {isUpdatingRole ? 'Updating...' : 'Update Role'}
+            </button>
+            {roleUpdateMessage.message && (
+              <div className={`text-sm p-2 rounded ${
+                roleUpdateMessage.type === 'success' 
+                  ? 'bg-green-800 text-green-100' 
+                  : 'bg-red-800 text-red-100'
+              }`}>
+                {roleUpdateMessage.message}
+              </div>
+            )}
           </div>
         </div>
 
