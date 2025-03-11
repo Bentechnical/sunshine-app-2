@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 
-
 // Define the types for the incoming data
 
 export async function POST(req: NextRequest) {
@@ -32,11 +31,11 @@ export async function POST(req: NextRequest) {
 
     // logging updated user
     console.log({
-        event: "user_role_updated",
-        userId: updatedUser.id,
-        role: updatedUser.publicMetadata?.role,
-        timestamp: new Date().toISOString()
-      });
+      event: "user_role_updated",
+      userId: updatedUser.id,
+      role: updatedUser.publicMetadata?.role,
+      timestamp: new Date().toISOString()
+    });
 
     // Return a success response if the role was updated correctly
     if (updatedUser.publicMetadata?.role === role) {
@@ -50,12 +49,21 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-  } catch (error) {
-    // Log and return any errors that occur
-    console.error("Error processing request:", error);
-    return NextResponse.json(
-      { error: `Error processing request: ${error.message}` },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      // If error is an instance of Error, we can safely access the 'message' property
+      console.error("Error processing request:", error);
+      return NextResponse.json(
+        { error: `Error processing request: ${error.message}` },
+        { status: 500 }
+      );
+    } else {
+      // Handle non-Error objects (unknown errors)
+      console.error("Unknown error occurred");
+      return NextResponse.json(
+        { error: "Unknown error occurred" },
+        { status: 500 }
+      );
+    }
   }
 }
