@@ -1,8 +1,9 @@
 'use client';
 
 import { useClerk, useUser } from '@clerk/clerk-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, } from 'react';
 import { useRouter } from 'next/navigation';
+import React from 'react';
 
 const AdminDashboard = () => {
   const { isLoaded, user } = useUser();

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import React from 'react';
 
 export default function SignOutPage() {
   const { signOut } = useClerk();
