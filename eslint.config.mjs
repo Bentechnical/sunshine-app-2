@@ -1,24 +1,15 @@
-import globals from "globals";
-import pluginJs from "@eslint/js";
-import tseslint from "typescript-eslint";
-import pluginReact from "eslint-plugin-react";
-import { defineConfig } from "eslint-define-config";
+// eslint.config.mjs
+import { eslint } from '@eslint/js';
+import nextPlugin from '@next/eslint-plugin-next';
 
-export default defineConfig({
-  overrides: [
-    {
-      files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
-      languageOptions: {
-        globals: {
-          ...globals.browser,
-          ...globals.node,
-        },
-      },
-      plugins: ["next"],
-      extends: ["next", "next/core-web-vitals"],
-      rules: {
-        // Add any custom ESLint rules here if needed
-      },
+export default [
+  eslint.configs.recommended,
+  {
+    plugins: {
+      next: nextPlugin
     },
-  ],
-});
+    rules: {
+      // your rules here
+    }
+  }
+];

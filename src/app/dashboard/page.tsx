@@ -5,6 +5,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 
+interface UserPublicMetadata {
+  role?: string;
+}
+
 const AdminDashboard = () => {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
@@ -12,6 +16,8 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
+
+
 
   // Role state management
   const [selectedRole, setSelectedRole] = useState<string>(''); // Ensure selectedRole is always a string
@@ -26,8 +32,9 @@ const AdminDashboard = () => {
     }
 
     if (isLoaded && user) {
-      // Optionally, sync user role to localStorage if needed
-      setSelectedRole(user.publicMetadata?.role || ''); // Explicit fallback to string
+      // Cast the metadata to your type
+      const metadata = user.publicMetadata as UserPublicMetadata;
+      setSelectedRole(metadata?.role || '');
     }
   }, [isLoaded, user]);
 
