@@ -1,14 +1,7 @@
 'use client'; // This marks the file as a client component
-import type { Metadata } from 'next'
+
 import React from 'react';
-import {
-  ClerkProvider,
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs'
 import { Geist, Geist_Mono } from "next/font/google";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation"; // Import useRouter
@@ -24,7 +17,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const clerkFrontendApi = 'YOUR_FRONTEND_API'; // Replace with your Clerk Frontend API
+const clerkFrontendApi = 'https://engaging-spider-65.clerk.accounts.dev'; // Replace with your Clerk Frontend API
 
 export default function RootLayout({
   children,

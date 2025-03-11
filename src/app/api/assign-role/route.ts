@@ -3,16 +3,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 
 
 // Define the types for the incoming data
-interface UserData {
-  id?: string;
-  role?: string;
-  data?: {
-    id?: string;
-    public_metadata?: {
-      role?: string;
-    };
-  };
-}
+
 export async function POST(req: NextRequest) {
   try {
     // Parse the incoming JSON request
