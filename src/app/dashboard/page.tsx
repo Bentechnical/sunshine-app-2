@@ -1,7 +1,7 @@
 'use client';
 
 import { useClerk, useUser } from '@clerk/clerk-react';
-import { useState, useEffect, } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 
@@ -14,7 +14,7 @@ const AdminDashboard = () => {
   const router = useRouter();
 
   // Role state management
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>(''); // Ensure selectedRole is always a string
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [roleUpdateMessage, setRoleUpdateMessage] = useState({ type: '', message: '' });
 
@@ -27,11 +27,11 @@ const AdminDashboard = () => {
 
     if (isLoaded && user) {
       // Optionally, sync user role to localStorage if needed
-      setSelectedRole(user.publicMetadata?.role || '');
+      setSelectedRole(user.publicMetadata?.role || ''); // Explicit fallback to string
     }
   }, [isLoaded, user]);
 
-  const handleRoleChange = (e) => {
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
     setSelectedRole(newRole);
     // Save the selected role to localStorage
