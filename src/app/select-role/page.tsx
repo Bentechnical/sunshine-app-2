@@ -20,37 +20,32 @@ export default function SelectRolePage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
+  
     if (!selectedRole) {
       setRoleError(true);
       return;
     }
-
-    setIsLoading(true); // Start loading state
-
+  
+    setIsLoading(true);
+  
     try {
-      // Call your API to assign the role to the user
       const response = await fetch('/api/assign-role', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: user?.id,
-          role: selectedRole,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user?.id, role: selectedRole }),
       });
-
+  
       if (response.ok) {
-        router.push('/dashboard'); // Redirect to the dashboard after role selection
+        await user?.reload(); // Ensures the latest user metadata is fetched
+        router.push('/dashboard');
       } else {
         const errorData = await response.json();
         setSubmitError(errorData.error || 'Error assigning role');
       }
     } catch (error) {
-      setSubmitError(`Error occurred during role selection: ${error.message}`);
+      setSubmitError(`Error occurred: ${error.message}`);
     } finally {
-      setIsLoading(false); // Stop loading state
+      setIsLoading(false);
     }
   };
 

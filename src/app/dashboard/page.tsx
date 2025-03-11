@@ -65,7 +65,7 @@ const AdminDashboard = () => {
         });
   
         // Explicitly refresh the user data from Clerk
-        await user.refresh();  // Refresh user data from Clerk
+        await user.reload();  // Refresh user data from Clerk
         setRoleUpdateMessage({
           type: 'success',
           message: 'Role updated successfully! You should see the new role.',
@@ -85,8 +85,7 @@ const AdminDashboard = () => {
     } finally {
       setIsUpdatingRole(false);
     }
-  };
-  
+  };  
 
   const handleSignOut = async () => {
     setIsLoading(true);
@@ -173,7 +172,6 @@ const AdminDashboard = () => {
               className="w-full px-3 py-2 bg-gray-700 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select Role</option>
-              <option value="user">User</option>
               <option value="volunteer">Volunteer</option>
               <option value="admin">Admin</option>
               <option value="individual">Individual</option>
