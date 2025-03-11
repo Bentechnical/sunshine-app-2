@@ -51,6 +51,11 @@ const AdminDashboard = () => {
       return;
     }
   
+    if (!user) {
+      setRoleUpdateMessage({ type: 'error', message: 'User not logged in' });
+      return;
+    }
+  
     setIsUpdatingRole(true);
     setRoleUpdateMessage({ type: '', message: '' });
   
@@ -65,6 +70,7 @@ const AdminDashboard = () => {
           role: selectedRole,
         }),
       });
+      
   
       if (response.ok) {
         setRoleUpdateMessage({ 
