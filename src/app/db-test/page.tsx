@@ -2,17 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
+import { Database } from '@/types/supabase';
 
-interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-  bio: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Use the generated types from your Database type definition
+type User = Database['public']['Tables']['users']['Row'];
 
 const TestDBPage = () => {
   const [data, setData] = useState<User[]>([]);
@@ -21,7 +14,10 @@ const TestDBPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data, error } = await supabase.from<User>('users').select('*');
+      // Use the properly typed query
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
 
       if (error) {
         setError(error.message);
@@ -49,7 +45,7 @@ const TestDBPage = () => {
       <ul>
         {data.map(user => (
           <li key={user.id}>
-            {user.first_name} {user.last_name} - {user.email} - {user.role} - {user.bio} - {new Date(user.created_at).toLocaleString()}
+            {user.first_name} {user.last_name} - {user.email} - {user.role} - {user.bio} - {new Date(user.created_at || '').toLocaleString()}
           </li>
         ))}
       </ul>
