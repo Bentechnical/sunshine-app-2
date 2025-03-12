@@ -11,8 +11,10 @@
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.1.6",
     "@clerk/nextjs": "^6.12.4",
+    "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/cli": "^4.0.10",
     "next": "15.2.1",
+    "pg": "^8.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

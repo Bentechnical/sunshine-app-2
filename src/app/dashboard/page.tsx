@@ -100,6 +100,8 @@ const AdminDashboard = () => {
         type: 'error', 
         message: `Error updating role: ${errorMessage}` 
       });
+    }finally {
+      setIsUpdatingRole(false); // Reset the updating state
     }
   };  
 
