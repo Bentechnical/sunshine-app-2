@@ -44,7 +44,11 @@ export default function SelectRolePage() {
         setSubmitError(errorData.error || 'Error assigning role');
       }
     } catch (error) {
-      setSubmitError(`Error occurred: ${error.message}`);
+      if (error instanceof Error) {
+        setSubmitError(`Error occurred: ${error.message}`);
+      } else {
+        setSubmitError('An unknown error occurred');
+      }
     } finally {
       setIsLoading(false);
     }

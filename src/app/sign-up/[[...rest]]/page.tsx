@@ -22,7 +22,6 @@ export default function SignUpPage() {
           routing="path"
           signInUrl="/sign-in"
           afterSignUpUrl="/select-role"  // Redirect user to role selection after signing up
-          onSignUpSuccess={handleSuccess} // Optionally handle success with custom logic
         />
       </div>
     </div>
