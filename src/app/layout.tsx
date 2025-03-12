@@ -17,7 +17,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const clerkFrontendApi = 'https://engaging-spider-65.clerk.accounts.dev'; // Replace with your Clerk Frontend API
+// Retrieve the publishable key from environment variables
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 export default function RootLayout({
   children,
@@ -34,7 +35,7 @@ export default function RootLayout({
   }, [router]);
 
   return (
-    <ClerkProvider frontendApi={clerkFrontendApi}>
+    <ClerkProvider publishableKey={clerkPublishableKey}>
       <html lang="en">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
