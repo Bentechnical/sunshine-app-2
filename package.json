@@ -16,7 +16,8 @@
     "next": "15.2.1",
     "pg": "^8.14.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "svix": "^1.61.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
