@@ -240,7 +240,7 @@ const AdminDashboard = () => {
                 {user.emailAddresses?.[0]?.emailAddress || 'Email not available'}
               </p>
               <p className="text-lg text-gray-700">
-                Role: {user.publicMetadata?.role || 'No role assigned'}
+                <>Role: {user.publicMetadata?.role || 'No role assigned'}</>
               </p>
             </>
           ) : (
