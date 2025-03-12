@@ -4,27 +4,38 @@ import { useClerk, useUser } from '@clerk/clerk-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
-import { supabase } from '@/utils/supabase/client'; // Import Supabase client
+import { supabase } from '@/utils/supabase/client'; // Import your Supabase client
 
 interface UserPublicMetadata {
   role?: string;
 }
 
+// A simple email validation helper (regex-based):
+const isValidEmail = (email: string) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 const AdminDashboard = () => {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
   const [activeTab, setActiveTab] = useState('profile');
+
+  // Store profile data from Supabase (bio, image, email, phone_number)
   const [profileData, setProfileData] = useState<any>({
     bio: '',
-    profile_image: '', // Assuming this is the field for the profile picture
+    profile_image: '',
+    email: '',
+    phone_number: '',
   });
+
   const [newProfileImage, setNewProfileImage] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   // Role state management
-  const [selectedRole, setSelectedRole] = useState<string>(''); // Ensure selectedRole is always a string
+  const [selectedRole, setSelectedRole] = useState<string>('');
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [roleUpdateMessage, setRoleUpdateMessage] = useState({ type: '', message: '' });
 
@@ -36,7 +47,6 @@ const AdminDashboard = () => {
     }
 
     if (isLoaded && user) {
-      // Cast the metadata to your type
       const metadata = user.publicMetadata as UserPublicMetadata;
       setSelectedRole(metadata?.role || '');
     }
@@ -46,19 +56,21 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (user) {
       const fetchProfileData = async () => {
-        console.log('Fetching profile data for user ID:', user.id); // Log user ID
+        console.log('Fetching profile data for user ID:', user.id);
+
         const { data, error } = await supabase
-          .from('users') // Ensure this table is correct
-          .select('bio, profile_image')
-          .eq('id', user.id) // Ensure the user_id matches the Clerk user ID
-          .single(); // Fetch a single row
+          .from('users')
+          // Include all fields you'd like to show or update
+          .select('bio, profile_image, email, phone_number')
+          .eq('id', user.id)
+          .single();
 
         if (error) {
           setError('Error fetching profile data');
-          console.error('Supabase error:', error); // Log Supabase error
+          console.error('Supabase error:', error);
         } else {
-          console.log('Fetched profile data:', data); // Log data to check
-          setProfileData(data);
+          console.log('Fetched profile data:', data);
+          setProfileData(data || {});
         }
       };
 
@@ -66,6 +78,7 @@ const AdminDashboard = () => {
     }
   }, [user]);
 
+  // Handle role changes in the dropdown
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
     setSelectedRole(newRole);
@@ -73,6 +86,7 @@ const AdminDashboard = () => {
     localStorage.setItem('selectedRole', newRole);
   };
 
+  // Update role in Clerk via /api/assign-role route (if you have that set up)
   const updateUserRole = async () => {
     if (!selectedRole) {
       setRoleUpdateMessage({ type: 'error', message: 'Please select a role' });
@@ -90,15 +104,9 @@ const AdminDashboard = () => {
     try {
       const response = await fetch("/api/assign-role", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: user.id,
-          role: selectedRole,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id, role: selectedRole }),
       });
-
 
       if (response.ok) {
         setRoleUpdateMessage({
@@ -107,7 +115,7 @@ const AdminDashboard = () => {
         });
 
         // Explicitly refresh the user data from Clerk
-        await user.reload();  // Refresh user data from Clerk
+        await user.reload();
         setRoleUpdateMessage({
           type: 'success',
           message: 'Role updated successfully! You should see the new role.',
@@ -129,10 +137,11 @@ const AdminDashboard = () => {
         message: `Error updating role: ${errorMessage}`
       });
     } finally {
-      setIsUpdatingRole(false); // Reset the updating state
+      setIsUpdatingRole(false);
     }
   };
 
+  // Sign out via Clerk
   const handleSignOut = async () => {
     setIsLoading(true);
     setError(null);
@@ -147,46 +156,57 @@ const AdminDashboard = () => {
     }
   };
 
+  // Handle profile updates (bio, email, phone_number, etc.)
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!user) return;
 
     try {
-      let profile_image = profileData.profile_image;
+      // Fetch current user data (including email so we don't accidentally set it to null)
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, bio, role, phone_number') // ✅ Include email in the query
+        .eq('id', user.id)
+        .single();
 
-      if (newProfileImage) {
-        // Upload new profile image to Supabase Storage (assuming you have set up storage)
-        const { data, error: uploadError } = await supabase.storage
-          .from('profile-images')
-          .upload(`public/${user.id}/${newProfileImage.name}`, newProfileImage);
-
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
-
-        profile_image = data?.path || profile_image; // Update the profile image path
+      if (userError) {
+        throw new Error(userError.message);
       }
+
+      // Ensure we send the existing email to avoid NULL errors
+      const updatePayload = {
+        id: user.id,
+        first_name: userData?.first_name,
+        last_name: userData?.last_name,
+        role: userData?.role,
+        email: userData?.email, // ✅ Send the existing email to Supabase
+        bio: profileData.bio,
+        phone_number: profileData.phone_number,
+      };
+
+      console.log('Updating user with payload:', updatePayload); // ✅ Debugging log
 
       const { error } = await supabase
         .from('users')
-        .upsert({
-          id: user.id,
-          bio: profileData.bio,
-          profile_image,
-        });
+        .upsert(updatePayload, { onConflict: 'id' });
 
       if (error) {
+        console.error('Error updating profile:', error);
         setError('Error updating profile');
       } else {
-        alert('Profile updated successfully!');
+        console.log('✅ Profile updated successfully!');
         setError(null);
+        setActiveTab('profile');
       }
     } catch (error) {
+      console.error('Error in profile update:', error);
       setError('Error updating profile');
     }
   };
 
+
+  // Loading states
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
@@ -270,18 +290,26 @@ const AdminDashboard = () => {
               {isUpdatingRole ? 'Updating...' : 'Update Role'}
             </button>
             {roleUpdateMessage.message && (
-              <div className={`text-sm p-2 rounded ${roleUpdateMessage.type === 'success'
-                  ? 'bg-green-800 text-green-100'
-                  : 'bg-red-800 text-red-100'
-                }`}>
+              <div
+                className={`text-sm p-2 rounded ${roleUpdateMessage.type === 'success'
+                    ? 'bg-green-800 text-green-100'
+                    : 'bg-red-800 text-red-100'
+                  }`}
+              >
                 {roleUpdateMessage.message}
               </div>
             )}
           </div>
         </div>
+        {/* Logout Button */}
+        <button
+          onClick={handleSignOut}
+          className="w-full py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200"
+        >
+          Logout
+        </button>
       </div>
 
-      {/* Main Content */}
       {/* Main Content */}
       <div className="flex-1 p-6 bg-gray-100">
         <h2 className="text-3xl font-semibold mb-6">Admin Dashboard</h2>
@@ -290,81 +318,84 @@ const AdminDashboard = () => {
         {activeTab === 'profile' && (
           <div className="bg-white shadow-lg rounded-lg p-5 mb-6">
             <h3 className="text-xl font-semibold mb-4">Logged in as:</h3>
-            {user ? (
-              <>
-                <p className="text-lg text-gray-700">
-                  <strong>User ID:</strong> {user.id || 'ID not available'}
-                </p>
-                <p className="text-lg text-gray-700">
-                  <strong>Name:</strong> {user.firstName || 'First name not available'} {user.lastName || 'Last name not available'}
-                </p>
-                <p className="text-lg text-gray-700">
-                  <strong>Email:</strong> {user.emailAddresses?.[0]?.emailAddress || 'Email not available'}
-                </p>
-                <p className="text-lg text-gray-700">
-                  <strong>Profile Type:</strong>  <>{user.publicMetadata?.role || 'No role assigned'}</>
-                </p>
+            <>
+              <p className="text-lg text-gray-700">
+                <strong>User ID:</strong> {user.id || 'ID not available'}
+              </p>
+              <p className="text-lg text-gray-700">
+                <strong>Name:</strong> {user.firstName || 'First name not available'}{' '}
+                {user.lastName || 'Last name not available'}
+              </p>
+              <p className="text-lg text-gray-700">
+                <strong>Email:</strong> {profileData.email || 'Email not available'}
+              </p>
+              <p className="text-lg text-gray-700">
+                <strong>Phone Number:</strong> {profileData.phone_number || 'Phone number not available'}
+              </p>
+              <p className="text-lg text-gray-700">
+                <strong>Profile Type:</strong>  <>{user.publicMetadata?.role || 'No role assigned'}</>
+              </p>
 
-                {/* Display Bio from Supabase */}
-                {profileData?.bio ? (
-                  <p className="text-lg text-gray-700 mt-4">
-                    <strong>Bio:</strong> {profileData.bio || 'Bio not available'}
-                  </p>
-                ) : (
-                  <p className="text-lg text-gray-700 mt-4">Bio not available</p>
-                )}
+              {/* Display Bio from Supabase */}
+              {profileData?.bio ? (
+                <p className="text-lg text-gray-700 mt-4">
+                  <strong>Bio:</strong> {profileData.bio}
+                </p>
+              ) : (
+                <p className="text-lg text-gray-700 mt-4">Bio not available</p>
+              )}
 
-                {/* Profile Picture at the bottom */}
-                <img
-                  src={profileData?.profile_image || 'default-image-url'}
-                  alt="Profile"
-                  className="w-24 h-24 rounded-full object-cover mt-4"
-                />
-
-              </>
-            ) : (
-              <p className="text-lg text-gray-700">User information not available</p>
-            )}
+              {/* Profile Picture */}
+              <img
+                src={profileData?.profile_image || 'default-image-url'}
+                alt="Profile"
+                className="w-24 h-24 rounded-full object-cover mt-4"
+              />
+            </>
           </div>
         )}
+
         {activeTab === 'edit' && (
           <div className="bg-white shadow-lg rounded-lg p-5 mb-6">
             <h3 className="text-xl font-semibold mb-4">Edit Profile</h3>
 
             <form onSubmit={handleProfileUpdate}>
+              {/* Phone Number Field */}
+              <div className="mb-4">
+                <label
+                  htmlFor="phone_number"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  id="phone_number"
+                  value={profileData.phone_number || ''}
+                  onChange={(e) =>
+                    setProfileData({ ...profileData, phone_number: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
+                />
+              </div>
+
               {/* Bio Field */}
               <div className="mb-4">
-                <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="bio"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Bio
                 </label>
                 <textarea
                   id="bio"
-                  value={profileData.bio}
-                  onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                  value={profileData.bio || ''}
+                  onChange={(e) =>
+                    setProfileData({ ...profileData, bio: e.target.value })
+                  }
                   className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
                   rows={4}
                 />
-              </div>
-
-              {/* Profile Image Upload */}
-              <div className="mb-4">
-                <label htmlFor="profile_image" className="block text-sm font-medium text-gray-700">
-                  Profile Image
-                </label>
-                <input
-                  type="file"
-                  id="profile_image"
-                  accept="image/*"
-                  onChange={(e) => setNewProfileImage(e.target.files?.[0] || null)}
-                  className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
-                />
-                {profileData.profile_image && !newProfileImage && (
-                  <img
-                    src={profileData.profile_image}
-                    alt="Current Profile"
-                    className="mt-2 w-24 h-24 rounded-full object-cover"
-                  />
-                )}
               </div>
 
               <button
@@ -379,8 +410,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-
-        {/* Other content for 'dashboard', 'sessions', 'users', etc. */}
+        {/* Additional tabs can go here, like 'users' or 'settings'... */}
       </div>
     </div>
   );
