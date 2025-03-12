@@ -1,7 +1,6 @@
 "use client";
 
 import { SignIn } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import React from 'react';
 
 export default function SignInPage() {
