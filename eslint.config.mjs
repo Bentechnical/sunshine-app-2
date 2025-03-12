@@ -1,15 +1,14 @@
-// eslint.config.mjs
-import nextPlugin from '@next/eslint-plugin-next';
+import globals from "globals";
+import pluginJs from "@eslint/js";
+import tseslint from "typescript-eslint";
+import pluginReact from "eslint-plugin-react";
 
+
+/** @type {import('eslint').Linter.Config[]} */
 export default [
-  {
-    plugins: {
-      next: nextPlugin
-    },
-    rules: {
-      // Your rules here if needed
-    },
-    // You can include files it applies to
-    files: ["**/*.{js,mjs,cjs,jsx,ts,tsx}"]
-  }
+  {files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"]},
+  {languageOptions: { globals: globals.browser }},
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
+  pluginReact.configs.flat.recommended,
 ];

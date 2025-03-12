@@ -14,7 +14,7 @@ const AdminDashboard = () => {
   const { signOut } = useClerk();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
 
