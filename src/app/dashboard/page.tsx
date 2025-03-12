@@ -92,12 +92,14 @@ const AdminDashboard = () => {
         });
       }
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Unknown error occurred';
+        
       setRoleUpdateMessage({ 
         type: 'error', 
-        message: `Error updating role: ${error.message}` 
+        message: `Error updating role: ${errorMessage}` 
       });
-    } finally {
-      setIsUpdatingRole(false);
     }
   };  
 
