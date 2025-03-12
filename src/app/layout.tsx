@@ -18,7 +18,12 @@ const geistMono = Geist_Mono({
 });
 
 // Retrieve the publishable key from environment variables
-const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+// Check if the publishable key is provided
+if (!clerkPublishableKey) {
+  throw new Error('Missing Clerk publishable key. Please set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in your environment variables.');
+}
 
 export default function RootLayout({
   children,
