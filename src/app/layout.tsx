@@ -1,14 +1,7 @@
 'use client'; // This marks the file as a client component
-import type { Metadata } from 'next'
+
 import React from 'react';
-import {
-  ClerkProvider,
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs'
 import { Geist, Geist_Mono } from "next/font/google";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation"; // Import useRouter
@@ -24,7 +17,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const clerkFrontendApi = 'YOUR_FRONTEND_API'; // Replace with your Clerk Frontend API
+// Retrieve the publishable key from environment variables
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+// Check if the publishable key is provided
+if (!clerkPublishableKey) {
+  throw new Error('Missing Clerk publishable key. Please set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in your environment variables.');
+}
 
 export default function RootLayout({
   children,
@@ -41,7 +40,7 @@ export default function RootLayout({
   }, [router]);
 
   return (
-    <ClerkProvider frontendApi={clerkFrontendApi}>
+    <ClerkProvider publishableKey={clerkPublishableKey}>
       <html lang="en">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}

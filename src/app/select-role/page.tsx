@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import React from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
 
@@ -43,7 +44,11 @@ export default function SelectRolePage() {
         setSubmitError(errorData.error || 'Error assigning role');
       }
     } catch (error) {
-      setSubmitError(`Error occurred: ${error.message}`);
+      if (error instanceof Error) {
+        setSubmitError(`Error occurred: ${error.message}`);
+      } else {
+        setSubmitError('An unknown error occurred');
+      }
     } finally {
       setIsLoading(false);
     }

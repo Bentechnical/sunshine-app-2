@@ -2,6 +2,7 @@
 
 import { SignUp } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import React from 'react';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -21,7 +22,6 @@ export default function SignUpPage() {
           routing="path"
           signInUrl="/sign-in"
           afterSignUpUrl="/select-role"  // Redirect user to role selection after signing up
-          onSignUpSuccess={handleSuccess} // Optionally handle success with custom logic
         />
       </div>
     </div>

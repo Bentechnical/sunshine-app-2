@@ -3,17 +3,24 @@
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import React from 'react';
+
+interface UserPublicMetadata {
+  role?: string;
+}
 
 const AdminDashboard = () => {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+
+
   // Role state management
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>(''); // Ensure selectedRole is always a string
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [roleUpdateMessage, setRoleUpdateMessage] = useState({ type: '', message: '' });
 
@@ -25,12 +32,13 @@ const AdminDashboard = () => {
     }
 
     if (isLoaded && user) {
-      // Optionally, sync user role to localStorage if needed
-      setSelectedRole(user.publicMetadata?.role || '');
+      // Cast the metadata to your type
+      const metadata = user.publicMetadata as UserPublicMetadata;
+      setSelectedRole(metadata?.role || '');
     }
   }, [isLoaded, user]);
 
-  const handleRoleChange = (e) => {
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
     setSelectedRole(newRole);
     // Save the selected role to localStorage
@@ -40,6 +48,11 @@ const AdminDashboard = () => {
   const updateUserRole = async () => {
     if (!selectedRole) {
       setRoleUpdateMessage({ type: 'error', message: 'Please select a role' });
+      return;
+    }
+  
+    if (!user) {
+      setRoleUpdateMessage({ type: 'error', message: 'User not logged in' });
       return;
     }
   
@@ -57,6 +70,7 @@ const AdminDashboard = () => {
           role: selectedRole,
         }),
       });
+      
   
       if (response.ok) {
         setRoleUpdateMessage({ 
@@ -78,12 +92,16 @@ const AdminDashboard = () => {
         });
       }
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Unknown error occurred';
+        
       setRoleUpdateMessage({ 
         type: 'error', 
-        message: `Error updating role: ${error.message}` 
+        message: `Error updating role: ${errorMessage}` 
       });
-    } finally {
-      setIsUpdatingRole(false);
+    }finally {
+      setIsUpdatingRole(false); // Reset the updating state
     }
   };  
 
@@ -224,7 +242,7 @@ const AdminDashboard = () => {
                 {user.emailAddresses?.[0]?.emailAddress || 'Email not available'}
               </p>
               <p className="text-lg text-gray-700">
-                Role: {user.publicMetadata?.role || 'No role assigned'}
+                <>Role: {user.publicMetadata?.role || 'No role assigned'}</>
               </p>
             </>
           ) : (
