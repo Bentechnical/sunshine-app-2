@@ -11,6 +11,10 @@
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.1.6",
     "@clerk/nextjs": "^6.12.4",
+    "@fullcalendar/interaction": "^6.1.15",
+    "@fullcalendar/react": "^6.1.15",
+    "@fullcalendar/rrule": "^6.1.15",
+    "@fullcalendar/timegrid": "^6.1.15",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/cli": "^4.0.10",
@@ -18,7 +22,9 @@
     "pg": "^8.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "svix": "^1.61.4"
+    "rrule": "^2.8.1",
+    "svix": "^1.61.4",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
