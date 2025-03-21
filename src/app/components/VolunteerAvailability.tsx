@@ -16,7 +16,6 @@ interface AvailabilityEvent {
   end: string;
   volunteer_id: string;
   recurrence_id?: string | null;
-  // We'll store color-related props for FullCalendar:
   color?: string;
   textColor?: string;
 }
@@ -27,11 +26,9 @@ interface VolunteerAvailabilityProps {
 
 export default function VolunteerAvailability({ userId }: VolunteerAvailabilityProps) {
   const [events, setEvents] = useState<AvailabilityEvent[]>([]);
-
   // State for editing or deleting events
   const [selectedEvent, setSelectedEvent] = useState<AvailabilityEvent | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
-
   // Recurrence controls
   const [makeRecurring, setMakeRecurring] = useState(false);
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('weekly');
@@ -56,7 +53,6 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
           end: row.end_time,
           volunteer_id: row.volunteer_id,
           recurrence_id: row.recurrence_id || null,
-
           // Color logic: recurring = green, single = blue
           color: row.recurrence_id ? '#212df3' : '#2196F3',
           textColor: 'white',
@@ -100,7 +96,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
           end: newRow.end_time,
           volunteer_id: newRow.volunteer_id,
           recurrence_id: newRow.recurrence_id || null,
-          color: '#2196F3',   // Blue for single
+          color: '#2196F3', // Blue for single
           textColor: 'white',
         };
         setEvents((prev) => [...prev, newEvent]);
@@ -232,7 +228,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
           end: row.end_time,
           volunteer_id: row.volunteer_id,
           recurrence_id: row.recurrence_id || null,
-          color: '#4CAF50', // Green
+          color: '#212df3', // Green
           textColor: 'white',
         }));
 
@@ -248,6 +244,41 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
     }
   };
 
+  //------------------------------------------------------
+  // 6) Handle event resize to update the duration in the DB
+  //------------------------------------------------------
+  const handleEventResize = async (resizeInfo: any) => {
+    const event = resizeInfo.event;
+    const newStart = event.startStr;
+    const newEnd = event.endStr;
+
+    try {
+      const { error } = await supabase
+        .from('appointment_availability')
+        .update({
+          start_time: newStart,
+          end_time: newEnd,
+        })
+        .eq('id', Number(event.id)); // DB expects integer
+
+      if (error) {
+        console.error('Error updating event duration:', error);
+        // Revert change if there's an error
+        resizeInfo.revert();
+      } else {
+        // Update local state with new times
+        setEvents((prev) =>
+          prev.map((evt) =>
+            evt.id === event.id ? { ...evt, start: newStart, end: newEnd } : evt
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error handling event resize:', err);
+      resizeInfo.revert();
+    }
+  };
+
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4">Your Availability</h2>
@@ -260,6 +291,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
         events={events}
         select={handleDateSelect}
         eventClick={handleEventClick}
+        eventResize={handleEventResize}
         height="auto"
       />
 
@@ -274,8 +306,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
               <strong>End:</strong> {selectedEvent.end}
             </p>
             <p className="mt-2">
-              <strong>Recurring?</strong>{' '}
-              {selectedEvent.recurrence_id ? 'Yes' : 'No'}
+              <strong>Recurring?</strong> {selectedEvent.recurrence_id ? 'Yes' : 'No'}
             </p>
 
             {/* If not recurring yet, user can choose to make it recurring */}
@@ -308,7 +339,6 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
             )}
 
             <div className="mt-6 flex flex-col space-y-2">
-              {/* Delete buttons */}
               {selectedEvent.recurrence_id ? (
                 <>
                   <button
@@ -333,7 +363,6 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
                 </button>
               )}
 
-              {/* Convert single event -> recurring */}
               {makeRecurring && !selectedEvent.recurrence_id && (
                 <button
                   className="px-4 py-2 bg-blue-600 text-white rounded"
@@ -343,7 +372,6 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
                 </button>
               )}
 
-              {/* Close modal */}
               <button
                 className="px-4 py-2 bg-gray-400 rounded"
                 onClick={() => {
