@@ -7,10 +7,10 @@ import React from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 // Import the components
-import VolunteerAvailability from '../../components/VolunteerAvailability'; // Adjust path if needed
-import MeetWithDog from '../../components/MeetWithDog';
-import EditDogProfile from '../../components/EditDogProfile';
-import MyVisits from '../../components/MyVisits';
+import VolunteerAvailability from '../../../components/VolunteerAvailability'; // Adjust path if needed
+import MeetWithDog from '../../../components/MeetWithDog';
+import EditDogProfile from '../../../components/EditDogProfile';
+import MyVisits from '../../../components/MyVisits';
 
 
 interface UserPublicMetadata {

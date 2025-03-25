@@ -33,7 +33,7 @@ export default function SignUpPage() {
           console.error('Error sending welcome email:', error);
         }
         // Redirect after sending the email
-        router.push('/select-role');
+        router.push('/complete-profile');
       })();
     }
   }, [isLoaded, user, router]);
