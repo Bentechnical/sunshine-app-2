@@ -18,6 +18,7 @@ export interface Appointment {
     last_name: string;
     email: string;
     dogs?: {
+      id: number;  // Ensure the id property is included
       dog_name: string;
       dog_picture_url: string;
     }[];
@@ -69,6 +70,9 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   let displayEmail: string | undefined = undefined;
   let dogName: string | undefined = undefined;
   let dogPictureUrl: string | undefined = undefined;
+
+  // Determine if the appointment is in the past
+  const isPast = new Date(appointment.end_time) <= new Date();
 
   if (role === 'individual') {
     const volunteer = appointment.volunteer;
@@ -127,7 +131,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
         </div>
       )}
-      {role === 'individual' && displayName && (
+      {role === 'individual' && displayName && !isPast && (
         <div className="mt-2">
           <p>
             <strong>Volunteer:</strong> {displayName}
@@ -139,7 +143,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
         </div>
       )}
-      {role === 'volunteer' && displayName && (
+      {role === 'volunteer' && displayName && !isPast && (
         <div className="mt-2">
           <p>
             <strong>Requester:</strong> {displayName}
@@ -151,7 +155,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           )}
         </div>
       )}
-      {role === 'admin' && displayName && (
+      {role === 'admin' && displayName && !isPast && (
         <div className="mt-2">
           <p>
             <strong>User:</strong> {displayName}
@@ -162,7 +166,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         </div>
       )}
       <div className="mt-3">
-        {role === 'individual' && (
+        {role === 'individual' && !isPast && (
           <button
             onClick={() => onCancelClick(appointment)}
             className="px-4 py-2 rounded bg-red-600 text-white"
@@ -170,7 +174,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             {appointment.status === 'pending' ? 'Cancel Request' : 'Cancel Appointment'}
           </button>
         )}
-        {role === 'volunteer' && appointment.status === 'pending' && (
+        {role === 'volunteer' && appointment.status === 'pending' && !isPast && (
           <div className="space-x-2">
             <button
               onClick={() => onApprove(appointment.id)}
@@ -186,7 +190,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             </button>
           </div>
         )}
-        {role === 'volunteer' && appointment.status === 'confirmed' && (
+        {role === 'volunteer' && appointment.status === 'confirmed' && !isPast && (
           <button
             onClick={() => onCancelClick(appointment)}
             className={`px-4 py-2 rounded ${

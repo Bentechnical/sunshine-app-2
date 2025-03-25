@@ -178,8 +178,9 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       setBookingFeedback('You must be logged in as an individual to book a slot.');
       return;
     }
-
-    const { data, error } = await supabase
+  
+    // Insert a new appointment into the appointments table.
+    const { data: appointmentData, error: appointmentError } = await supabase
       .from('appointments')
       .insert([
         {
@@ -192,25 +193,65 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
         },
       ])
       .select();
-
-    if (error) {
-      console.error('Error booking appointment:', error);
+  
+    if (appointmentError || !appointmentData || appointmentData.length === 0) {
+      console.error('Error booking appointment:', appointmentError);
       setBookingFeedback('Failed to book appointment. Please try again.');
       return;
     }
-
+  
+    // Use the newly created appointment record's id.
+    const appointmentId = appointmentData[0].id;
+  
+    // Update the appointment availability (hide the slot)
     const { error: updateError } = await supabase
       .from('appointment_availability')
       .update({ is_hidden: true })
       .eq('id', bookingSlot.id);
-
+  
     if (updateError) {
       console.error('Error updating availability:', updateError);
     }
     setAvailability((prev) => prev.filter((s) => s.id !== bookingSlot.id));
+  
+    // Trigger the individual request email.
+    try {
+      const resIndividual = await fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'individual', 
+          requestId: appointmentId,
+          dogId: dog!.id, // We pass the dog's id here.
+        }),
+      });
+      const individualResult = await resIndividual.json();
+      console.log('Individual request email triggered:', individualResult);
+    } catch (error) {
+      console.error('Error triggering individual request email:', error);
+    }
+  
+    // Trigger the volunteer request email.
+    try {
+      const resVolunteer = await fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'volunteer',
+          requestId: appointmentId,  // Use the appointment record's id.
+          dogId: dog!.id,            // Pass the dog's id.
+        }),
+      });
+      const volunteerResult = await resVolunteer.json();
+      console.log('Volunteer request email triggered:', volunteerResult);
+    } catch (error) {
+      console.error('Error triggering volunteer request email:', error);
+    }
+  
+    // Move to the success step to show confirmation to the user.
     setBookingStep('success');
   }
-
+  
   // Closes the modal and resets all modal-related state.
   function closeModal() {
     setShowBookingModal(false);

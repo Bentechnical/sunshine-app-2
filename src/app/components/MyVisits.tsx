@@ -21,7 +21,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
 
-  // Accordion state for Past Appointments and Canceled Visits
+  // Accordion state for Past and Canceled Visits
   const [pastOpen, setPastOpen] = useState(false);
   const [canceledOpen, setCanceledOpen] = useState(false);
 
@@ -46,8 +46,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           volunteer:volunteer_id (
             id, first_name, last_name, email,
             dogs (
-              dog_name,
-              dog_picture_url
+              id, dog_name, dog_picture_url
             )
           )
         `);
@@ -58,15 +57,17 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
         query = query.eq('volunteer_id', userId);
       }
 
-      const { data, error } = (await query) as {
-        data: Appointment[] | null;
-        error: any;
-      };
-
+      const { data, error } = await query;
       if (error) {
         console.error('Error fetching appointments:', error);
       } else if (data) {
-        setAppointments(data);
+        // Convert relational arrays to objects
+        const processed = data.map((apt: any) => ({
+          ...apt,
+          individual: apt.individual ? apt.individual[0] : null,
+          volunteer: apt.volunteer ? apt.volunteer[0] : null,
+        }));
+        setAppointments(processed as Appointment[]);
       }
       setLoading(false);
     };
@@ -74,7 +75,6 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
     fetchAppointments();
   }, [userId, role]);
 
-  // Helper: Format date and time
   function formatDate(timeStr: string): string {
     return new Date(timeStr).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -92,7 +92,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
     });
   }
 
-  // Approve and Decline for volunteer users
+  // Approve appointment (volunteer action)
   async function handleApprove(appointmentId: number) {
     const { error } = await supabase
       .from('appointments')
@@ -105,40 +105,85 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
     setAppointments((prev) =>
       prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: 'confirmed' } : apt))
     );
+    try {
+      const res = await fetch('/api/appointment/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId }),
+      });
+      const result = await res.json();
+      console.log('Confirm email result:', result);
+    } catch (e) {
+      console.error('Error sending confirm email:', e);
+    }
   }
 
   async function handleDecline(appointmentId: number) {
+    const reason = 'Declined by volunteer';
     const { error } = await supabase
       .from('appointments')
-      .update({ status: 'declined' })
+      .update({ status: 'canceled', cancellation_reason: reason })
       .eq('id', appointmentId);
     if (error) {
       console.error('Error declining appointment:', error);
       return;
     }
     setAppointments((prev) =>
-      prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: 'declined' } : apt))
+      prev.map((apt) =>
+        apt.id === appointmentId ? { ...apt, status: 'canceled', cancellation_reason: reason } : apt
+      )
     );
-  }
-
-  // Cancellation logic: For pending, cancel immediately; for confirmed, open modal.
-  function canCancel(apt: Appointment): boolean {
-    const now = new Date();
-    const startTime = new Date(apt.start_time);
-    if (apt.status === 'pending') return true;
-    if (apt.status === 'confirmed' && startTime.getTime() - now.getTime() > 24 * 60 * 60 * 1000)
-      return true;
-    return false;
-  }
-
-  function cancelButtonDisabled(apt: Appointment): boolean {
-    if (apt.status === 'confirmed') {
-      const now = new Date();
-      const startTime = new Date(apt.start_time);
-      return startTime.getTime() - now.getTime() < 24 * 60 * 60 * 1000;
+    try {
+      const res = await fetch('/api/appointment/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId, cancellationReason: reason }),
+      });
+      const result = await res.json();
+      console.log('Decline (cancel) email result:', result);
+    } catch (err) {
+      console.error('Error sending decline cancellation email:', err);
     }
-    return false;
   }
+
+  // Cancel appointment (for pending or confirmed with modal)
+  async function cancelAppointment(appointmentId: number, reason: string) {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ status: 'canceled', cancellation_reason: reason })
+      .eq('id', appointmentId);
+    if (error) {
+      console.error('Error canceling appointment:', error);
+      return;
+    }
+    setAppointments((prev) =>
+      prev.map((apt) =>
+        apt.id === appointmentId ? { ...apt, status: 'canceled', cancellation_reason: reason } : apt
+      )
+    );
+    setShowCancelModal(false);
+    setCancelingAppointment(null);
+    try {
+      const res = await fetch('/api/appointment/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId, cancellationReason: reason }),
+      });
+      const result = await res.json();
+      console.log('Cancellation email result:', result);
+    } catch (err) {
+      console.error('Error sending cancellation email:', err);
+    }
+  }
+
+  // Wrap handlers so AppointmentGroup only gets appointmentId
+  const wrappedApprove = (appointmentId: number) => {
+    handleApprove(appointmentId);
+  };
+
+  const wrappedDecline = (appointmentId: number) => {
+    handleDecline(appointmentId);
+  };
 
   function handleCancelClick(apt: Appointment) {
     if (apt.status === 'confirmed') {
@@ -150,28 +195,12 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
     }
   }
 
-  async function cancelAppointment(appointmentId: number, reason: string) {
-    const { error } = await supabase
-      .from('appointments')
-      .update({
-        status: 'canceled',
-        cancellation_reason: reason
-      })
-      .eq('id', appointmentId);
-    if (error) {
-      console.error('Error canceling appointment:', error, error?.message);
-      return;
-    }
-    setAppointments((prev) =>
-      prev.map((apt) =>
-        apt.id === appointmentId ? { ...apt, status: 'canceled', cancellation_reason: reason } : apt
-      )
-    );
-    setShowCancelModal(false);
-    setCancelingAppointment(null);
+  function onModalCancelSubmit() {
+    if (!cancelingAppointment) return;
+    cancelAppointment(cancelingAppointment.id, cancelReason);
   }
 
-  // Group appointments into sections.
+  // Group appointments
   const now = new Date();
   const upcomingConfirmed = appointments.filter(
     (apt) => apt.status === 'confirmed' && new Date(apt.end_time) > now
@@ -193,10 +222,10 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           heading="Confirmed Visits"
           appointments={upcomingConfirmed}
           role={role}
-          onApprove={handleApprove}
-          onDecline={handleDecline}
+          onApprove={wrappedApprove}
+          onDecline={wrappedDecline}
           onCancelClick={handleCancelClick}
-          cancelButtonDisabled={cancelButtonDisabled}
+          cancelButtonDisabled={() => false}
         />
       )}
 
@@ -206,10 +235,10 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           heading="Pending Visits"
           appointments={pendingAppointments}
           role={role}
-          onApprove={handleApprove}
-          onDecline={handleDecline}
+          onApprove={wrappedApprove}
+          onDecline={wrappedDecline}
           onCancelClick={handleCancelClick}
-          cancelButtonDisabled={cancelButtonDisabled}
+          cancelButtonDisabled={() => false}
         />
       )}
 
@@ -228,10 +257,10 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
               heading=""
               appointments={canceledAppointments}
               role={role}
-              onApprove={handleApprove}
-              onDecline={handleDecline}
+              onApprove={wrappedApprove}
+              onDecline={wrappedDecline}
               onCancelClick={handleCancelClick}
-              cancelButtonDisabled={cancelButtonDisabled}
+              cancelButtonDisabled={() => false}
             />
           )}
         </div>
@@ -252,10 +281,10 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
               heading=""
               appointments={pastAppointments}
               role={role}
-              onApprove={handleApprove}
-              onDecline={handleDecline}
+              onApprove={wrappedApprove}
+              onDecline={wrappedDecline}
               onCancelClick={handleCancelClick}
-              cancelButtonDisabled={cancelButtonDisabled}
+              cancelButtonDisabled={() => false}
             />
           )}
         </div>
@@ -268,7 +297,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           cancelReason={cancelReason}
           onCancelReasonChange={setCancelReason}
           onClose={() => setShowCancelModal(false)}
-          onSubmit={() => cancelAppointment(cancelingAppointment.id, cancelReason)}
+          onSubmit={onModalCancelSubmit}
         />
       )}
     </div>

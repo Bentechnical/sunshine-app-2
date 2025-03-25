@@ -34,7 +34,6 @@ export const sendTransactionalEmail = async ({
       subject,
       html,
     });
-    console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
     return info;
   } catch (error) {
     console.error('Error sending transactional email:', error);
