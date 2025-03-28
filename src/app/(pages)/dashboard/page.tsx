@@ -7,10 +7,10 @@ import React from 'react';
 import { supabase } from '@/utils/supabase/client';
 
 // Import the components
-import VolunteerAvailability from '../../../components/VolunteerAvailability'; // Adjust path if needed
-import MeetWithDog from '../../../components/MeetWithDog';
-import EditDogProfile from '../../../components/EditDogProfile';
-import MyVisits from '../../../components/MyVisits';
+import VolunteerAvailability from '../../../components/availability/VolunteerAvailability'; // Adjust path if needed
+import MeetWithDog from '../../../components/visits/MeetWithDog';
+import EditDogProfile from '../../../components/dog/EditDogProfile';
+import MyVisits from '../../../components/visits/MyVisits';
 
 
 interface UserPublicMetadata {
@@ -390,7 +390,7 @@ const AdminDashboard = () => {
               )}
 
               <img
-                src={profileData?.profile_image || 'default-image-url'}
+                src={profileData?.profile_image}
                 alt="Profile"
                 className="w-24 h-24 rounded-full object-cover mt-4"
               />
@@ -440,7 +440,7 @@ const AdminDashboard = () => {
         {/* My Dog Profile - For Volunteers and Admins */}
         {activeTab === 'my-dog-profile' && (selectedRole === 'volunteer' || selectedRole === 'admin') && (
           <div className="bg-white shadow-lg rounded-lg p-5 mb-6" style={{ minHeight: '60vh' }}>
-            <EditDogProfile userId={user.id} />
+            <EditDogProfile/>
           </div>
         )}
 

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import DogDirectory from './DogDirectory';
-import DogProfile from './DogProfile';
+import DogDirectory from '../dog/DogDirectory';
+import DogProfile from '../dog/DogProfile';
 
 interface MeetWithDogProps {
   selectedDogId: string | null;

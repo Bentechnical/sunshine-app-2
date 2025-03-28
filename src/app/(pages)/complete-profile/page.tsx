@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
-import AvatarUpload from '@/components/AvatarUpload';
+import AvatarUpload from '@/components/profile/AvatarUpload';
 import {
   Dialog,
   DialogContent,

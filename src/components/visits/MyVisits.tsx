@@ -3,9 +3,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
-import AppointmentGroup from './AppointmentGroup';
-import CancellationModal from './CancellationModal';
-import { Appointment } from './AppointmentCard';
+import AppointmentGroup from '../appointments/AppointmentGroup';
+import CancellationModal from '../appointments/CancellationModal';
+import { Appointment } from '../appointments/AppointmentCard';
 
 interface MyVisitsProps {
   userId: string;
