@@ -1,7 +1,8 @@
-// /src/app/api/profile-complete/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
-import { supabase } from "@/utils/supabase/client";
+// src/app/api/profile-complete/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { clerkClient } from '@clerk/nextjs/server';
+import { createSupabaseServerClient } from '@/utils/supabase/server'; // <-- new import
 
 // Constants for fallback
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
@@ -9,6 +10,7 @@ const DEFAULT_DOG_IMAGE = `${BASE_URL}/images/default_dog.png`;
 
 export async function POST(req: NextRequest) {
   try {
+    // 1) Parse incoming JSON
     const data = await req.json();
     console.log("📨 Received Data:", data);
 
@@ -23,33 +25,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ----------------------------------------
-    // 1) Update Clerk public metadata
-    // (Using the same syntax you had previously)
-    // ----------------------------------------
-    const clerk = await clerkClient(); // your custom client function
-    const updatedUser = await clerk.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        role,
-        profilePictureUrl: data.profilePictureUrl,
-        bio: data.bio,
-      },
-    });
+    // 2) Update Clerk public metadata
+    //    (same syntax you had previously, but ensure 'clerkClient' is used properly)
+    const clerk = await clerkClient(); 
+const updatedUser = await clerk.users.updateUserMetadata(userId, {
+  publicMetadata: {
+    role,
+    profilePictureUrl: data.profilePictureUrl,
+    bio: data.bio,
+  },
+});
 
     console.log("✅ Clerk metadata updated:", {
       userId: updatedUser.id,
       role: updatedUser.publicMetadata?.role,
     });
 
-    // ----------------------------------------
-    // 2) Update Supabase `users` table
-    // ----------------------------------------
+    // 3) Create a server-side Supabase client to ensure RLS + Clerk token
+    const supabase = await createSupabaseServerClient();
+
+    // 4) Update Supabase `users` table
     const { error: userUpdateError } = await supabase
       .from("users")
       .update({
         profile_image: data.profilePictureUrl,
         bio: data.bio,
-        role: role,
+        role,
       })
       .eq("id", userId);
 
@@ -59,14 +60,12 @@ export async function POST(req: NextRequest) {
       console.log(`✅ Updated user ${userId} with new profile pic & bio.`);
     }
 
-    // ----------------------------------------
-    // 3) Insert (or upsert) dog profile if volunteer
-    // ----------------------------------------
+    // 5) Insert (or upsert) dog profile if user is a volunteer
     if (role === "volunteer" && data.dog) {
       const { name, age, breed, bio: dogBio, photoUrl } = data.dog;
       const finalPhotoUrl = photoUrl || DEFAULT_DOG_IMAGE;
 
-      // If you want to "upsert" rather than "insert," switch to upsert() and add a unique key on volunteer_id.
+      // NOTE: If you want an upsert, switch to supabase.from(...).upsert(...)
       const { data: dogData, error: dogError } = await supabase
         .from("dogs")
         .insert([
@@ -88,6 +87,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Return success response
     return NextResponse.json(
       { message: "Profile completed successfully" },
       { status: 200 }

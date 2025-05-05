@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabase/client';
+import { useSupabaseClient } from '@/utils/supabase/client';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -25,6 +25,9 @@ interface VolunteerAvailabilityProps {
 }
 
 export default function VolunteerAvailability({ userId }: VolunteerAvailabilityProps) {
+  const supabase = useSupabaseClient();
+
+  
   const [events, setEvents] = useState<AvailabilityEvent[]>([]);
   // State for editing or deleting events
   const [selectedEvent, setSelectedEvent] = useState<AvailabilityEvent | null>(null);

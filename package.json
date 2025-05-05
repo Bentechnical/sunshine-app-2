@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.1.6",
-    "@clerk/nextjs": "^6.12.4",
+    "@clerk/nextjs": "^6.14.2",
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/rrule": "^6.1.15",

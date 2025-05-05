@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, ChangeEvent } from 'react';
-import { supabase } from '@/utils/supabase/client';
+import { useSupabaseClient } from '@/utils/supabase/client'; // ✅ updated import
 
 interface AvatarUploadProps {
   initialUrl?: string;
@@ -18,17 +18,19 @@ export default function AvatarUpload({
   size = 100,
   altText = 'Avatar',
 }: AvatarUploadProps) {
+  const supabase = useSupabaseClient(); // ✅ authenticated client
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
   const getAbsoluteUrl = (url: string) => {
     if (!url) return '';
     return url.startsWith('http') ? url : `${baseUrl}${url}`;
   };
 
-  // Determine default image
   const defaultUrl = initialUrl || fallbackUrl || '';
   const [avatarUrl, setAvatarUrl] = useState<string>(getAbsoluteUrl(defaultUrl));
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   // Click the hidden file input
   const handleClick = () => {

@@ -1,119 +1,103 @@
+// /app/api/webhooks/route.ts
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+// Initialize Supabase client with the service-role key
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
-  const SIGNING_SECRET = process.env.SIGNING_SECRET;
-
-  if (!SIGNING_SECRET) {
-    throw new Error("Error: Please add SIGNING_SECRET from Clerk Dashboard to .env");
-  }
-
-  // Create new Svix instance with secret
-  const wh = new Webhook(SIGNING_SECRET);
-
-  // Get headers
-  const headerPayload = await headers();
-  const svix_id = headerPayload.get("svix-id");
-  const svix_timestamp = headerPayload.get("svix-timestamp");
-  const svix_signature = headerPayload.get("svix-signature");
-
-  // If there are no headers, return an error response
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return new Response("Error: Missing Svix headers", { status: 400 });
-  }
-
-  // Get body
-  const payload = await req.json();
-  const body = JSON.stringify(payload);
-
-  let evt: WebhookEvent;
-
-  // Verify webhook payload
   try {
-    evt = wh.verify(body, {
-      "svix-id": svix_id,
-      "svix-timestamp": svix_timestamp,
-      "svix-signature": svix_signature,
-    }) as WebhookEvent;
-  } catch (err) {
-    console.error("Error: Could not verify webhook:", err);
-    return new Response("Error: Verification error", { status: 400 });
-  }
+    const SIGNING_SECRET = process.env.SIGNING_SECRET;
+    if (!SIGNING_SECRET) {
+      console.error("Missing SIGNING_SECRET");
+      return new Response("Internal configuration error", { status: 500 });
+    }
 
-  // Extract event data
-  if (evt.type.startsWith("user.")) {
-    const userData = evt.data as WebhookEvent["data"] & { 
+    // 1️⃣ Read and verify Svix headers
+    const svixHeaders = await headers();
+    const id = svixHeaders.get("svix-id");
+    const ts = svixHeaders.get("svix-timestamp");
+    const sig = svixHeaders.get("svix-signature");
+    if (!id || !ts || !sig) {
+      console.warn("Missing Svix headers:", { id, ts, sig });
+      return new Response("Missing Svix headers", { status: 400 });
+    }
+
+    // 2️⃣ Parse body and verify signature
+    const payload = await req.json();
+    let evt: WebhookEvent;
+    try {
+      evt = new Webhook(SIGNING_SECRET).verify(JSON.stringify(payload), {
+        "svix-id": id,
+        "svix-timestamp": ts,
+        "svix-signature": sig,
+      }) as WebhookEvent;
+    } catch (verifErr) {
+      console.error("Signature verification failed:", verifErr);
+      return new Response("Invalid signature", { status: 400 });
+    }
+
+    // 3️⃣ Handle only user.* events
+    if (!evt.type.startsWith("user.")) {
+      return new Response("Event type not handled", { status: 400 });
+    }
+    const data = evt.data as WebhookEvent["data"] & {
       first_name?: string;
       last_name?: string;
       email_addresses?: { email_address: string }[];
       image_url?: string;
       public_metadata?: Record<string, any>;
     };
-  
-    const { id, email_addresses, first_name, last_name, image_url, public_metadata } = userData;
-  
-    const role = public_metadata?.role || "individual"; // Default to 'individual'
-    const eventType = evt.type;
+    const { id: userId, email_addresses, first_name, last_name, image_url, public_metadata } = data;
+    const email = email_addresses?.[0]?.email_address ?? null;
+    const role = public_metadata?.role ?? "individual";
 
-    console.log(`Received webhook with event type: ${eventType}`);
+    console.log(`🟢 Processing ${evt.type} for user ${userId}`);
 
+    // 4️⃣ Write to Supabase inside its own try/catch
     try {
-      if (eventType === "user.created") {
-        const email = email_addresses && email_addresses.length > 0 ? email_addresses[0]?.email_address : null;
-
-        console.log('Creating new user:', {
-            id,
+      if (evt.type === "user.created") {
+        await supabase.from("users").insert([{
+          id: userId,
+          email,
+          first_name: first_name ?? null,
+          last_name: last_name ?? null,
+          role,
+          profile_image: image_url ?? null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }]);
+        console.log(`Inserted user ${userId}`);
+      } else if (evt.type === "user.updated") {
+        await supabase.from("users")
+          .update({
             email,
-            first_name,
-            last_name,
+            first_name: first_name ?? null,
+            last_name: last_name ?? null,
             role,
-            profile_image: image_url || null,
-            created_at: new Date(),
+            profile_image: image_url ?? null,
             updated_at: new Date(),
-          });
-          
-        await supabase.from("users").insert([
-         {
-                id, // Clerk User ID
-                email, // Safely accessed email
-                first_name: first_name || null,
-                last_name: last_name || null,
-                role,
-                profile_image: image_url || null,
-                created_at: new Date(),
-                updated_at: new Date(),},
-        ]);
-        console.log(`User ${id} inserted into Supabase.`);
-      } else if (eventType === "user.updated") {
-        const email = email_addresses && email_addresses.length > 0 ? email_addresses[0]?.email_address : null;
-        await supabase.from("users").update([
-            {
-                id, // Clerk User ID
-                email, // Safely accessed email
-                first_name: first_name || null,
-                last_name: last_name || null,
-                role,
-                profile_image: image_url || null,
-                created_at: new Date(),
-                updated_at: new Date(),},
-           ]).eq("id", id);
-        console.log(`User ${id} updated in Supabase.`);
-      } else if (eventType === "user.deleted") {
-        await supabase.from("users").delete().eq("id", id);
-        console.log(`User ${id} deleted from Supabase.`);
+          })
+          .eq("id", userId);
+        console.log(`Updated user ${userId}`);
+      } else if (evt.type === "user.deleted") {
+        await supabase.from("users").delete().eq("id", userId);
+        console.log(`Deleted user ${userId}`);
       }
-    } catch (error) {
-      console.error("Error handling Supabase update:", error);
-      return new Response("Error updating database", { status: 500 });
+    } catch (dbErr) {
+      console.error("Supabase error:", dbErr);
+      return new Response("Database error", { status: 500 });
     }
 
-    return new Response("Webhook received", { status: 200 });
+    // 5️⃣ Everything succeeded
+    return new Response("Webhook processed", { status: 200 });
+  } catch (err) {
+    console.error("🔥 Unhandled error in /api/webhooks:", err);
+    return new Response("Internal Server Error", { status: 500 });
   }
-
-  return new Response("Event type not handled", { status: 400 });
 }

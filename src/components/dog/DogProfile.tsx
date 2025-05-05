@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/utils/supabase/client';
+import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 
 interface Dog {
@@ -28,21 +28,21 @@ interface DogProfileProps {
 }
 
 export default function DogProfile({ dogId, onBack }: DogProfileProps) {
+  const supabase = useSupabaseClient(); // ✅ add this
+  const { user } = useUser();
+
   const [dog, setDog] = useState<Dog | null>(null);
   const [volunteerName, setVolunteerName] = useState<string>('');
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useUser();
 
-  // Modal states and booking step
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingSlot, setBookingSlot] = useState<Availability | null>(null);
-  const [bookingTime, setBookingTime] = useState(''); // free-text input
+  const [bookingTime, setBookingTime] = useState('');
   const [bookingFeedback, setBookingFeedback] = useState<string | null>(null);
   const [bookingStep, setBookingStep] = useState<'input' | 'summary' | 'success'>('input');
   const [computedBookingStart, setComputedBookingStart] = useState<Date | null>(null);
   const [computedBookingEnd, setComputedBookingEnd] = useState<Date | null>(null);
-
   useEffect(() => {
     const fetchDogData = async () => {
       // Fetch the dog's profile

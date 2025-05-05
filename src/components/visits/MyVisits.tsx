@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabase/client';
+import { useSupabaseClient } from '@/utils/supabase/client';
 import AppointmentGroup from '../appointments/AppointmentGroup';
 import CancellationModal from '../appointments/CancellationModal';
 import { Appointment } from '../appointments/AppointmentCard';
@@ -13,6 +13,7 @@ interface MyVisitsProps {
 }
 
 const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
+  const supabase = useSupabaseClient();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
 

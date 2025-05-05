@@ -2,11 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { supabase } from '@/utils/supabase/client';
+import { useSupabaseClient } from '@/utils/supabase/client'; // ✅ new import
 
 export default function EditDogProfile() {
   const { user } = useUser();
+  const supabase = useSupabaseClient(); // ✅ new client
   const userId = user?.id;
+
 
   const [dog, setDog] = useState<any>(null);
   const [loading, setLoading] = useState(true);

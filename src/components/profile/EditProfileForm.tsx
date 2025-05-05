@@ -22,12 +22,6 @@ export default function EditProfileForm({
   const [phone, setPhone] = useState(initialPhone ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
 
-  // Update local state when the prop changes.
-  useEffect(() => {
-    console.log("EditProfileForm: initialAvatarUrl changed:", initialAvatarUrl);
-    setAvatarUrl(initialAvatarUrl ?? "");
-  }, [initialAvatarUrl]);
-
   console.log("EditProfileForm: current avatarUrl:", avatarUrl);
 
   const handleSubmit = async (e: FormEvent) => {
