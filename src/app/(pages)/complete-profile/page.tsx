@@ -27,6 +27,8 @@ export default function ProfileCompletePage() {
 
   const [bio, setBio] = useState('');
   const [profilePictureUrl, setProfilePictureUrl] = useState('');
+  const [phone, setPhone] = useState('');
+
 
   const [dogName, setDogName] = useState('');
   const [dogAge, setDogAge] = useState('');
@@ -88,6 +90,7 @@ export default function ProfileCompletePage() {
       id: user?.id,
       role: selectedRole,
       bio,
+      phone_number: phone,
       profilePictureUrl,
     };
 
@@ -125,9 +128,8 @@ export default function ProfileCompletePage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-white p-4">
       <div
-        className={`w-full max-w-lg p-6 bg-white rounded-lg shadow-md transition-opacity duration-500 ${
-          fadeIn ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`w-full max-w-lg p-6 bg-white rounded-lg shadow-md transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'
+          }`}
       >
         <h2 className="text-2xl font-semibold text-center mb-4">
           Hi {user?.firstName}, welcome to Sunshine!
@@ -168,6 +170,23 @@ export default function ProfileCompletePage() {
               disabled={isLoading}
             />
           </div>
+
+          {/* Phone Number */}
+          <div className="mb-4">
+            <label htmlFor="phoneNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+              Phone Number
+            </label>
+            <input
+              id="phoneNumber"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg"
+              placeholder="Enter your phone number"
+              disabled={isLoading}
+            />
+          </div>
+
 
           {/* Avatar Upload */}
           <div className="mb-4">
@@ -228,7 +247,7 @@ export default function ProfileCompletePage() {
                 />
               </div>
               <div className="mb-4">
-                <label htmlFor="dogBio" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label htmlFor="dogBio" className="block text-sm font-semibold text-gray-700 mb-2">
                   Dog Bio
                 </label>
                 <textarea

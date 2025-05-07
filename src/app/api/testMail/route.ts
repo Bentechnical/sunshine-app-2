@@ -1,4 +1,4 @@
-// src/app/api/mailer/route.ts
+// src/app/api/testMail/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '../../utils/mailer';
 

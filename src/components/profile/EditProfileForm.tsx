@@ -1,7 +1,7 @@
 "use client";
 
-import React, { FormEvent, useState, useEffect } from "react";
-import AvatarUpload from "@/components/profile/AvatarUpload"; // updated path
+import React, { FormEvent, useState } from "react";
+import AvatarUpload from "@/components/profile/AvatarUpload";
 
 interface EditProfileFormProps {
   initialBio?: string | null;
@@ -21,26 +21,32 @@ export default function EditProfileForm({
   const [bio, setBio] = useState(initialBio ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
-
-  console.log("EditProfileForm: current avatarUrl:", avatarUrl);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    console.log("Submitting with avatarUrl:", avatarUrl);
+
+    if (isUploading) {
+      alert("Please wait for the profile picture to finish uploading.");
+      return;
+    }
+
+    console.log("✅ Submitting form with avatarUrl:", avatarUrl);
     await onSubmit(bio, phone, avatarUrl);
   };
 
   return (
     <div className="bg-white shadow-lg rounded-lg p-5 mb-6">
       <h3 className="text-xl font-semibold mb-4">Edit Profile</h3>
-      
+
       <div className="flex items-center mb-4">
-        <AvatarUpload 
+        <AvatarUpload
           initialUrl={avatarUrl}
-          fallbackUrl="https://via.placeholder.com/100" // fallback if avatarUrl is empty
+          fallbackUrl="https://via.placeholder.com/100"
           onUpload={(url: string) => {
-            console.log("AvatarUpload onUpload - new url:", url);
+            console.log("📸 AvatarUpload onUpload received:", url);
             setAvatarUrl(url);
+            setIsUploading(false);
           }}
           size={64}
           altText="Profile Picture"

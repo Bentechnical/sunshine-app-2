@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, ChangeEvent } from 'react';
-import { useSupabaseClient } from '@/utils/supabase/client'; // ✅ updated import
+import { useSupabaseClient } from '@/utils/supabase/client';
 
 interface AvatarUploadProps {
   initialUrl?: string;
@@ -18,57 +18,45 @@ export default function AvatarUpload({
   size = 100,
   altText = 'Avatar',
 }: AvatarUploadProps) {
-  const supabase = useSupabaseClient(); // ✅ authenticated client
+  const supabase = useSupabaseClient();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-  const getAbsoluteUrl = (url: string) => {
-    if (!url) return '';
-    return url.startsWith('http') ? url : `${baseUrl}${url}`;
-  };
-
-  const defaultUrl = initialUrl || fallbackUrl || '';
-  const [avatarUrl, setAvatarUrl] = useState<string>(getAbsoluteUrl(defaultUrl));
-
+  const [previewUrl, setPreviewUrl] = useState<string>(initialUrl || fallbackUrl || '');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-
-  // Click the hidden file input
   const handleClick = () => {
     fileInputRef.current?.click();
   };
 
-  // Handle file input changes
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      const ext = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${ext}`;
-      const filePath = `profile-pictures/${fileName}`;
+    // Instant preview
+    const localPreviewUrl = URL.createObjectURL(file);
+    setPreviewUrl(localPreviewUrl);
 
-      // Upload to Supabase
-      const { data, error } = await supabase.storage
-        .from('sunshine-pics')
-        .upload(filePath, file);
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${ext}`;
+    const filePath = `profile-pictures/${fileName}`;
 
-      if (error) {
-        console.error('Upload error:', error);
-        return;
-      }
+    const { error } = await supabase.storage
+      .from('sunshine-pics')
+      .upload(filePath, file);
 
-      // Retrieve the public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('sunshine-pics')
-        .getPublicUrl(filePath);
+    if (error) {
+      console.error('Upload error:', error.message);
+      return;
+    }
 
-      if (publicUrlData?.publicUrl) {
-        // Update local state & notify parent
-        setAvatarUrl(publicUrlData.publicUrl);
-        onUpload(publicUrlData.publicUrl);
-      }
-    } catch (err) {
-      console.error('Unexpected upload error:', err);
+    const { data: publicUrlData } = supabase.storage
+      .from('sunshine-pics')
+      .getPublicUrl(filePath);
+
+    if (publicUrlData?.publicUrl) {
+      onUpload(publicUrlData.publicUrl); // This is what will be saved to the DB
+    } else {
+      console.error('Failed to get public URL after upload.');
     }
   };
 
@@ -79,22 +67,13 @@ export default function AvatarUpload({
       onClick={handleClick}
     >
       <img
-        src={avatarUrl}
+        src={previewUrl}
         alt={altText}
-        className="rounded-full object-cover w-full h-full transition-opacity
-                   group-hover:opacity-60 border"
+        className="rounded-full object-cover w-full h-full transition-opacity group-hover:opacity-60 border"
       />
-      {/* Hover overlay */}
-      <div
-        className="opacity-0 group-hover:opacity-100 transition-opacity
-             absolute inset-0 flex items-center justify-center
-             bg-black bg-opacity-50 text-white text-sm
-             rounded-full"
-      >
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm rounded-full">
         Change
       </div>
-
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
