@@ -2,17 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { sendTransactionalEmail } from '../../utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1) Create your server-side Supabase client (attaching Clerk token for RLS)
     const supabase = await createSupabaseServerClient();
+    const { type, requestId, dogId } = await req.json();
 
-    // 2) Parse request data
-    const payload = await req.json();
-    console.log('Payload received in /api/request:', payload);
-
-    const { type, requestId, dogId } = payload;
     if (!type || !requestId || !dogId) {
       return NextResponse.json(
         { success: false, error: 'Missing type, requestId, or dogId.' },
@@ -20,7 +16,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3) Fetch appointment details
     const { data: appointment, error: apptError } = await supabase
       .from('appointments')
       .select('start_time, individual_id, volunteer_id')
@@ -32,7 +27,6 @@ export async function POST(req: NextRequest) {
       throw new Error('Could not fetch appointment details.');
     }
 
-    // 4) Fetch dog details
     const { data: dogData, error: dogError } = await supabase
       .from('dogs')
       .select('dog_name, dog_breed, dog_age')
@@ -44,7 +38,6 @@ export async function POST(req: NextRequest) {
       throw new Error('Could not fetch dog details.');
     }
 
-    // 5) Fetch individual (requester) details
     const { data: individual, error: individualError } = await supabase
       .from('users')
       .select('first_name, email')
@@ -56,7 +49,6 @@ export async function POST(req: NextRequest) {
       throw new Error('Could not fetch individual details.');
     }
 
-    // 6) Fetch volunteer details
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
       .select('first_name, email')
@@ -68,39 +60,31 @@ export async function POST(req: NextRequest) {
       throw new Error('Could not fetch volunteer details.');
     }
 
-    // 7) Derive appointment time
     const appointmentTime = new Date(appointment.start_time).toLocaleString();
 
-    // 8) Prepare email details
     let emailRecipient = '';
     let subject = '';
     let emailData: Record<string, any> = {};
 
     if (type === 'individual') {
-      // Email to the individual (requester)
       emailRecipient = individual.email;
       subject = 'Your Appointment Request Submitted';
       emailData = {
         appointmentTime,
-        dogName: dogData.dog_name,
-        dogBreed: dogData.dog_breed,
-        dogAge: dogData.dog_age,
+        dogName: dogData?.dog_name || 'N/A',
+        dogBreed: dogData?.dog_breed || 'N/A',
+        dogAge: dogData?.dog_age || 'N/A',
         volunteerName: volunteer.first_name,
         year: new Date().getFullYear(),
       };
     } else if (type === 'volunteer') {
-      // Email to the volunteer
       emailRecipient = volunteer.email;
       subject = 'New Appointment Request';
-
-      // Use a dashboard URL from environment or a default
-      const dashboardLink = process.env.DASHBOARD_URL || 'https://example.com/dashboard';
-
       emailData = {
         appointmentTime,
-        dogName: dogData.dog_name,
+        dogName: dogData?.dog_name || 'N/A',
         individualName: individual.first_name,
-        dashboardLink,
+        dashboardLink: getAppUrl() + '/dashboard',
         year: new Date().getFullYear(),
       };
     } else {
@@ -110,7 +94,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 9) Send email using the appropriate template
     const emailResponse = await sendTransactionalEmail({
       to: emailRecipient,
       subject,
@@ -118,13 +101,10 @@ export async function POST(req: NextRequest) {
       data: emailData,
     });
 
-    // 10) Return success response
     return NextResponse.json({ success: true, response: emailResponse });
   } catch (error: unknown) {
-    let errorMessage = 'An unknown error occurred';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
+    const errorMessage =
+      error instanceof Error ? error.message : 'An unknown error occurred';
     console.error('Error in /api/request:', errorMessage);
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }

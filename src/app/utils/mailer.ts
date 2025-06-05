@@ -1,15 +1,8 @@
 // src/app/utils/mailer.ts
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { compileTemplate } from './templateHelper';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAILTRAP_HOST,
-  port: Number(process.env.MAILTRAP_PORT),
-  auth: {
-    user: process.env.MAILTRAP_USER,
-    pass: process.env.MAILTRAP_PASSWORD,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface TransactionalEmailOptions {
   to: string;
@@ -27,11 +20,17 @@ export const sendTransactionalEmail = async ({
   const html = compileTemplate(`${templateName}.html`, data);
   const text = compileTemplate(`${templateName}.txt`, data);
 
-  return transporter.sendMail({
-    from: '"Sunshine App" <no-reply@sunshine-app.com>',
-    to,
-    subject,
-    html,
-    text,
-  });
+  try {
+    const response = await resend.emails.send({
+      from: 'Sunshine Therapy Dogs <onboarding@resend.dev>',
+      to,
+      subject,
+      html,
+      text,
+    });
+    return response;
+  } catch (error) {
+    console.error('Error sending transactional email:', error);
+    throw error;
+  }
 };
