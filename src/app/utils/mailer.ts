@@ -1,6 +1,6 @@
 // src/app/utils/mailer.ts
 import nodemailer from 'nodemailer';
-import { compileTemplate } from './templateHelper'; // Adjust the import path as needed
+import { compileTemplate } from './templateHelper';
 
 const transporter = nodemailer.createTransport({
   host: process.env.MAILTRAP_HOST,
@@ -24,19 +24,14 @@ export const sendTransactionalEmail = async ({
   templateName,
   data,
 }: TransactionalEmailOptions) => {
-  // Compile the Handlebars template into HTML using dynamic data
-  const html = compileTemplate(templateName, data);
+  const html = compileTemplate(`${templateName}.html`, data);
+  const text = compileTemplate(`${templateName}.txt`, data);
 
-  try {
-    const info = await transporter.sendMail({
-      from: '"Sunshine App" <no-reply@sunshine-app.com>',
-      to,
-      subject,
-      html,
-    });
-    return info;
-  } catch (error) {
-    console.error('Error sending transactional email:', error);
-    throw error;
-  }
+  return transporter.sendMail({
+    from: '"Sunshine App" <no-reply@sunshine-app.com>',
+    to,
+    subject,
+    html,
+    text,
+  });
 };

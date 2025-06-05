@@ -1,13 +1,11 @@
-// src/app/api/testMail/route.ts
+import { getAppUrl } from '@/app/utils/getAppUrl';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTransactionalEmail } from '../../utils/mailer';
 
 export async function POST(req: NextRequest) {
   try {
-    // Expecting a JSON payload with { to, subject, templateName, data }
     const { to, subject, templateName, data } = await req.json();
-    
-    // Make sure all required fields are provided
+
     if (!to || !subject || !templateName || !data) {
       return NextResponse.json(
         { success: false, error: 'Missing required email parameters.' },
@@ -15,11 +13,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await sendTransactionalEmail({ to, subject, templateName, data });
+    // 🔗 Add dynamic dashboard link here
+    const dashboardLink = `${getAppUrl()}/dashboard`;
+
+    const enrichedData = {
+      ...data,
+      dashboardLink,
+    };
+
+    const response = await sendTransactionalEmail({
+      to,
+      subject,
+      templateName,
+      data: enrichedData,
+    });
+
     return NextResponse.json({ success: true, response });
   } catch (error: unknown) {
-    let errorMessage = 'An unknown error occurred';
-    if (error instanceof Error) errorMessage = error.message;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
