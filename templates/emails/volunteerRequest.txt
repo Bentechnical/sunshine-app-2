@@ -1,0 +1,14 @@
+Hello {{volunteerName}},
+
+You have received a new appointment request with the following details:
+
+Date & Time: {{appointmentTime}}
+Dog Name: {{dogName}}
+Requested By: {{individualName}}
+
+Please log in to your dashboard to take action:
+{{dashboardLink}}
+
+— Sunshine Therapy Dogs  
+{{year}}  
+https://www.sunshinetherapydogs.ca

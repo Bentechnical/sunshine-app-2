@@ -1,0 +1,13 @@
+Hi {{name}},
+
+Welcome to Sunshine Therapy Dogs! We're so glad you've joined our community.
+
+You can log into your dashboard, explore therapy dog profiles, and schedule a session using the link below:
+
+{{dashboardLink}}
+
+If you have any questions or need help getting started, feel free to reach out to our team.
+
+— Sunshine Therapy Dogs  
+{{year}}  
+https://www.sunshinetherapydogs.ca

@@ -1,0 +1,16 @@
+Hello,
+
+An appointment has been confirmed with the following details:
+
+Date & Time: {{appointmentTime}}
+Dog Name: {{dogName}}
+Requested By: {{individualName}}
+
+You can view the appointment and manage it through your dashboard:
+{{dashboardLink}}
+
+If you have any questions, feel free to contact us through the platform.
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca

@@ -1,31 +1,42 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Appointment Canceled</title>
-    <style>
-      body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
-      .container { max-width: 600px; margin: auto; background-color: #fff; padding: 20px; }
-      .header { background-color: #F44336; color: white; text-align: center; padding: 10px; }
-      .content { padding: 20px; }
-      .footer { text-align: center; font-size: 12px; color: #888; padding: 10px; }
-    </style>
   </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h1>Appointment Canceled</h1>
-      </div>
-      <div class="content">
-        <p>Hello,</p>
-        <p>The appointment scheduled for <strong>{{appointmentTime}}</strong> has been canceled.</p>
-        <p><strong>Dog Name:</strong> {{dogName}}</p>
-        <p><strong>Cancellation Reason:</strong> {{cancellationReason}}</p>
-        <p>Please log in to your dashboard for more details.</p>
-      </div>
-      <div class="footer">
-        <p>&copy; {{year}} Sunshine App. All rights reserved.</p>
-      </div>
-    </div>
+  <body style="margin: 0; padding: 0; background-color: #e3f0f1; font-family: Arial, Helvetica, sans-serif;">
+    <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 6px; overflow: hidden;">
+      <!-- Header with Logo -->
+      <tr>
+        <td align="center" style="padding: 24px; background-color: #ffffff;">
+          <img src="https://rodqnqzfjixznlblnlpe.supabase.co/storage/v1/object/public/sunshine-pics/profile-pictures/assets/Sunshine-Therapy-Dogs-horiz.png"
+               alt="Sunshine Therapy Dogs" style="max-width: 250px; height: auto;" />
+        </td>
+      </tr>
+
+      <!-- Content -->
+      <tr>
+        <td style="padding: 30px;">
+          <h2 style="color: #f44336; margin-bottom: 16px;">Appointment Canceled</h2>
+          <p style="margin: 0 0 12px 0;">Hello,</p>
+          <p style="margin: 0 0 12px 0;">An appointment you were scheduled to attend has been canceled.</p>
+          <ul style="margin: 0 0 12px 0; padding-left: 18px;">
+            <li><strong>Date & Time:</strong> {{appointmentTime}}</li>
+            <li><strong>Dog Name:</strong> {{dogName}}</li>
+            <li><strong>Cancellation Reason:</strong> {{cancellationReason}}</li>
+          </ul>
+
+          <p style="font-size: 14px; color: #666;">Please log in to your dashboard to view any updates or schedule another visit.</p>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
+          &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>
