@@ -13,7 +13,12 @@ export async function POST(req: NextRequest) {
     const role = data.role || data.data?.public_metadata?.role;
     const phoneNumber = data.phone_number || '';
 
+    console.log('[PROFILE-COMPLETE] Incoming data:', JSON.stringify(data));
+    console.log('[PROFILE-COMPLETE] Resolved userId:', userId);
+    console.log('[PROFILE-COMPLETE] Resolved role:', role);
+
     if (!userId || !role) {
+      console.warn('[PROFILE-COMPLETE] Missing userId or role');
       return NextResponse.json(
         { error: "User ID or Role is missing" },
         { status: 400 }
@@ -29,6 +34,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    console.log('[PROFILE-COMPLETE] Clerk user metadata updated for:', updatedUser.id);
+
     const supabase = createSupabaseAdminClient();
     const { error: userUpdateError } = await supabase
       .from("users")
@@ -42,6 +49,8 @@ export async function POST(req: NextRequest) {
 
     if (userUpdateError) {
       console.error("❌ Error updating Supabase user:", userUpdateError);
+    } else {
+      console.log("[PROFILE-COMPLETE] Supabase user updated.");
     }
 
     if (role === "volunteer" && data.dog) {
@@ -61,21 +70,34 @@ export async function POST(req: NextRequest) {
 
       if (dogError) {
         console.error("❌ Error inserting dog data:", dogError);
+      } else {
+        console.log("[PROFILE-COMPLETE] Dog record inserted.");
       }
     }
 
-    try {
-      await sendTransactionalEmail({
-        to: updatedUser.emailAddresses[0].emailAddress,
-        subject: 'Welcome to Sunshine!',
-        templateName: 'welcome',
-        data: {
-          firstName: updatedUser.firstName || 'there',
-          year: new Date().getFullYear(),
-        },
-      });
-    } catch (emailErr: any) {
-      console.error("Error sending welcome email:", emailErr);
+    const toEmail = updatedUser.emailAddresses?.[0]?.emailAddress;
+    const firstName = updatedUser.firstName || 'there';
+
+    if (!toEmail) {
+      console.error('[PROFILE-COMPLETE] No email address found for user:', userId);
+    } else {
+      console.log('[EMAIL DEBUG] Sending welcome email to:', toEmail);
+
+      try {
+        const emailResponse = await sendTransactionalEmail({
+          to: toEmail,
+          subject: 'Welcome to Sunshine!',
+          templateName: 'welcome',
+          data: {
+            firstName,
+            year: new Date().getFullYear(),
+          },
+        });
+
+        console.log('[EMAIL DEBUG] Welcome email sent. Response:', emailResponse);
+      } catch (emailErr: any) {
+        console.error("❌ Error sending welcome email:", emailErr);
+      }
     }
 
     return NextResponse.json(
@@ -84,11 +106,13 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     if (error instanceof Error) {
+      console.error('[PROFILE-COMPLETE] Fatal error:', error.message);
       return NextResponse.json(
         { error: `Error processing request: ${error.message}` },
         { status: 500 }
       );
     } else {
+      console.error('[PROFILE-COMPLETE] Unknown fatal error.');
       return NextResponse.json(
         { error: "Unknown error occurred" },
         { status: 500 }
