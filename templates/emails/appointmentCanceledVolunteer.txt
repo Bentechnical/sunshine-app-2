@@ -1,4 +1,4 @@
-Hello,
+Hello {{firstName}},
 
 An appointment you were scheduled to attend has been canceled.
 

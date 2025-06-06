@@ -1,4 +1,4 @@
-Hello,
+Hello {{firstName}},
 
 An appointment has been confirmed with the following details:
 

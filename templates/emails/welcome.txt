@@ -1,4 +1,4 @@
-Hi {{name}},
+Hi {{firstName}},
 
 Welcome to Sunshine Therapy Dogs! We're so glad you've joined our community.
 

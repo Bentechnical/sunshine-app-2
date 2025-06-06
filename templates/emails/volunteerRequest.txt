@@ -1,4 +1,4 @@
-Hello {{volunteerName}},
+Hello {{firstName}},
 
 You have received a new appointment request with the following details:
 
