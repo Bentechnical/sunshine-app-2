@@ -1,53 +1,59 @@
-'use client';
+// src/components/layout/MobileNav.tsx
+import { Dispatch, SetStateAction } from 'react';
+import { ActiveTab } from '@/types/navigation';
 
-import React from 'react';
-import {
-  Dog,
-  Calendar,
-  ClipboardList,
-  MessageCircle
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-interface MobileNavProps {
-  value: 'dog' | 'availability' | 'visits' | 'messaging';
-  onChange: (value: MobileNavProps['value']) => void;
+export interface MobileNavProps {
+  role: 'individual' | 'volunteer' | 'admin';
+  activeTab: ActiveTab;
+  setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
+  profileImage: string;
 }
 
-const TABS: {
-  key: MobileNavProps['value'];
-  label: string;
-  icon: React.ElementType;
-}[] = [
-  { key: 'dog', label: 'My Dog', icon: Dog },
-  { key: 'availability', label: 'Availability', icon: Calendar },
-  { key: 'visits', label: 'Visits', icon: ClipboardList },
-  { key: 'messaging', label: 'Messages', icon: MessageCircle },
-];
+export default function MobileNav({
+  role,
+  activeTab,
+  setActiveTab,
+}: MobileNavProps) {
+  const tabs: { key: ActiveTab; label: string }[] =
+    role === 'individual'
+      ? [
+          { key: 'profile', label: 'Profile' },
+          { key: 'meet-with-dog', label: 'Meet Dogs' },
+          { key: 'my-visits', label: 'Visits' },
+          { key: 'messaging', label: 'Messages' },
+        ]
+      : [
+          { key: 'profile', label: 'Profile' },
+          { key: 'my-therapy-dog', label: 'My Dog' },
+          { key: 'my-visits', label: 'Visits' },
+          { key: 'messaging', label: 'Messages' },
+        ];
 
-export default function MobileNav({ value, onChange }: MobileNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 w-full border-t bg-background md:hidden z-50">
-      <div className="grid grid-cols-4 h-16">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = value === tab.key;
-
-          return (
-            <button
-              key={tab.key}
-              onClick={() => onChange(tab.key)}
-              className={cn(
-                'flex flex-col items-center justify-center text-xs transition-colors',
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Icon className="h-5 w-5 mb-1" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+    <nav
+      className="flex justify-around border-t text-sm"
+      style={{ backgroundColor: '#0e62ae', borderColor: '#0e62ae' }}
+    >
+      {tabs.map(({ key, label }) => {
+        const isActive = activeTab === key;
+        return (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex-1 py-2 ${
+              isActive
+                ? 'font-semibold'
+                : 'opacity-90'
+            }`}
+            style={{
+              color: isActive ? '#f09f1a' : '#ffffff',
+              borderTop: isActive ? '2px solid #f09f1a' : '2px solid transparent',
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
     </nav>
   );
 }

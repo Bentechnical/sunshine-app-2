@@ -1,12 +1,12 @@
 // /app/api/webhooks/route.ts
+
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client with the service-role key
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_URL!, // ✅ Use the non-public backend variable!
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
@@ -52,41 +52,49 @@ export async function POST(req: Request) {
       email_addresses?: { email_address: string }[];
       image_url?: string;
       public_metadata?: Record<string, any>;
+      unsafe_metadata?: Record<string, any>;
+      phone_number?: string;
     };
-    const { id: userId, email_addresses, first_name, last_name, image_url, public_metadata } = data;
+    const { id: userId, email_addresses, first_name, last_name, image_url, public_metadata, unsafe_metadata, phone_number } = data;
     const email = email_addresses?.[0]?.email_address ?? null;
-    const role = public_metadata?.role ?? "individual";
+    const role = public_metadata?.user_type ?? "individual"; // Clerk's user_type in public_metadata
 
     console.log(`🟢 Processing ${evt.type} for user ${userId}`);
 
-    // 4️⃣ Write to Supabase inside its own try/catch
     try {
       if (evt.type === "user.created") {
-        await supabase.from("users").insert([{
+        const { error } = await supabase.from("users").insert([{
           id: userId,
-          email,
           first_name: first_name ?? null,
           last_name: last_name ?? null,
+          email,
           role,
-          profile_image: image_url ?? null,
+          bio: unsafe_metadata?.bio ?? null,
           created_at: new Date(),
           updated_at: new Date(),
+          profile_image: image_url ?? null,
+          phone_number: phone_number ?? null,
         }]);
+        if (error) throw error;
         console.log(`Inserted user ${userId}`);
       } else if (evt.type === "user.updated") {
-        await supabase.from("users")
+        const { error } = await supabase.from("users")
           .update({
-            email,
             first_name: first_name ?? null,
             last_name: last_name ?? null,
+            email,
             role,
-            profile_image: image_url ?? null,
+            bio: unsafe_metadata?.bio ?? null,
             updated_at: new Date(),
+            profile_image: image_url ?? null,
+            phone_number: phone_number ?? null,
           })
           .eq("id", userId);
+        if (error) throw error;
         console.log(`Updated user ${userId}`);
       } else if (evt.type === "user.deleted") {
-        await supabase.from("users").delete().eq("id", userId);
+        const { error } = await supabase.from("users").delete().eq("id", userId);
+        if (error) throw error;
         console.log(`Deleted user ${userId}`);
       }
     } catch (dbErr) {
@@ -94,7 +102,7 @@ export async function POST(req: Request) {
       return new Response("Database error", { status: 500 });
     }
 
-    // 5️⃣ Everything succeeded
+    // 5️⃣ Success!
     return new Response("Webhook processed", { status: 200 });
   } catch (err) {
     console.error("🔥 Unhandled error in /api/webhooks:", err);

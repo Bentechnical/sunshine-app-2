@@ -1,3 +1,5 @@
+//src/components/profile/AvatarUpload.tsx
+
 'use client';
 
 import React, { useRef, useState, ChangeEvent } from 'react';

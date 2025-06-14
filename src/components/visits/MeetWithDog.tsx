@@ -10,13 +10,20 @@ interface MeetWithDogProps {
 }
 
 export default function MeetWithDog({ selectedDogId, setSelectedDogId }: MeetWithDogProps) {
-  console.log('MeetWithDog props:', { selectedDogId, setSelectedDogId });
+  const handleSelectDog = (id: string) => {
+    setSelectedDogId(id);
+  };
+
   return (
     <div>
       {selectedDogId ? (
-        <DogProfile dogId={selectedDogId} onBack={() => setSelectedDogId(null)} />
+        <DogProfile
+          key={selectedDogId}
+          dogId={selectedDogId}
+          onBack={() => setSelectedDogId(null)}
+        />
       ) : (
-        <DogDirectory onSelectDog={setSelectedDogId} />
+        <DogDirectory onSelectDog={handleSelectDog} />
       )}
     </div>
   );

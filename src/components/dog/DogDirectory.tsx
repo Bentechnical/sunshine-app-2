@@ -1,118 +1,93 @@
+// src/components/dog/DogDirectory.tsx
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
+import { Button } from '@/components/ui/button';
 
-interface Dog {
+interface DogWithAvailability {
   id: number;
-  volunteer_id: string;
   dog_name: string;
   dog_breed: string;
   dog_age: number | null;
   dog_bio: string;
   dog_picture_url: string;
+  volunteer_id: string;
+  next_available: string | null;
+  volunteer_name: string | null;
 }
 
 interface DogDirectoryProps {
-  onSelectDog: (id: string) => void;
-}
-
-function DogCard({
-  dog,
-  onSelectDog,
-}: {
-  dog: Dog;
-  onSelectDog: (id: string) => void;
-}) {
-  const supabase = useSupabaseClient();
-  const [nextAvailable, setNextAvailable] = useState<string>('Loading...');
-
-  useEffect(() => {
-    if (!supabase) return;
-
-    async function fetchNextAvailability() {
-      const { data, error } = await supabase
-        .from('appointment_availability')
-        .select('start_time')
-        .eq('volunteer_id', dog.volunteer_id)
-        .gt('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching next availability:', error);
-        setNextAvailable('Error');
-      } else if (data) {
-        setNextAvailable(new Date(data.start_time).toLocaleString());
-      } else {
-        setNextAvailable('No availability');
-      }
-    }
-
-    fetchNextAvailability();
-  }, [dog.volunteer_id, supabase]);
-
-  return (
-    <div className="bg-white shadow-lg rounded-lg p-4">
-      <img
-        src={dog.dog_picture_url || 'images/default-dog.png'}
-        alt={dog.dog_name}
-        className="w-full h-40 object-cover rounded-md"
-      />
-      <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
-      <p>
-        {dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}
-      </p>
-      <p className="text-gray-600 mt-2">{dog.dog_bio}</p>
-      <p className="text-gray-800 mt-2">
-        <strong>Next Available:</strong> {nextAvailable}
-      </p>
-      <button
-        className="bg-blue-600 text-white px-4 py-2 rounded mt-4"
-        onClick={() => onSelectDog(dog.id.toString())}
-      >
-        View Availability
-      </button>
-    </div>
-  );
+  onSelectDog: (dogId: string) => void;
 }
 
 export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
   const supabase = useSupabaseClient();
-  const [dogs, setDogs] = useState<Dog[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [dogs, setDogs] = useState<DogWithAvailability[]>([]);
 
   useEffect(() => {
-    if (!supabase) return;
+    const fetchDogs = async () => {
+      const { data, error } = await supabase.rpc('get_dogs_with_next_availability');
 
-    async function fetchDogs() {
-      const { data, error } = await supabase.from('dogs').select('*');
-      if (error) {
-        console.error('Error fetching dogs:', error);
-        setDogs([]);
-      } else {
-        +   setDogs(data as Dog[]);     // cast here if you need strict Dog[]
+      if (error || !data) {
+        console.error('Error fetching dogs:', error?.message || error, error);
+        return;
       }
-      setLoading(false);
-    }
+
+      setDogs(data as DogWithAvailability[]);
+    };
 
     fetchDogs();
-  }, [supabase]);
+  }, []);
 
-  if (loading) {
-    return <p>Loading dogs…</p>;
-  }
-
-  if (dogs.length === 0) {
-    return <p>No dogs found.</p>;
-  }
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    });
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {dogs.map((dog) => (
-        <DogCard key={dog.id} dog={dog} onSelectDog={onSelectDog} />
-      ))}
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-4">Meet Our Therapy Dogs</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {dogs.map((dog) => (
+          <div
+            key={dog.id}
+            className="bg-white shadow-lg rounded-lg p-4 flex flex-col justify-between min-h-[500px]"
+          >
+            <div>
+              <div className="aspect-[4/3] w-full overflow-hidden rounded-lg">
+                <img
+                  src={dog.dog_picture_url || '/images/default_dog.png'}
+                  alt={dog.dog_name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
+              <p className="text-gray-700">{dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}</p>
+              <p className="text-gray-600 mt-2">{dog.dog_bio}</p>
+              <p className="text-gray-800 mt-2">
+                <strong>Next Available:</strong>{' '}
+                {dog.next_available ? formatDate(dog.next_available) : 'No availability'}
+              </p>
+              <p className="text-gray-600">
+                <strong>Volunteer:</strong> {dog.volunteer_name ?? 'Unknown'}
+              </p>
+            </div>
+            <Button
+              onClick={() => onSelectDog(String(dog.id))}
+              className="w-full mt-4"
+            >
+              View Availability
+            </Button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

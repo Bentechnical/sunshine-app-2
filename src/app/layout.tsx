@@ -1,26 +1,16 @@
-'use client'; // This marks the file as a client component
+'use client';
 
-import React from 'react';
-import { ClerkProvider } from '@clerk/nextjs'
-import { Geist, Geist_Mono } from "next/font/google";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation"; // Import useRouter
-import "./globals.css";
+import React, { useEffect } from 'react';
+import { ClerkProvider } from '@clerk/nextjs';
+import { Geist, Geist_Mono } from 'next/font/google';
+import { useRouter } from 'next/navigation';
+import './globals.css';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
+const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// Retrieve the publishable key from environment variables
 const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-// Check if the publishable key is provided
 if (!clerkPublishableKey) {
   throw new Error('Missing Clerk publishable key. Please set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in your environment variables.');
 }
@@ -32,10 +22,9 @@ export default function RootLayout({
 }>) {
   const router = useRouter();
 
-  // Redirect to /dashboard when accessing the root URL
   useEffect(() => {
-    if (window.location.pathname === "/") {
-      router.push("/dashboard");
+    if (window.location.pathname === '/') {
+      router.push('/dashboard');
     }
   }, [router]);
 
@@ -43,7 +32,7 @@ export default function RootLayout({
     <ClerkProvider publishableKey={clerkPublishableKey}>
       <html lang="en">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`h-screen overflow-hidden ${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           {children}
         </body>

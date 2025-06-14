@@ -1,5 +1,3 @@
-// app/api/appointment/confirm/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { sendTransactionalEmail } from '../../../utils/mailer';
@@ -21,33 +19,51 @@ export async function POST(req: NextRequest) {
       .from('appointments')
       .select('start_time, individual_id, volunteer_id')
       .eq('id', appointmentId)
-      .single();
+      .maybeSingle();
 
-    if (apptError || !appointment) {
+    if (apptError) {
       console.error('Error fetching appointment:', apptError);
       throw new Error('Could not fetch appointment details.');
+    }
+    if (!appointment) {
+      return NextResponse.json(
+        { success: false, error: 'Appointment not found.' },
+        { status: 404 }
+      );
     }
 
     const { data: individual, error: individualError } = await supabase
       .from('users')
       .select('first_name, email')
       .eq('id', appointment.individual_id)
-      .single();
+      .maybeSingle();
 
-    if (individualError || !individual) {
+    if (individualError) {
       console.error('Error fetching individual:', individualError);
       throw new Error('Could not fetch individual details.');
+    }
+    if (!individual) {
+      return NextResponse.json(
+        { success: false, error: 'Individual user not found.' },
+        { status: 404 }
+      );
     }
 
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
       .select('first_name, email')
       .eq('id', appointment.volunteer_id)
-      .single();
+      .maybeSingle();
 
-    if (volunteerError || !volunteer) {
+    if (volunteerError) {
       console.error('Error fetching volunteer:', volunteerError);
       throw new Error('Could not fetch volunteer details.');
+    }
+    if (!volunteer) {
+      return NextResponse.json(
+        { success: false, error: 'Volunteer user not found.' },
+        { status: 404 }
+      );
     }
 
     const { data: dogs, error: dogsError } = await supabase
@@ -59,10 +75,7 @@ export async function POST(req: NextRequest) {
       console.error('Error fetching dogs:', dogsError);
     }
 
-    const dogData = dogs && dogs.length > 0 ? dogs[0] : null;
-    if (!dogData) {
-      console.warn(`No dog found for volunteer_id: ${appointment.volunteer_id}`);
-    }
+    const dogData = dogs?.[0] ?? null;
 
     const appointmentTime = new Date(appointment.start_time).toLocaleString();
 
