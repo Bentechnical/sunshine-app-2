@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
+
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 const DEFAULT_DOG_IMAGE = `${BASE_URL}/images/default_dog.png`;
@@ -84,6 +86,8 @@ export async function POST(req: NextRequest) {
       console.log('[EMAIL DEBUG] Sending welcome email to:', toEmail);
 
       try {
+        const dashboardLink = `${getAppUrl()}/dashboard`;
+
         const emailResponse = await sendTransactionalEmail({
           to: toEmail,
           subject: 'Welcome to Sunshine!',
@@ -91,6 +95,7 @@ export async function POST(req: NextRequest) {
           data: {
             firstName,
             year: new Date().getFullYear(),
+            dashboardLink,
           },
         });
 
@@ -99,6 +104,7 @@ export async function POST(req: NextRequest) {
         console.error("❌ Error sending welcome email:", emailErr);
       }
     }
+
 
     return NextResponse.json(
       { message: "Profile completed successfully" },

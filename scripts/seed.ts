@@ -107,7 +107,7 @@ async function createUserWithImage(role: 'volunteer' | 'individual', avatarUrl: 
     password,
     firstName: first,
     lastName: last,
-    publicMetadata: { user_type: role },
+    publicMetadata: { role: role },
     unsafeMetadata: { bio },
   });
 

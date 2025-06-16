@@ -1,4 +1,6 @@
 // src/app/api/request/route.ts
+
+export const runtime = 'node'; 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { sendTransactionalEmail } from '../../utils/mailer';
@@ -9,7 +11,10 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { type, requestId, dogId } = await req.json();
 
+    console.log('[REQUEST API] Incoming request:', { type, requestId, dogId });
+
     if (!type || !requestId || !dogId) {
+      console.warn('[REQUEST API] Missing type, requestId, or dogId');
       return NextResponse.json(
         { success: false, error: 'Missing type, requestId, or dogId.' },
         { status: 400 }
@@ -24,11 +29,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (apptError) {
-      console.error('Error fetching appointment data:', apptError);
+      console.error('[REQUEST API] Error fetching appointment:', apptError);
       throw new Error('Could not fetch appointment details.');
     }
 
     if (!appointment) {
+      console.warn('[REQUEST API] Appointment not found:', requestId);
       return NextResponse.json(
         { success: false, error: 'Appointment not found.' },
         { status: 404 }
@@ -43,11 +49,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (dogError) {
-      console.error('Error fetching dog data:', dogError);
+      console.error('[REQUEST API] Error fetching dog:', dogError);
       throw new Error('Could not fetch dog details.');
     }
 
     if (!dogData) {
+      console.warn('[REQUEST API] Dog not found:', dogId);
       return NextResponse.json(
         { success: false, error: 'Dog not found.' },
         { status: 404 }
@@ -62,11 +69,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (individualError) {
-      console.error('Error fetching individual data:', individualError);
+      console.error('[REQUEST API] Error fetching individual:', individualError);
       throw new Error('Could not fetch individual details.');
     }
 
     if (!individual) {
+      console.warn('[REQUEST API] Individual not found:', appointment.individual_id);
       return NextResponse.json(
         { success: false, error: 'Individual user not found.' },
         { status: 404 }
@@ -81,11 +89,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (volunteerError) {
-      console.error('Error fetching volunteer data:', volunteerError);
+      console.error('[REQUEST API] Error fetching volunteer:', volunteerError);
       throw new Error('Could not fetch volunteer details.');
     }
 
     if (!volunteer) {
+      console.warn('[REQUEST API] Volunteer not found:', appointment.volunteer_id);
       return NextResponse.json(
         { success: false, error: 'Volunteer user not found.' },
         { status: 404 }
@@ -108,6 +117,7 @@ export async function POST(req: NextRequest) {
         dogBreed: dogData.dog_breed || 'N/A',
         dogAge: dogData.dog_age || 'N/A',
         volunteerName: volunteer.first_name,
+        dashboardLink: getAppUrl() + '/dashboard', // ✅ added
         year: new Date().getFullYear(),
       };
     } else if (type === 'volunteer') {
@@ -121,24 +131,41 @@ export async function POST(req: NextRequest) {
         year: new Date().getFullYear(),
       };
     } else {
+      console.warn('[REQUEST API] Invalid request type:', type);
       return NextResponse.json(
         { success: false, error: 'Invalid request type.' },
         { status: 400 }
       );
     }
 
-    const emailResponse = await sendTransactionalEmail({
+    console.log('[EMAIL SEND] Preparing to send email:', {
       to: emailRecipient,
       subject,
       templateName: type === 'individual' ? 'individualRequest' : 'volunteerRequest',
       data: emailData,
     });
 
-    return NextResponse.json({ success: true, response: emailResponse });
+    try {
+      const emailResponse = await sendTransactionalEmail({
+        to: emailRecipient,
+        subject,
+        templateName: type === 'individual' ? 'individualRequest' : 'volunteerRequest',
+        data: emailData,
+      });
+
+      console.log('[EMAIL SEND] Success:', emailResponse);
+      return NextResponse.json({ success: true, response: emailResponse });
+    } catch (emailError) {
+      console.error('[EMAIL SEND] Failed:', emailError);
+      return NextResponse.json(
+        { success: false, error: 'Email sending failed.' },
+        { status: 500 }
+      );
+    }
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error('Error in /api/request:', errorMessage);
+    console.error('[REQUEST API] Fatal error:', errorMessage);
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
