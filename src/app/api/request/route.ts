@@ -1,6 +1,6 @@
 // src/app/api/request/route.ts
 
-export const runtime = 'node'; 
+export const runtime = 'nodejs'; 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { sendTransactionalEmail } from '../../utils/mailer';
