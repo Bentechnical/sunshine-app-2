@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 
@@ -46,39 +46,48 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   const [computedBookingStart, setComputedBookingStart] = useState<Date | null>(null);
   const [computedBookingEnd, setComputedBookingEnd] = useState<Date | null>(null);
 
-  useEffect(() => {
-    const fetchDogData = async () => {
-      const { data: dogData } = await supabase
-        .from('dogs')
-        .select('*')
-        .eq('id', dogId)
-        .single();
+  const fetchDogData = useCallback(async () => {
+    setLoading(true);
 
-      if (!dogData) return;
+    const { data: dogData, error: dogError } = await supabase
+      .from('dogs')
+      .select('*')
+      .eq('id', dogId)
+      .single();
 
-      setDog(dogData);
-
-      const { data: volunteerData } = await supabase
-        .from('users')
-        .select('first_name')
-        .eq('id', dogData.volunteer_id)
-        .single();
-      if (volunteerData) setVolunteerName(volunteerData.first_name);
-
-      const { data: availData } = await supabase
-        .from('appointment_availability')
-        .select('*')
-        .eq('volunteer_id', dogData.volunteer_id)
-        .eq('is_hidden', false)
-        .gt('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true });
-
-      setAvailability(availData || []);
+    if (dogError || !dogData) {
+      console.error('[DogProfile] Failed to fetch dog:', dogError);
       setLoading(false);
-    };
+      return;
+    }
 
-    fetchDogData();
+    setDog(dogData);
+
+    const { data: volunteerData } = await supabase
+      .from('users')
+      .select('first_name')
+      .eq('id', dogData.volunteer_id)
+      .single();
+
+    if (volunteerData) {
+      setVolunteerName(volunteerData.first_name);
+    }
+
+    const { data: availData } = await supabase
+      .from('appointment_availability')
+      .select('*')
+      .eq('volunteer_id', dogData.volunteer_id)
+      .eq('is_hidden', false)
+      .gt('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true });
+
+    setAvailability(availData || []);
+    setLoading(false);
   }, [dogId, supabase]);
+
+  useEffect(() => {
+    fetchDogData();
+  }, [fetchDogData]);
 
   function openBookingModal(slot: Availability) {
     setBookingSlot(slot);
@@ -176,17 +185,21 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
     setAvailability((prev) => prev.filter((s) => s.id !== bookingSlot.id));
 
-    await fetch('/api/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'individual', requestId: appointmentId, dogId: dog!.id }),
-    });
+    // Send email notifications
+    const body = JSON.stringify({ requestId: appointmentId, dogId: dog!.id });
 
-    await fetch('/api/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'volunteer', requestId: appointmentId, dogId: dog!.id }),
-    });
+    await Promise.all([
+      fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...JSON.parse(body), type: 'individual' }),
+      }),
+      fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...JSON.parse(body), type: 'volunteer' }),
+      }),
+    ]);
 
     setBookingStep('success');
   }
@@ -206,7 +219,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
   return (
     <div className="flex flex-col gap-4 h-full px-4 pb-4">
-      {/* Header Row */}
+      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
         <button
           className="text-sm text-[#0e62ae] font-semibold hover:underline mb-2 lg:mb-0"
@@ -222,7 +235,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       {/* Content Columns */}
       <div className="flex flex-col lg:flex-row gap-6 min-w-0">
         {/* Dog Info */}
-        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4 flex flex-col min-w-0 lg:max-h-[80vh] lg:overflow-y-auto">
+        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4">
           <img
             src={dog.dog_picture_url || '/images/default_dog.png'}
             alt={dog.dog_name}
@@ -231,14 +244,12 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
           <h2 className="text-2xl font-bold mt-4">{dog.dog_name}</h2>
           <p className="text-gray-700">{dog.dog_breed}</p>
           <p className="text-sm text-gray-500 italic mb-2">with {volunteerName}</p>
-          <p className="text-gray-600 text-sm mb-4">
-            Age: {dog.dog_age || 'Unknown'}
-          </p>
+          <p className="text-gray-600 text-sm mb-4">Age: {dog.dog_age || 'Unknown'}</p>
           <p className="text-gray-600">{dog.dog_bio}</p>
         </div>
 
         {/* Availability */}
-        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4 flex flex-col min-w-0 lg:max-h-[80vh] lg:overflow-y-auto">
+        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4">
           {availability.length === 0 ? (
             <p className="text-gray-500">No availability at the moment.</p>
           ) : (
@@ -264,15 +275,10 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       {showBookingModal && bookingSlot && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
           <div className="bg-white p-6 rounded-md max-w-md w-full">
-            {/* Input Step */}
             {bookingStep === 'input' && (
               <>
                 <h3 className="text-xl font-semibold mb-4">Request a Meeting</h3>
-                <p>
-                  <strong>Available Window:</strong><br />
-                  {formatDate(bookingSlot.start_time)}<br />
-                  {formatTime(bookingSlot.start_time)} – {formatTime(bookingSlot.end_time)}
-                </p>
+                <p><strong>Available Window:</strong><br />{formatDate(bookingSlot.start_time)}<br />{formatTime(bookingSlot.start_time)} – {formatTime(bookingSlot.end_time)}</p>
                 <div className="mt-4">
                   <label className="block mb-1 font-semibold">Enter Start Time</label>
                   <input
@@ -291,15 +297,11 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
               </>
             )}
 
-            {/* Summary Step */}
             {bookingStep === 'summary' && computedBookingStart && computedBookingEnd && (
               <>
                 <h3 className="text-xl font-semibold mb-4">Confirm Request</h3>
                 <p>You are requesting a visit with <strong>{volunteerName}</strong> and <strong>{dog?.dog_name}</strong>.</p>
-                <p className="mt-2">
-                  <strong>Requested Time:</strong><br />
-                  {formatTime(computedBookingStart.toISOString())} – {formatTime(computedBookingEnd.toISOString())}
-                </p>
+                <p className="mt-2"><strong>Requested Time:</strong><br />{formatTime(computedBookingStart.toISOString())} – {formatTime(computedBookingEnd.toISOString())}</p>
                 {bookingFeedback && <p className="mt-2 text-sm text-red-600">{bookingFeedback}</p>}
                 <div className="mt-6 flex justify-end space-x-2">
                   <button onClick={() => setBookingStep('input')} className="bg-gray-400 text-white px-4 py-2 rounded">Back</button>
@@ -308,7 +310,6 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
               </>
             )}
 
-            {/* Success Step */}
             {bookingStep === 'success' && (
               <div className="flex flex-col items-center text-center">
                 <div className="text-4xl text-green-600 mb-2">✅</div>
