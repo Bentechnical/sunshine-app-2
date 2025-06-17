@@ -1,8 +1,7 @@
 // src/components/dog/DogProfile.tsx
-
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 
@@ -46,48 +45,48 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   const [computedBookingStart, setComputedBookingStart] = useState<Date | null>(null);
   const [computedBookingEnd, setComputedBookingEnd] = useState<Date | null>(null);
 
-  const fetchDogData = useCallback(async () => {
-    setLoading(true);
-
-    const { data: dogData, error: dogError } = await supabase
-      .from('dogs')
-      .select('*')
-      .eq('id', dogId)
-      .single();
-
-    if (dogError || !dogData) {
-      console.error('[DogProfile] Failed to fetch dog:', dogError);
-      setLoading(false);
-      return;
-    }
-
-    setDog(dogData);
-
-    const { data: volunteerData } = await supabase
-      .from('users')
-      .select('first_name')
-      .eq('id', dogData.volunteer_id)
-      .single();
-
-    if (volunteerData) {
-      setVolunteerName(volunteerData.first_name);
-    }
-
-    const { data: availData } = await supabase
-      .from('appointment_availability')
-      .select('*')
-      .eq('volunteer_id', dogData.volunteer_id)
-      .eq('is_hidden', false)
-      .gt('start_time', new Date().toISOString())
-      .order('start_time', { ascending: true });
-
-    setAvailability(availData || []);
-    setLoading(false);
-  }, [dogId, supabase]);
-
   useEffect(() => {
+    async function fetchDogData() {
+      // 1) Fetch the dog record
+      const { data: dogData, error: dogErr } = await supabase
+        .from('dogs')
+        .select('*')
+        .eq('id', dogId)
+        .single();
+
+      if (dogErr || !dogData) {
+        setLoading(false);
+        return;
+      }
+      setDog(dogData);
+
+      // 2) Fetch volunteer's name
+      const { data: volunteerData } = await supabase
+        .from('users')
+        .select('first_name')
+        .eq('id', dogData.volunteer_id)
+        .single();
+      if (volunteerData) {
+        setVolunteerName(volunteerData.first_name);
+      }
+
+      // 3) Fetch availability
+      const { data: availData } = await supabase
+        .from('appointment_availability')
+        .select('*')
+        .eq('volunteer_id', dogData.volunteer_id)
+        .eq('is_hidden', false)
+        .gt('start_time', new Date().toISOString())
+        .order('start_time', { ascending: true });
+
+      setAvailability(availData || []);
+      setLoading(false);
+    }
+
     fetchDogData();
-  }, [fetchDogData]);
+    // we only want to re-run when dogId changes; supabase is stable enough here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dogId]);
 
   function openBookingModal(slot: Availability) {
     setBookingSlot(slot);
@@ -185,21 +184,17 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
     setAvailability((prev) => prev.filter((s) => s.id !== bookingSlot.id));
 
-    // Send email notifications
-    const body = JSON.stringify({ requestId: appointmentId, dogId: dog!.id });
+    await fetch('/api/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'individual', requestId: appointmentId, dogId: dog!.id }),
+    });
 
-    await Promise.all([
-      fetch('/api/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...JSON.parse(body), type: 'individual' }),
-      }),
-      fetch('/api/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...JSON.parse(body), type: 'volunteer' }),
-      }),
-    ]);
+    await fetch('/api/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'volunteer', requestId: appointmentId, dogId: dog!.id }),
+    });
 
     setBookingStep('success');
   }
@@ -218,6 +213,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   if (!dog) return <p>Dog not found.</p>;
 
   return (
+
     <div className="flex flex-col gap-4 h-full px-4 pb-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
