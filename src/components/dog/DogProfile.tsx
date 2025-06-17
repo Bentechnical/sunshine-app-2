@@ -1,7 +1,6 @@
 // src/components/dog/DogProfile.tsx
 'use client';
 
-import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
@@ -233,13 +232,14 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
         {/* Dog Info */}
         <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4">
           <div className="relative w-full h-60 rounded-md overflow-hidden">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={dog.dog_picture_url || '/images/default_dog.png'}
               alt={dog.dog_name}
-              fill
-              className="object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           </div>
+
           <h2 className="text-2xl font-bold mt-4">{dog.dog_name}</h2>
           <p className="text-gray-700">{dog.dog_breed}</p>
           <p className="text-sm text-gray-500 italic mb-2">with {volunteerName}</p>

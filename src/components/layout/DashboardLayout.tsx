@@ -2,7 +2,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import Image from 'next/image';
+// Removed: import Image from 'next/image';
 import { ActiveTab } from '@/types/navigation';
 import { DesktopNav } from './DesktopNav';
 import MobileNav from './MobileNav';
@@ -28,12 +28,11 @@ export default function DashboardLayout({
       {/* ------------ Desktop sidebar ------------ */}
       <aside className="hidden md:flex flex-col h-screen w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] p-6 shadow-lg font-sans z-20">
         <div className="mb-8 flex justify-center relative w-full h-16">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             alt="Sunshine Therapy Dogs Logo"
             src="/images/sunshine-logo-white.png"
-            fill
-            className="object-contain"
-            priority
+            className="absolute inset-0 w-full h-full object-contain"
           />
         </div>
 
@@ -63,20 +62,19 @@ export default function DashboardLayout({
           style={{ backgroundColor: '#0e62ae' }}
         >
           <div className="relative h-8 w-24">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               alt="Sunshine logo"
               src="/images/sunshine-logo-small.png"
-              fill
-              className="object-contain"
-              priority
+              className="absolute inset-0 w-full h-full object-contain"
             />
           </div>
           <div className="relative w-9 h-9 rounded-full border border-white overflow-hidden">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               alt="Profile"
               src={profileImage}
-              fill
-              className="object-cover rounded-full"
+              className="absolute inset-0 w-full h-full object-cover rounded-full"
             />
           </div>
         </div>

@@ -2,7 +2,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 
 export interface Appointment {
   id: number;
@@ -106,13 +105,14 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <p><strong>Dog:</strong> {dogName}</p>
           {dogPictureUrl && (
             <div className="relative w-32 h-32 mt-2">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={dogPictureUrl}
                 alt="Dog Picture"
-                fill
-                className="rounded object-cover"
+                className="absolute inset-0 w-full h-full rounded object-cover"
               />
             </div>
+
           )}
         </div>
       )}
@@ -161,11 +161,10 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         {role === 'volunteer' && appointment.status === 'confirmed' && !isPast && (
           <button
             onClick={() => onCancelClick(appointment)}
-            className={`px-4 py-2 rounded ${
-              cancelButtonDisabled(appointment)
+            className={`px-4 py-2 rounded ${cancelButtonDisabled(appointment)
                 ? 'bg-gray-400 text-white cursor-not-allowed'
                 : 'bg-red-600 text-white'
-            }`}
+              }`}
             disabled={cancelButtonDisabled(appointment)}
           >
             Cancel Appointment

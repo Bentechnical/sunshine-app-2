@@ -2,12 +2,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const body = await req.json();
 
     console.log('[REQUEST API] Raw incoming request:', body);

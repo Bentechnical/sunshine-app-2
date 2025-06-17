@@ -3,7 +3,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 
@@ -40,7 +39,7 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
     };
 
     fetchDogs();
-  }, [supabase]);
+  }, []);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
@@ -63,13 +62,14 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
           >
             <div>
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={dog.dog_picture_url || '/images/default_dog.png'}
                   alt={dog.dog_name}
-                  fill
-                  style={{ objectFit: 'cover' }}
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
               </div>
+
               <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
               <p className="text-gray-700">
                 {dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}

@@ -1,4 +1,4 @@
-import { type NextConfig } from 'next'
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -6,16 +6,16 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    domains: ['img.clerk.com'],
+    domains: ['img.clerk.com', 'rodqnqzfjixznlblnlpe.supabase.co'],
   },
   webpack: (config) => {
     config.ignoreWarnings = [
       {
         message: /require\.extensions is not supported by webpack/i,
       },
-    ]
-    return config
+    ];
+    return config;
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;

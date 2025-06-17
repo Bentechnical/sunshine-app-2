@@ -53,13 +53,14 @@ export default function ProfileCard({
 
       {profileImage && (
         <div className="relative w-24 h-24 mt-4 rounded-full overflow-hidden">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={profileImage}
             alt="Profile"
-            fill
-            className="object-cover rounded-full"
+            className="absolute inset-0 w-full h-full object-cover rounded-full"
           />
         </div>
+
       )}
     </div>
   );
