@@ -1,11 +1,14 @@
+//src/app/api/appointment/confirm/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
+
     const { appointmentId } = await req.json();
 
     if (!appointmentId) {
@@ -25,6 +28,8 @@ export async function POST(req: NextRequest) {
       console.error('Error fetching appointment:', apptError);
       throw new Error('Could not fetch appointment details.');
     }
+    console.log('[🧪 Debug] appointment:', appointment);
+
     if (!appointment) {
       return NextResponse.json(
         { success: false, error: 'Appointment not found.' },
