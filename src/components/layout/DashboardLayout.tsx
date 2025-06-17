@@ -2,6 +2,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import Image from 'next/image';
 import { ActiveTab } from '@/types/navigation';
 import { DesktopNav } from './DesktopNav';
 import MobileNav from './MobileNav';
@@ -26,11 +27,13 @@ export default function DashboardLayout({
     <div className="flex h-screen relative">
       {/* ------------ Desktop sidebar ------------ */}
       <aside className="hidden md:flex flex-col h-screen w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] p-6 shadow-lg font-sans z-20">
-        <div className="mb-8 flex justify-center">
-          <img
+        <div className="mb-8 flex justify-center relative w-full h-16">
+          <Image
             alt="Sunshine Therapy Dogs Logo"
-            className="w-full h-auto object-contain"
             src="/images/sunshine-logo-white.png"
+            fill
+            className="object-contain"
+            priority
           />
         </div>
 
@@ -59,16 +62,23 @@ export default function DashboardLayout({
           className="md:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 py-2 shadow-sm"
           style={{ backgroundColor: '#0e62ae' }}
         >
-          <img
-            alt="Sunshine logo"
-            src="/images/sunshine-logo-small.png"
-            className="h-8 object-contain"
-          />
-          <img
-            alt="Profile"
-            className="rounded-full border w-9 h-9 border-white"
-            src={profileImage}
-          />
+          <div className="relative h-8 w-24">
+            <Image
+              alt="Sunshine logo"
+              src="/images/sunshine-logo-small.png"
+              fill
+              className="object-contain"
+              priority
+            />
+          </div>
+          <div className="relative w-9 h-9 rounded-full border border-white overflow-hidden">
+            <Image
+              alt="Profile"
+              src={profileImage}
+              fill
+              className="object-cover rounded-full"
+            />
+          </div>
         </div>
 
         {/* Page content (offset for top + bottom bars on mobile) */}

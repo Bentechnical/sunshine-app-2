@@ -63,7 +63,7 @@ export default function ProfileTab() {
     };
 
     loadUserData();
-  }, [user?.id, supabase]);
+  }, [user?.id]);
 
   const handleSave = async (bio: string, phone: string, avatarUrl?: string) => {
     if (!user?.id) return;

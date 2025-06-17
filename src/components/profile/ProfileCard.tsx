@@ -1,8 +1,9 @@
-//src/components/profile/ProfileCard.tsx
+// src/components/profile/ProfileCard.tsx
 
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
+import Image from 'next/image';
 
 interface ProfileCardProps {
   userId?: string;
@@ -30,32 +31,36 @@ export default function ProfileCard({
       <h3 className="text-xl font-semibold mb-4">Logged in as:</h3>
 
       <p className="text-lg text-gray-700">
-        <strong>User ID:</strong> {userId || "ID not available"}
+        <strong>User ID:</strong> {userId || 'ID not available'}
       </p>
       <p className="text-lg text-gray-700">
-        <strong>Name:</strong>{" "}
-        {firstName || "First name"} {lastName || "Last name"}
+        <strong>Name:</strong>{' '}
+        {firstName || 'First name'} {lastName || 'Last name'}
       </p>
       <p className="text-lg text-gray-700">
-        <strong>Email:</strong> {email || "Email not available"}
+        <strong>Email:</strong> {email || 'Email not available'}
       </p>
       <p className="text-lg text-gray-700">
-        <strong>Phone Number:</strong> {phoneNumber || "Phone number not available"}
+        <strong>Phone Number:</strong>{' '}
+        {phoneNumber || 'Phone number not available'}
       </p>
       <p className="text-lg text-gray-700">
-        <strong>Profile Type:</strong> {role || "No role assigned"}
+        <strong>Profile Type:</strong> {role || 'No role assigned'}
       </p>
       <p className="text-lg text-gray-700 mt-4">
-        <strong>Bio:</strong> {bio || "Bio not available"}
+        <strong>Bio:</strong> {bio || 'Bio not available'}
       </p>
-      {profileImage && (
-  <img
-    src={profileImage}
-    alt="Profile"
-    className="w-24 h-24 rounded-full object-cover mt-4"
-  />
-)}
 
+      {profileImage && (
+        <div className="relative w-24 h-24 mt-4 rounded-full overflow-hidden">
+          <Image
+            src={profileImage}
+            alt="Profile"
+            fill
+            className="object-cover rounded-full"
+          />
+        </div>
+      )}
     </div>
   );
 }

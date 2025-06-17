@@ -1,6 +1,7 @@
 // src/components/dog/DogProfile.tsx
 'use client';
 
+import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
@@ -213,7 +214,6 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   if (!dog) return <p>Dog not found.</p>;
 
   return (
-
     <div className="flex flex-col gap-4 h-full px-4 pb-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -232,11 +232,14 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       <div className="flex flex-col lg:flex-row gap-6 min-w-0">
         {/* Dog Info */}
         <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4">
-          <img
-            src={dog.dog_picture_url || '/images/default_dog.png'}
-            alt={dog.dog_name}
-            className="w-full h-60 object-cover rounded-md"
-          />
+          <div className="relative w-full h-60 rounded-md overflow-hidden">
+            <Image
+              src={dog.dog_picture_url || '/images/default_dog.png'}
+              alt={dog.dog_name}
+              fill
+              className="object-cover"
+            />
+          </div>
           <h2 className="text-2xl font-bold mt-4">{dog.dog_name}</h2>
           <p className="text-gray-700">{dog.dog_breed}</p>
           <p className="text-sm text-gray-500 italic mb-2">with {volunteerName}</p>

@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 
@@ -39,7 +40,7 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
     };
 
     fetchDogs();
-  }, []);
+  }, [supabase]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
@@ -61,15 +62,18 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
             className="bg-white shadow-lg rounded-lg p-4 flex flex-col justify-between min-h-[500px]"
           >
             <div>
-              <div className="aspect-[4/3] w-full overflow-hidden rounded-lg">
-                <img
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
+                <Image
                   src={dog.dog_picture_url || '/images/default_dog.png'}
                   alt={dog.dog_name}
-                  className="w-full h-full object-cover"
+                  fill
+                  style={{ objectFit: 'cover' }}
                 />
               </div>
               <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
-              <p className="text-gray-700">{dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}</p>
+              <p className="text-gray-700">
+                {dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}
+              </p>
               <p className="text-gray-600 mt-2">{dog.dog_bio}</p>
               <p className="text-gray-800 mt-2">
                 <strong>Next Available:</strong>{' '}

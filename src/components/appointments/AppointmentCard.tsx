@@ -1,7 +1,8 @@
-// /src/app/components/AppointmentCard.tsx
+// src/components/appointments/AppointmentCard.tsx
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 export interface Appointment {
   id: number;
@@ -18,7 +19,7 @@ export interface Appointment {
     last_name: string;
     email: string;
     dogs?: {
-      id: number;  // Ensure the id property is included
+      id: number;
       dog_name: string;
       dog_picture_url: string;
     }[];
@@ -40,7 +41,6 @@ interface AppointmentCardProps {
   cancelButtonDisabled: (appointment: Appointment) => boolean;
 }
 
-// Helper functions for formatting date and time
 function formatDate(timeStr: string): string {
   return new Date(timeStr).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -71,7 +71,6 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   let dogName: string | undefined = undefined;
   let dogPictureUrl: string | undefined = undefined;
 
-  // Determine if the appointment is in the past
   const isPast = new Date(appointment.end_time) <= new Date();
 
   if (role === 'individual') {
@@ -84,23 +83,13 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         dogPictureUrl = volunteer.dogs[0].dog_picture_url;
       }
     }
-  } else if (role === 'volunteer') {
+  } else if (role === 'volunteer' || role === 'admin') {
     const requester = appointment.individual;
     if (requester) {
       displayName = `${requester.first_name} ${requester.last_name}`;
       displayEmail = requester.email;
     }
-    if (appointment.volunteer && appointment.volunteer.dogs && appointment.volunteer.dogs.length > 0) {
-      dogName = appointment.volunteer.dogs[0].dog_name;
-      dogPictureUrl = appointment.volunteer.dogs[0].dog_picture_url;
-    }
-  } else if (role === 'admin') {
-    const requester = appointment.individual;
-    if (requester) {
-      displayName = `${requester.first_name} ${requester.last_name}`;
-      displayEmail = requester.email;
-    }
-    if (appointment.volunteer && appointment.volunteer.dogs && appointment.volunteer.dogs.length > 0) {
+    if (appointment.volunteer?.dogs?.length) {
       dogName = appointment.volunteer.dogs[0].dog_name;
       dogPictureUrl = appointment.volunteer.dogs[0].dog_picture_url;
     }
@@ -108,63 +97,42 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
   return (
     <li className="p-4 border rounded-lg bg-gray-50">
-      <p>
-        <strong>Date:</strong> {formatDate(appointment.start_time)}
-      </p>
-      <p>
-        <strong>When:</strong> {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}
-      </p>
-      <p>
-        <strong>Status:</strong> {appointment.status}
-      </p>
+      <p><strong>Date:</strong> {formatDate(appointment.start_time)}</p>
+      <p><strong>When:</strong> {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}</p>
+      <p><strong>Status:</strong> {appointment.status}</p>
+
       {dogName && (
         <div className="mt-2">
-          <p>
-            <strong>Dog:</strong> {dogName}
-          </p>
+          <p><strong>Dog:</strong> {dogName}</p>
           {dogPictureUrl && (
-            <img
-              src={dogPictureUrl}
-              alt="Dog Picture"
-              className="w-32 h-auto mt-2"
-            />
+            <div className="relative w-32 h-32 mt-2">
+              <Image
+                src={dogPictureUrl}
+                alt="Dog Picture"
+                fill
+                className="rounded object-cover"
+              />
+            </div>
           )}
         </div>
       )}
-      {role === 'individual' && displayName && !isPast && (
+
+      {role !== 'admin' && displayName && !isPast && (
         <div className="mt-2">
-          <p>
-            <strong>Volunteer:</strong> {displayName}
-          </p>
+          <p><strong>{role === 'individual' ? 'Volunteer' : 'Requester'}:</strong> {displayName}</p>
           {displayEmail && (
-            <p>
-              <strong>Email:</strong> {displayEmail}
-            </p>
+            <p><strong>Email:</strong> {displayEmail}</p>
           )}
         </div>
       )}
-      {role === 'volunteer' && displayName && !isPast && (
-        <div className="mt-2">
-          <p>
-            <strong>Requester:</strong> {displayName}
-          </p>
-          {displayEmail && (
-            <p>
-              <strong>Email:</strong> {displayEmail}
-            </p>
-          )}
-        </div>
-      )}
+
       {role === 'admin' && displayName && !isPast && (
         <div className="mt-2">
-          <p>
-            <strong>User:</strong> {displayName}
-          </p>
-          <p>
-            <strong>Email:</strong> {displayEmail}
-          </p>
+          <p><strong>User:</strong> {displayName}</p>
+          <p><strong>Email:</strong> {displayEmail}</p>
         </div>
       )}
+
       <div className="mt-3">
         {role === 'individual' && !isPast && (
           <button
@@ -204,6 +172,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </button>
         )}
       </div>
+
       {appointment.status === 'canceled' && appointment.cancellation_reason && (
         <p className="text-gray-600 mt-2">
           <strong>Cancellation Reason:</strong> {appointment.cancellation_reason}
