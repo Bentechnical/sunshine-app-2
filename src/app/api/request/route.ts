@@ -1,7 +1,6 @@
 // src/app/api/request/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';

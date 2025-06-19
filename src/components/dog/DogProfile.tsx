@@ -47,30 +47,17 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
   useEffect(() => {
     async function fetchDogData() {
-      // 1) Fetch the dog record
-      const { data: dogData, error: dogErr } = await supabase
-        .from('dogs')
-        .select('*')
-        .eq('id', dogId)
-        .single();
-
-      if (dogErr || !dogData) {
-        setLoading(false);
-        return;
-      }
+      const { data: dogData } = await supabase.from('dogs').select('*').eq('id', dogId).single();
+      if (!dogData) return setLoading(false);
       setDog(dogData);
 
-      // 2) Fetch volunteer's name
       const { data: volunteerData } = await supabase
         .from('users')
         .select('first_name')
         .eq('id', dogData.volunteer_id)
         .single();
-      if (volunteerData) {
-        setVolunteerName(volunteerData.first_name);
-      }
+      if (volunteerData) setVolunteerName(volunteerData.first_name);
 
-      // 3) Fetch availability
       const { data: availData } = await supabase
         .from('appointment_availability')
         .select('*')
@@ -84,8 +71,6 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     }
 
     fetchDogData();
-    // we only want to re-run when dogId changes; supabase is stable enough here
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dogId]);
 
   function openBookingModal(slot: Availability) {
@@ -98,53 +83,37 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     setShowBookingModal(true);
   }
 
-  function parseTimeInput(input: string): { hour: number; minute: number } | null {
-    const cleaned = input.replace(/\s+/g, '').toLowerCase();
-    const match = cleaned.match(/^(\d{1,2})(:?(\d{2}))?(am|pm)$/);
+  function parseTimeInput(input: string) {
+    const match = input.trim().toLowerCase().match(/^(\d{1,2})(:?(\d{2}))?(am|pm)$/);
     if (!match) return null;
-
     let hour = parseInt(match[1], 10);
     const minute = match[3] ? parseInt(match[3], 10) : 0;
     const period = match[4];
-
     if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
     if (period === 'pm' && hour !== 12) hour += 12;
     if (period === 'am' && hour === 12) hour = 0;
-
     return { hour, minute };
   }
 
   function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
   function formatTime(iso: string) {
-    return new Date(iso).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   function handleNext() {
     if (!bookingSlot) return;
-
     const parsed = parseTimeInput(bookingTime);
-    if (!parsed) {
-      setBookingFeedback('Invalid time format. Use e.g., "11:30am"');
-      return;
-    }
+    if (!parsed) return setBookingFeedback('Invalid time format. Use e.g., "11:30am"');
 
     const start = new Date(bookingSlot.start_time);
     start.setHours(parsed.hour, parsed.minute, 0, 0);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
 
     if (start < new Date(bookingSlot.start_time) || end > new Date(bookingSlot.end_time)) {
-      setBookingFeedback('Time is outside the available window.');
-      return;
+      return setBookingFeedback('Time is outside the available window.');
     }
 
     setComputedBookingStart(start);
@@ -170,18 +139,10 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       ])
       .select();
 
-    if (error || !data || data.length === 0) {
-      setBookingFeedback('Failed to book this appointment.');
-      return;
-    }
-
+    if (error || !data?.length) return setBookingFeedback('Failed to book this appointment.');
     const appointmentId = data[0].id;
 
-    await supabase
-      .from('appointment_availability')
-      .update({ is_hidden: true })
-      .eq('id', bookingSlot.id);
-
+    await supabase.from('appointment_availability').update({ is_hidden: true }).eq('id', bookingSlot.id);
     setAvailability((prev) => prev.filter((s) => s.id !== bookingSlot.id));
 
     await fetch('/api/request', {
@@ -213,33 +174,24 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   if (!dog) return <p>Dog not found.</p>;
 
   return (
-    <div className="flex flex-col gap-4 h-full px-4 pb-4">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-        <button
-          className="text-sm text-[#0e62ae] font-semibold hover:underline mb-2 lg:mb-0"
-          onClick={onBack}
-        >
-          ← Back to Directory
-        </button>
-        <div className="lg:w-1/2 ml-auto">
-          <h3 className="text-xl font-semibold pl-4">Available Appointments</h3>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4 h-auto lg:h-[90vh] px-4 pb-4">
 
-      {/* Content Columns */}
-      <div className="flex flex-col lg:flex-row gap-6 min-w-0">
-        {/* Dog Info */}
-        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4">
+      <div className="flex flex-col lg:flex-row gap-6 min-w-0 flex-1">
+        {/* Left: Dog Info */}
+        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4 max-h-[90vh] overflow-y-auto">
+          <button
+            className="text-sm text-[#0e62ae] font-semibold hover:underline mb-4"
+            onClick={onBack}
+          >
+            ← Back to Dogs
+          </button>
           <div className="relative w-full h-60 rounded-md overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={dog.dog_picture_url || '/images/default_dog.png'}
               alt={dog.dog_name}
               className="absolute inset-0 w-full h-full object-cover"
             />
           </div>
-
           <h2 className="text-2xl font-bold mt-4">{dog.dog_name}</h2>
           <p className="text-gray-700">{dog.dog_breed}</p>
           <p className="text-sm text-gray-500 italic mb-2">with {volunteerName}</p>
@@ -247,12 +199,13 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
           <p className="text-gray-600">{dog.dog_bio}</p>
         </div>
 
-        {/* Availability */}
-        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4">
+        {/* Right: Availability */}
+        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl font-semibold mb-4">Available Appointments</h3>
           {availability.length === 0 ? (
             <p className="text-gray-500">No availability at the moment.</p>
           ) : (
-            <ul className="space-y-4">
+            <ul className="space-y-4 pr-1">
               {availability.map((slot) => (
                 <li key={slot.id} className="border p-3 rounded-md shadow-sm">
                   <p><strong>Date:</strong> {formatDate(slot.start_time)}</p>

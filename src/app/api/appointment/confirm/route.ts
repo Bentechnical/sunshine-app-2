@@ -28,8 +28,6 @@ export async function POST(req: NextRequest) {
       console.error('Error fetching appointment:', apptError);
       throw new Error('Could not fetch appointment details.');
     }
-    console.log('[🧪 Debug] appointment:', appointment);
-
     if (!appointment) {
       return NextResponse.json(
         { success: false, error: 'Appointment not found.' },

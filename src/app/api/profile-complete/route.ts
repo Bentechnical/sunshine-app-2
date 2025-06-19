@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     if (role === "volunteer" && data.dog) {
       const { name, age, breed, bio: dogBio, photoUrl } = data.dog;
-      const finalPhotoUrl = photoUrl || DEFAULT_DOG_IMAGE;
+      const finalPhotoUrl = photoUrl || null;
 
       const { error: dogError } = await supabase.from("dogs").insert([
         {

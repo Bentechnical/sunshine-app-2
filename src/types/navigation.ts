@@ -4,4 +4,5 @@ export type ActiveTab =
   | 'meet-with-dog'
   | 'my-visits'
   | 'messaging'
-  | 'my-therapy-dog';
+  | 'my-therapy-dog'
+  | 'dashboard-home';

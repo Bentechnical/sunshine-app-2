@@ -126,7 +126,8 @@ export default function ProfileCompletePage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-white p-4">
+    <div className="min-h-screen bg-white p-4 overflow-y-auto flex justify-center">
+
       <div
         className={`w-full max-w-lg p-6 bg-white rounded-lg shadow-md transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'
           }`}

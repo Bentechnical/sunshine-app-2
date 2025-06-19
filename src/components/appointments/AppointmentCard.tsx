@@ -100,22 +100,14 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
       <p><strong>When:</strong> {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}</p>
       <p><strong>Status:</strong> {appointment.status}</p>
 
-      {dogName && (
-        <div className="mt-2">
-          <p><strong>Dog:</strong> {dogName}</p>
-          {dogPictureUrl && (
-            <div className="relative w-32 h-32 mt-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={dogPictureUrl}
-                alt="Dog Picture"
-                className="absolute inset-0 w-full h-full rounded object-cover"
-              />
-            </div>
+      <div className="relative w-32 h-32 mt-2">
+        <img
+          src={dogPictureUrl || '/images/default_dog.png'}
+          alt="Dog Picture"
+          className="absolute inset-0 w-full h-full rounded object-cover"
+        />
+      </div>
 
-          )}
-        </div>
-      )}
 
       {role !== 'admin' && displayName && !isPast && (
         <div className="mt-2">
@@ -162,8 +154,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <button
             onClick={() => onCancelClick(appointment)}
             className={`px-4 py-2 rounded ${cancelButtonDisabled(appointment)
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-red-600 text-white'
+              ? 'bg-gray-400 text-white cursor-not-allowed'
+              : 'bg-red-600 text-white'
               }`}
             disabled={cancelButtonDisabled(appointment)}
           >

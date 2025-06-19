@@ -1,3 +1,5 @@
+//src/app/layout.tsx
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -31,9 +33,8 @@ export default function RootLayout({
   return (
     <ClerkProvider publishableKey={clerkPublishableKey}>
       <html lang="en">
-        <body
-          className={`h-screen overflow-hidden ${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
+        <body className={`min-h-screen overflow-auto ${geistSans.variable} ${geistMono.variable} antialiased`}>
+
           {children}
         </body>
       </html>
