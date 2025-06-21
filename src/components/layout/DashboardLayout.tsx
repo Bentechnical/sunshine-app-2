@@ -69,14 +69,6 @@ export default function DashboardLayout({
               className="absolute inset-0 w-full h-full object-contain"
             />
           </div>
-          <div className="relative w-9 h-9 rounded-full border border-white overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt="Profile"
-              src={profileImage}
-              className="absolute inset-0 w-full h-full object-cover rounded-full"
-            />
-          </div>
         </div>
 
         {/* Page content (offset for top + bottom bars on mobile) */}

@@ -32,25 +32,28 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
   const [selectedEvent, setSelectedEvent] = useState<AvailabilityEvent | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState<number>(1);
-  const [calendarView, setCalendarView] = useState<'timeGridWeek' | 'timeGridFiveDay' | 'timeGridThreeDay'>('timeGridWeek');
   const [slideKey, setSlideKey] = useState(0);
   const calendarRef = useRef<any>(null);
 
   useEffect(() => {
-    const updateView = () => {
-      const width = window.innerWidth;
-      if (width < 640) {
-        setCalendarView('timeGridThreeDay');
-      } else if (width < 1024) {
-        setCalendarView('timeGridFiveDay');
-      } else {
-        setCalendarView('timeGridWeek');
-      }
-    };
-    updateView();
-    window.addEventListener('resize', updateView);
-    return () => window.removeEventListener('resize', updateView);
-  }, []);
+  const calendarApi = calendarRef.current?.getApi();
+  if (!calendarApi) return;
+
+  const updateView = () => {
+    const width = window.innerWidth;
+    if (width < 640) {
+      calendarApi.changeView('timeGridThreeDay');
+    } else if (width < 1024) {
+      calendarApi.changeView('timeGridFiveDay');
+    } else {
+      calendarApi.changeView('timeGridWeek');
+    }
+  };
+
+  updateView(); // Run once on mount
+  window.addEventListener('resize', updateView);
+  return () => window.removeEventListener('resize', updateView);
+}, []);
 
   useEffect(() => {
     const attachSlideAnimation = () => {
@@ -239,7 +242,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
             key={slideKey}
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView={calendarView}
+            initialView="timeGridWeek"            
             views={{
               timeGridThreeDay: {
                 type: 'timeGrid',

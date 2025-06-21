@@ -20,7 +20,7 @@
     : role === 'volunteer'
     ? [
         { key: 'dashboard-home', label: 'Home' },
-        { key: 'my-therapy-dog', label: 'My Therapy Dog' },
+        { key: 'my-therapy-dog', label: 'Set Availability' },
         { key: 'my-visits', label: 'My Visits' },
         { key: 'messaging', label: 'Messages' },
       ]
