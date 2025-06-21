@@ -4,10 +4,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
-import { useSupabaseClient } from '@/utils/supabase/client';
 
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import ProfileTab from '@/components/profile/ProfileTab';
+import DashboardHome from '@/components/dashboard/DashboardHome';
 import MeetWithDog from '@/components/visits/MeetWithDog';
 import MyVisits from '@/components/visits/MyVisits';
 import VolunteerAvailability from '@/components/availability/VolunteerAvailability';
@@ -19,7 +18,7 @@ import { ActiveTab } from '@/types/navigation';
 export default function DashboardPage() {
   const { user } = useUser();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,20 +31,17 @@ export default function DashboardPage() {
   const userId = user?.id ?? '';
   const profileImage = user?.imageUrl ?? '';
 
-  // ✅ Memoize setter to avoid render loop in DogDirectory
   const handleSelectDog = useCallback<React.Dispatch<React.SetStateAction<string | null>>>(
-  (idOrSetter) => {
-    setSelectedDogId(idOrSetter);
-  },
-  []
-);
+    (idOrSetter) => setSelectedDogId(idOrSetter),
+    []
+  );
 
-  if (!user || !role) return null;
+  if (!user || !role || role === 'admin') return null;
 
   const renderActiveTabContent = () => {
     switch (activeTab) {
-      case 'profile':
-        return <ProfileTab />;
+      case 'dashboard-home':
+        return <DashboardHome userId={userId} role={role} setActiveTab={setActiveTab} />;
       case 'meet-with-dog':
         return (
           <MeetWithDog
@@ -59,7 +55,6 @@ export default function DashboardPage() {
         return (
           <div className="space-y-6">
             <VolunteerAvailability userId={userId} />
-            <EditDogProfile />
           </div>
         );
       case 'messaging':

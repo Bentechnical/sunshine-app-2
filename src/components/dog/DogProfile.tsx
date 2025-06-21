@@ -44,6 +44,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   const [bookingStep, setBookingStep] = useState<'input' | 'summary' | 'success'>('input');
   const [computedBookingStart, setComputedBookingStart] = useState<Date | null>(null);
   const [computedBookingEnd, setComputedBookingEnd] = useState<Date | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     async function fetchDogData() {
@@ -73,6 +74,17 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     fetchDogData();
   }, [dogId]);
 
+  useEffect(() => {
+    if (showBookingModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showBookingModal]);
+
   function openBookingModal(slot: Availability) {
     setBookingSlot(slot);
     setBookingTime('');
@@ -96,11 +108,18 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   }
 
   function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return new Date(iso).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   function formatTime(iso: string) {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
   function handleNext() {
@@ -125,6 +144,8 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   async function handleBookingSubmitSummary() {
     if (!bookingSlot || !computedBookingStart || !computedBookingEnd || !user) return;
 
+    setIsSubmitting(true);
+
     const { data, error } = await supabase
       .from('appointments')
       .insert([
@@ -139,10 +160,19 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       ])
       .select();
 
-    if (error || !data?.length) return setBookingFeedback('Failed to book this appointment.');
+    if (error || !data?.length) {
+      setBookingFeedback('Failed to book this appointment.');
+      setIsSubmitting(false);
+      return;
+    }
+
     const appointmentId = data[0].id;
 
-    await supabase.from('appointment_availability').update({ is_hidden: true }).eq('id', bookingSlot.id);
+    await supabase
+      .from('appointment_availability')
+      .update({ is_hidden: true })
+      .eq('id', bookingSlot.id);
+
     setAvailability((prev) => prev.filter((s) => s.id !== bookingSlot.id));
 
     await fetch('/api/request', {
@@ -157,6 +187,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
       body: JSON.stringify({ type: 'volunteer', requestId: appointmentId, dogId: dog!.id }),
     });
 
+    setIsSubmitting(false);
     setBookingStep('success');
   }
 
@@ -175,32 +206,36 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
   return (
     <div className="flex flex-col gap-4 h-auto lg:h-[90vh] px-4 pb-4">
-
-      <div className="flex flex-col lg:flex-row gap-6 min-w-0 flex-1">
-        {/* Left: Dog Info */}
-        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4 max-h-[90vh] overflow-y-auto">
-          <button
-            className="text-sm text-[#0e62ae] font-semibold hover:underline mb-4"
-            onClick={onBack}
-          >
-            ← Back to Dogs
-          </button>
-          <div className="relative w-full h-60 rounded-md overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-y-6 lg:gap-6 flex-1">
+        {/* Left Column - Dog Info */}
+        <div className="col-span-1 bg-white shadow-lg rounded-lg p-4 flex flex-col">
+          <div className="mb-4">
+            <button
+              className="text-lg text-[#0e62ae] font-semibold hover:underline"
+              onClick={onBack}
+            >
+              ← Back to Dogs
+            </button>
+          </div>
+          <div className="relative aspect-square w-full overflow-hidden rounded-lg">
             <img
               src={dog.dog_picture_url || '/images/default_dog.png'}
               alt={dog.dog_name}
               className="absolute inset-0 w-full h-full object-cover"
             />
           </div>
-          <h2 className="text-2xl font-bold mt-4">{dog.dog_name}</h2>
-          <p className="text-gray-700">{dog.dog_breed}</p>
-          <p className="text-sm text-gray-500 italic mb-2">with {volunteerName}</p>
-          <p className="text-gray-600 text-sm mb-4">Age: {dog.dog_age || 'Unknown'}</p>
-          <p className="text-gray-600">{dog.dog_bio}</p>
+          <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
+          <p className="text-gray-700">
+            {dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}
+          </p>
+          <p className="text-gray-600 mt-2">{dog.dog_bio}</p>
+          <p className="text-gray-800 mt-2">
+            <strong>Volunteer:</strong> {volunteerName || 'Unknown'}
+          </p>
         </div>
 
-        {/* Right: Availability */}
-        <div className="w-full lg:w-1/2 bg-white shadow-lg rounded-lg p-4 max-h-[90vh] overflow-y-auto">
+        {/* Right Column - Availability */}
+        <div className="col-span-2 bg-white shadow-lg rounded-lg p-4 max-h-[90vh] overflow-y-auto">
           <h3 className="text-xl font-semibold mb-4">Available Appointments</h3>
           {availability.length === 0 ? (
             <p className="text-gray-500">No availability at the moment.</p>
@@ -225,7 +260,8 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
       {/* Booking Modal */}
       {showBookingModal && bookingSlot && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+        <div className="fixed top-0 left-[256px] w-[calc(100vw-256px)] h-screen bg-black bg-opacity-50 z-50 flex items-center justify-center">
+
           <div className="bg-white p-6 rounded-md max-w-md w-full">
             {bookingStep === 'input' && (
               <>
@@ -244,7 +280,12 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
                 {bookingFeedback && <p className="mt-2 text-sm text-red-600">{bookingFeedback}</p>}
                 <div className="mt-6 flex justify-end space-x-2">
                   <button onClick={closeModal} className="bg-gray-400 text-white px-4 py-2 rounded">Cancel</button>
-                  <button onClick={handleNext} className="bg-blue-600 text-white px-4 py-2 rounded">Next</button>
+                  <button
+                    onClick={handleNext}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    Next
+                  </button>
                 </div>
               </>
             )}
@@ -256,8 +297,36 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
                 <p className="mt-2"><strong>Requested Time:</strong><br />{formatTime(computedBookingStart.toISOString())} – {formatTime(computedBookingEnd.toISOString())}</p>
                 {bookingFeedback && <p className="mt-2 text-sm text-red-600">{bookingFeedback}</p>}
                 <div className="mt-6 flex justify-end space-x-2">
-                  <button onClick={() => setBookingStep('input')} className="bg-gray-400 text-white px-4 py-2 rounded">Back</button>
-                  <button onClick={handleBookingSubmitSummary} className="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
+                  <button
+                    onClick={() => setBookingStep('input')}
+                    disabled={isSubmitting}
+                    className="bg-gray-400 text-white px-4 py-2 rounded"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleBookingSubmitSummary}
+                    disabled={isSubmitting}
+                    className={`bg-blue-600 text-white px-4 py-2 rounded flex items-center justify-center ${
+                      isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 mr-2 text-white" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      'Submit'
+                    )}
+                  </button>
                 </div>
               </>
             )}

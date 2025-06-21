@@ -1,12 +1,15 @@
 // src/components/dog/EditDogProfile.tsx
-
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
 
-export default function EditDogProfile() {
+interface EditDogProfileProps {
+  onSaveComplete?: () => void;
+}
+
+export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
   const userId = user?.id;
@@ -28,8 +31,6 @@ export default function EditDogProfile() {
     hasFetchedDog.current = true;
 
     const fetchOrCreateDog = async () => {
-      console.log('Fetching dog for userId:', userId);
-
       const { data, error } = await supabase
         .from('dogs')
         .select('*')
@@ -44,8 +45,6 @@ export default function EditDogProfile() {
       }
 
       if (!data) {
-        console.log('No dog profile found. Creating a new one.');
-
         const { data: newDog, error: insertError } = await supabase
           .from('dogs')
           .insert({
@@ -54,7 +53,7 @@ export default function EditDogProfile() {
             dog_breed: '',
             dog_age: null,
             dog_bio: '',
-            dog_picture_url: null, // ✅ use null, not empty string
+            dog_picture_url: null,
           })
           .select()
           .maybeSingle();
@@ -64,13 +63,6 @@ export default function EditDogProfile() {
           setMessage('Error creating dog profile.');
         } else {
           setDog(newDog);
-          setForm({
-            dog_name: '',
-            dog_breed: '',
-            dog_age: '',
-            dog_bio: '',
-            dog_picture_url: '',
-          });
         }
       } else {
         setDog(data);
@@ -101,7 +93,7 @@ export default function EditDogProfile() {
         dog_breed: form.dog_breed,
         dog_age: parseInt(form.dog_age),
         dog_bio: form.dog_bio,
-        dog_picture_url: form.dog_picture_url?.trim() || null, // ✅ normalize to null if empty
+        dog_picture_url: form.dog_picture_url?.trim() || null,
       })
       .eq('volunteer_id', userId);
 
@@ -110,6 +102,7 @@ export default function EditDogProfile() {
       setMessage('Error updating dog profile.');
     } else {
       setMessage('Dog profile updated successfully!');
+      if (onSaveComplete) onSaveComplete(); // ✅ trigger parent refresh + close
     }
   };
 

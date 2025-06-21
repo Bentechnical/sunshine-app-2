@@ -1,9 +1,7 @@
-// src/components/profile/EditProfileForm.tsx
+'use client';
 
-"use client";
-
-import React, { FormEvent, useState } from "react";
-import AvatarUpload from "@/components/profile/AvatarUpload";
+import React, { FormEvent, useState } from 'react';
+import AvatarUpload from '@/components/profile/AvatarUpload';
 
 interface EditProfileFormProps {
   initialBio?: string | null;
@@ -14,82 +12,84 @@ interface EditProfileFormProps {
 }
 
 export default function EditProfileForm({
-  initialBio = "",
-  initialPhone = "",
-  initialAvatarUrl = "",
+  initialBio = '',
+  initialPhone = '',
+  initialAvatarUrl = '',
   onSubmit,
   error,
 }: EditProfileFormProps) {
-  const [bio, setBio] = useState(initialBio ?? "");
-  const [phone, setPhone] = useState(initialPhone ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
+  const [bio, setBio] = useState(initialBio ?? '');
+  const [phone, setPhone] = useState(initialPhone ?? '');
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? '');
   const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (isUploading) {
-      alert("Please wait for the profile picture to finish uploading.");
+      alert('Please wait for the profile picture to finish uploading.');
       return;
     }
 
-    console.log("✅ Submitting form with avatarUrl:", avatarUrl);
     await onSubmit(bio, phone, avatarUrl);
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-lg p-5 mb-6">
-      <h3 className="text-xl font-semibold mb-4">Edit Profile</h3>
-
-      <div className="flex items-center mb-4">
-        <AvatarUpload
-          initialUrl={avatarUrl}
-          fallbackUrl="https://via.placeholder.com/100"
-          onUpload={(url: string) => {
-            console.log("📸 AvatarUpload onUpload received:", url);
-            setAvatarUrl(url);
-            setIsUploading(false);
-          }}
-          size={64}
-          altText="Profile Picture"
-        />
-        <span className="ml-4 font-medium">Change Profile Picture</span>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-4">
+        <div className="relative w-24 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
+          <AvatarUpload
+            initialUrl={avatarUrl}
+            fallbackUrl="https://via.placeholder.com/100"
+            onUpload={(url: string) => {
+              setAvatarUrl(url);
+              setIsUploading(false);
+            }}
+            altText="Profile Picture"
+          />
+        </div>
+        <span className="font-medium">Change Profile Picture</span>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
-            Phone Number
-          </label>
-          <input
-            type="text"
-            id="phone_number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
-          />
-        </div>
-        <div className="mb-4">
-          <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
-            Bio
-          </label>
-          <textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
-            rows={4}
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200"
-        >
-          Save Changes
-        </button>
-      </form>
+      <div>
+        <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+          Phone Number
+        </label>
+        <input
+          type="text"
+          id="phone_number"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
+        />
+      </div>
 
-      {error && <p className="text-red-600 mt-4">{error}</p>}
-    </div>
+      <div>
+        <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+          Bio
+        </label>
+        <textarea
+          id="bio"
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
+          rows={4}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Please contact us to update your email address. 
+        </label>
+      </div>
+
+      <button
+        type="submit"
+        className="w-full py-2 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition"
+      >
+        Save Changes
+      </button>
+
+      {error && <p className="text-red-600 mt-2">{error}</p>}
+    </form>
   );
 }

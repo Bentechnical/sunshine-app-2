@@ -71,9 +71,9 @@ export default function AvatarUpload({
       <img
         src={previewUrl}
         alt={altText}
-        className="rounded-full object-cover w-full h-full transition-opacity group-hover:opacity-60 border"
+        className="object-cover w-full h-full transition-opacity group-hover:opacity-60 border"
       />
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm rounded-full">
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm">
         Change
       </div>
       <input

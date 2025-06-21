@@ -55,7 +55,7 @@
 :root {
   --radius: 0.25rem;
 
-  --background: #ffffff;
+  --background: #eaf4fd;
   --foreground: #000000;
 
   --card: #ffffff;
@@ -140,6 +140,47 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
+/* --- FullCalendar Mobile Responsiveness Fix --- */
+
+.fc-toolbar {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  column-gap: 0.5rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+
+  .fc-button {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+
+  .fc-toolbar-chunk {
+    flex-wrap: wrap;
+  }
+}
+
+/* Animate FullCalendar view when navigating */
+.fc-slide-fade {
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 
 @layer base {
   * {

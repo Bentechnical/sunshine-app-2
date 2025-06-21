@@ -61,14 +61,14 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
             className="bg-white shadow-lg rounded-lg p-4 flex flex-col justify-between min-h-[500px]"
           >
             <div>
-              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={dog.dog_picture_url || '/images/default_dog.png'}
-                  alt={dog.dog_name}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              </div>
+              <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+  <img
+    src={dog.dog_picture_url || '/images/default_dog.png'}
+    alt={dog.dog_name}
+    className="absolute inset-0 w-full h-full object-cover"
+  />
+</div>
+
 
               <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
               <p className="text-gray-700">

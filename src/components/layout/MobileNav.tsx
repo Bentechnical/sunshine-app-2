@@ -15,19 +15,20 @@ export default function MobileNav({
   setActiveTab,
 }: MobileNavProps) {
   const tabs: { key: ActiveTab; label: string }[] =
-    role === 'individual'
-      ? [
-          { key: 'profile', label: 'Profile' },
-          { key: 'meet-with-dog', label: 'Meet Dogs' },
-          { key: 'my-visits', label: 'Visits' },
-          { key: 'messaging', label: 'Messages' },
-        ]
-      : [
-          { key: 'profile', label: 'Profile' },
-          { key: 'my-therapy-dog', label: 'My Dog' },
-          { key: 'my-visits', label: 'Visits' },
-          { key: 'messaging', label: 'Messages' },
-        ];
+  role === 'individual'
+    ? [
+        { key: 'dashboard-home', label: 'Home' },
+        { key: 'meet-with-dog', label: 'Meet Dogs' },
+        { key: 'my-visits', label: 'Visits' },
+        { key: 'messaging', label: 'Messages' },
+      ]
+    : [
+        { key: 'dashboard-home', label: 'Home' },
+        { key: 'my-therapy-dog', label: 'My Dog' },
+        { key: 'my-visits', label: 'Visits' },
+        { key: 'messaging', label: 'Messages' },
+      ];
+
 
   return (
     <nav
