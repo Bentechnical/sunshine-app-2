@@ -35,7 +35,7 @@ export default function SuggestedDogsPreview({ setActiveTab }: Props) {
       }
     };
     fetchDogs();
-  }, [supabase]);
+  }, []);
 
   return (
     <div className="rounded-lg p-3 flex flex-col min-h-[240px]">

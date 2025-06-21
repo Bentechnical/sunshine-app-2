@@ -71,7 +71,7 @@ export default function TherapyDogCard() {
 
   return (
     <div className="space-y-4 pt-1 px-2 flex flex-col lg:flex-1 pb-3">
-      <h2 className="text-xl font-bold">My Therapy Dog</h2>
+      <h2 className="text-xl font-bold">Set Availability</h2>
       <div className="flex flex-col bg-white rounded-lg">
         <div className="rounded-lg overflow-hidden shadow-md aspect-[4/3] md:aspect-video lg:aspect-square">
           <img

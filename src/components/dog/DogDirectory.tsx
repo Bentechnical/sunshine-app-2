@@ -62,12 +62,12 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
           >
             <div>
               <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-  <img
-    src={dog.dog_picture_url || '/images/default_dog.png'}
-    alt={dog.dog_name}
-    className="absolute inset-0 w-full h-full object-cover"
-  />
-</div>
+                <img
+                  src={dog.dog_picture_url || '/images/default_dog.png'}
+                  alt={dog.dog_name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              </div>
 
 
               <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>

@@ -1,21 +1,23 @@
-"use client";
+ //src/app/(pages)/sign-in/[[...rest]]/page.tsx
 
-import { SignIn } from "@clerk/nextjs";
-import React from 'react';
+  "use client";
 
-export default function SignInPage() {
+  import { SignIn } from "@clerk/nextjs";
+  import React from 'react';
 
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold text-center mb-6">Sign In</h2>
-        <SignIn
-          path="/sign-in"
-          routing="path"
-          signUpUrl="/sign-up"
-          afterSignInUrl="/dashboard" // Redirect after sign-in, adjust accordingly
-        />
+  export default function SignInPage() {
+
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold text-center mb-6">Sign In</h2>
+          <SignIn
+            path="/sign-in"
+            routing="path"
+            signUpUrl="/sign-up"
+            afterSignInUrl="/dashboard" // Redirect after sign-in, adjust accordingly
+          />
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
