@@ -61,10 +61,28 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
   }
 
   if (!appointment) {
-    return (
-      <div className="text-sm text-gray-600">No upcoming visits found.</div>
-    );
-  }
+  return (
+    <div className="flex flex-col items-center justify-center text-center px-4 py-8 space-y-4 bg-white rounded-lg shadow-inner">
+      <img
+        src="/images/missing_dog.png"
+        alt="No upcoming visits"
+        className="w-32 h-32 object-contain opacity-80"
+      />
+      <h3 className="text-lg font-semibold text-gray-800">
+        No Upcoming Visits
+      </h3>
+      <p className="text-sm text-gray-600 max-w-sm">
+        Looks like you don’t have any visits scheduled yet. Once you request or confirm a session, you’ll see it here!
+      </p>
+      <button
+        onClick={() => setActiveTab(role === 'individual' ? 'meet-with-dog' : 'my-visits')}
+        className="mt-2 px-4 py-2 bg-[#0e62ae] hover:bg-[#094e8b] text-white text-sm rounded-md"
+      >
+        {role === 'individual' ? 'Explore Therapy Dogs' : 'View My Visits'}
+      </button>
+    </div>
+  );
+}
 
   const {
     start_time,

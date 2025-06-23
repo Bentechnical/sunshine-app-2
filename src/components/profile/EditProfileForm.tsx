@@ -1,6 +1,8 @@
+// src/components/profile/EditProfileForm.tsx
+
 'use client';
 
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useRef, useState } from 'react';
 import AvatarUpload from '@/components/profile/AvatarUpload';
 
 interface EditProfileFormProps {
@@ -20,7 +22,8 @@ export default function EditProfileForm({
 }: EditProfileFormProps) {
   const [bio, setBio] = useState(initialBio ?? '');
   const [phone, setPhone] = useState(initialPhone ?? '');
-  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? '');
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState(initialAvatarUrl ?? '');
+  const avatarUrlRef = useRef(initialAvatarUrl ?? '');
   const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -31,7 +34,10 @@ export default function EditProfileForm({
       return;
     }
 
-    await onSubmit(bio, phone, avatarUrl);
+    const finalAvatarUrl = avatarUrlRef.current;
+    console.log('[Submit] Avatar URL used in update:', finalAvatarUrl);
+
+    await onSubmit(bio, phone, finalAvatarUrl);
   };
 
   return (
@@ -39,10 +45,12 @@ export default function EditProfileForm({
       <div className="flex items-center gap-4">
         <div className="relative w-24 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
           <AvatarUpload
-            initialUrl={avatarUrl}
+            initialUrl={previewAvatarUrl}
             fallbackUrl="https://via.placeholder.com/100"
             onUpload={(url: string) => {
-              setAvatarUrl(url);
+              console.log('[AvatarUpload] New avatar uploaded:', url);
+              setPreviewAvatarUrl(url);
+              avatarUrlRef.current = url;
               setIsUploading(false);
             }}
             altText="Profile Picture"
@@ -76,9 +84,10 @@ export default function EditProfileForm({
           rows={4}
         />
       </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          Please contact us to update your email address. 
+          Please contact us to update your email address.
         </label>
       </div>
 

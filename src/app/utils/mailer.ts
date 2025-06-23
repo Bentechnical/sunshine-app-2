@@ -22,7 +22,7 @@ export const sendTransactionalEmail = async ({
 
   try {
     const response = await resend.emails.send({
-      from: "Sunshine App <no-reply@itsben.me>",
+      from: "Sunshine App <no-reply@sunshinedogs.app>",
       to,
       subject,
       html,

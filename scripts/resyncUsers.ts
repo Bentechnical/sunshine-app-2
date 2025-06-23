@@ -2,9 +2,13 @@
 
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
+
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import { createClient } from '@supabase/supabase-js';
 import type { User } from '@clerk/backend';
+
+console.log("🔑 Loaded secret key:", process.env.CLERK_SECRET_KEY);
+
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -16,16 +20,28 @@ async function resyncAllUsers() {
   const pageSize = 100;
   let offset = 0;
 
+  console.log('🔍 Fetching users from Clerk...');
+
   while (true) {
     const page = await clerkClient.users.getUserList({
       limit: pageSize,
       offset,
     });
 
-    const pageUsers = page.data;
-    users = users.concat(pageUsers);
+    console.log(`📦 Page ${offset / pageSize + 1}: ${page.data.length} users`);
 
-    if (pageUsers.length < pageSize) break; // done
+    if (page.data.length > 0 && offset === 0) {
+      const preview = page.data[0];
+      console.log('👤 Sample user:', {
+        id: preview.id,
+        email: preview.emailAddresses?.[0]?.emailAddress,
+        createdAt: preview.createdAt,
+      });
+    }
+
+    users = users.concat(page.data);
+
+    if (page.data.length < pageSize) break;
     offset += pageSize;
   }
 
@@ -66,7 +82,7 @@ async function resyncAllUsers() {
     if (error) {
       console.error(`❌ Failed to update user ${id}:`, error.message);
     } else {
-      console.log(`✅ Synced user ${id} as '${role}'`);
+      console.log(`✅ Synced user ${id} (${email}) as '${role}'`);
     }
   }
 }

@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
+import AvatarUpload from '@/components/profile/AvatarUpload';
 
 interface EditDogProfileProps {
   onSaveComplete?: () => void;
@@ -24,6 +25,7 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
     dog_picture_url: '',
   });
   const [message, setMessage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const hasFetchedDog = useRef(false);
 
   useEffect(() => {
@@ -86,6 +88,11 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
 
     if (!userId || !dog) return;
 
+    if (isUploading) {
+      alert('Please wait for the image to finish uploading.');
+      return;
+    }
+
     const { error } = await supabase
       .from('dogs')
       .update({
@@ -102,7 +109,7 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
       setMessage('Error updating dog profile.');
     } else {
       setMessage('Dog profile updated successfully!');
-      if (onSaveComplete) onSaveComplete(); // ✅ trigger parent refresh + close
+      if (onSaveComplete) onSaveComplete();
     }
   };
 
@@ -113,6 +120,22 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-4">My Dog Profile</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
+
+        <div className="flex items-center gap-4">
+          <div className="relative w-24 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
+            <AvatarUpload
+              initialUrl={form.dog_picture_url}
+              fallbackUrl="/images/default_dog.png"
+              altText="Dog Profile Picture"
+              onUpload={(url) => {
+                setIsUploading(false);
+                setForm((prev) => ({ ...prev, dog_picture_url: url }));
+              }}
+            />
+          </div>
+          <span className="font-medium">Change Dog Picture</span>
+        </div>
+
         <div>
           <label className="block text-sm font-medium">Dog Name</label>
           <input
@@ -148,20 +171,17 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
             className="w-full p-2 border rounded"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium">Dog Picture URL</label>
-          <input
-            type="text"
-            value={form.dog_picture_url}
-            onChange={(e) => setForm({ ...form, dog_picture_url: e.target.value })}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
-          Save Dog Profile
+
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          disabled={isUploading}
+        >
+          {isUploading ? 'Uploading...' : 'Save Dog Profile'}
         </button>
+
+        {message && <p className="mt-4 text-green-600">{message}</p>}
       </form>
-      {message && <p className="mt-4 text-green-600">{message}</p>}
     </div>
   );
 }

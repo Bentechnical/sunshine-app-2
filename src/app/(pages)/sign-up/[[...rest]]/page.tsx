@@ -9,12 +9,10 @@ export default function SignUpPage() {
   const { user, isLoaded } = useUser();
 
   useEffect(() => {
-    // Only run once when the user is loaded and exists
     if (isLoaded && user) {
-      // Optionally check for a flag to ensure the email is only sent once
       (async () => {
         try {
-          const res = await fetch('/api/mailer', {
+          await fetch('/api/mailer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -27,27 +25,50 @@ export default function SignUpPage() {
               },
             }),
           });
-          const result = await res.json();
-          console.log('Welcome email sent:', result);
         } catch (error) {
           console.error('Error sending welcome email:', error);
         }
-        // Redirect after sending the email
         router.push('/complete-profile');
       })();
     }
   }, [isLoaded, user, router]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold text-center mb-6">Create an Account</h2>
-        <SignUp
-          path="/sign-up"
-          routing="path"
-          signInUrl="/sign-in"
-          forceRedirectUrl="/complete-profile"
-        />
+    <div className="min-h-screen flex items-center justify-center bg-[#e3f0f1] px-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-md p-8">
+        <div className="w-full mb-6 text-center">
+          <img
+            src="/images/sunshine-logo-color.png"
+            alt="Sunshine Therapy Dogs Logo"
+            className="mx-auto max-w-[240px] h-auto object-contain"
+          />
+        </div>
+
+        <h2 className="text-2xl font-bold text-center text-[#0e62ae] mb-2">Sign Up</h2>
+        <p className="text-sm text-center text-gray-600 mb-6">
+          Create your account to get started
+        </p>
+
+        <div className="clerk-custom-signup">
+          <SignUp
+            path="/sign-up"
+            routing="path"
+            signInUrl="/sign-in"
+            forceRedirectUrl="/complete-profile"
+            appearance={{
+              elements: {
+                card: 'shadow-none px-0 py-0',
+                formButtonPrimary: 'bg-[#0e62ae] hover:bg-[#095397] text-white',
+                headerTitle: 'text-xl font-bold text-center text-[#0e62ae]',
+                headerSubtitle: 'text-sm text-gray-600 text-center mb-4',
+                formFieldInput: 'input input-bordered w-full',
+                formFieldLabel: 'text-sm text-gray-700 mb-1',
+                footerActionText: 'text-gray-700 text-sm text-center',
+                footerActionLink: 'text-[#0e62ae] font-semibold hover:text-[#094f91] underline',
+              },
+            }}
+          />
+        </div>
       </div>
     </div>
   );

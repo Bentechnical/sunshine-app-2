@@ -1,5 +1,7 @@
 // /app/api/webhooks/route.ts
 
+export const dynamic = 'force-dynamic';
+
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";

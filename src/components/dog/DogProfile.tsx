@@ -46,6 +46,22 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   const [computedBookingEnd, setComputedBookingEnd] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const refreshAvailability = async (volunteerId: string) => {
+    const { data, error } = await supabase
+      .from('appointment_availability')
+      .select('*')
+      .eq('volunteer_id', volunteerId)
+      .eq('is_hidden', false)
+      .gt('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true });
+
+    if (error) {
+      console.error('Error refreshing availability:', error);
+    } else {
+      setAvailability(data || []);
+    }
+  };
+
   useEffect(() => {
     async function fetchDogData() {
       const { data: dogData } = await supabase.from('dogs').select('*').eq('id', dogId).single();
@@ -59,15 +75,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
         .single();
       if (volunteerData) setVolunteerName(volunteerData.first_name);
 
-      const { data: availData } = await supabase
-        .from('appointment_availability')
-        .select('*')
-        .eq('volunteer_id', dogData.volunteer_id)
-        .eq('is_hidden', false)
-        .gt('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true });
-
-      setAvailability(availData || []);
+      await refreshAvailability(dogData.volunteer_id);
       setLoading(false);
     }
 
@@ -75,11 +83,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   }, [dogId]);
 
   useEffect(() => {
-    if (showBookingModal) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = showBookingModal ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
@@ -168,12 +172,16 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
     const appointmentId = data[0].id;
 
-    await supabase
+    const { error: hideError } = await supabase
       .from('appointment_availability')
       .update({ is_hidden: true })
       .eq('id', bookingSlot.id);
 
-    setAvailability((prev) => prev.filter((s) => s.id !== bookingSlot.id));
+    if (hideError) {
+      console.error('Failed to update is_hidden:', hideError);
+    }
+
+    await refreshAvailability(bookingSlot.volunteer_id);
 
     await fetch('/api/request', {
       method: 'POST',
