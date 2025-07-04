@@ -15,21 +15,34 @@ export async function POST(req: NextRequest) {
     const type = body.type;
     const requestId = Number(body.requestId);
     const dogId = Number(body.dogId);
+    const availabilityId = Number(body.availabilityId); // 👈 new
 
-    if (!type || Number.isNaN(requestId) || Number.isNaN(dogId)) {
-      console.error('[REQUEST API] Missing or invalid type, requestId, or dogId:', {
+    if (!type || Number.isNaN(requestId) || Number.isNaN(dogId) || Number.isNaN(availabilityId)) {
+      console.error('[REQUEST API] Missing or invalid input:', {
         type,
         requestId: body.requestId,
         dogId: body.dogId,
+        availabilityId: body.availabilityId,
       });
 
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid type, requestId, or dogId.' },
+        { success: false, error: 'Missing or invalid type, requestId, dogId, or availabilityId.' },
         { status: 400 }
       );
     }
 
-    console.log('[REQUEST API] Parsed input:', { type, requestId, dogId });
+    console.log('[REQUEST API] Parsed input:', { type, requestId, dogId, availabilityId });
+
+    // --- Hide the availability slot ---
+    const { error: hideError } = await supabase
+      .from('appointment_availability')
+      .update({ is_hidden: true })
+      .eq('id', availabilityId);
+
+    if (hideError) {
+      console.error('[REQUEST API] Failed to hide availability:', hideError);
+      // Continue anyway; emails can still go out
+    }
 
     // --- Fetch appointment ---
     const { data: appointment, error: apptError } = await supabase
@@ -38,13 +51,8 @@ export async function POST(req: NextRequest) {
       .eq('id', requestId)
       .maybeSingle();
 
-    if (apptError) {
-      console.error('[REQUEST API] Error fetching appointment:', apptError);
-      throw new Error('Could not fetch appointment details.');
-    }
-
+    if (apptError) throw new Error('Could not fetch appointment details.');
     if (!appointment) {
-      console.warn('[REQUEST API] Appointment not found:', requestId);
       return NextResponse.json(
         { success: false, error: 'Appointment not found.' },
         { status: 404 }
@@ -58,17 +66,9 @@ export async function POST(req: NextRequest) {
       .eq('id', dogId)
       .maybeSingle();
 
-    if (dogError) {
-      console.error('[REQUEST API] Error fetching dog:', dogError);
-      throw new Error('Could not fetch dog details.');
-    }
-
+    if (dogError) throw new Error('Could not fetch dog details.');
     if (!dogData) {
-      console.warn('[REQUEST API] Dog not found:', dogId);
-      return NextResponse.json(
-        { success: false, error: 'Dog not found.' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Dog not found.' }, { status: 404 });
     }
 
     // --- Fetch individual user ---
@@ -78,17 +78,9 @@ export async function POST(req: NextRequest) {
       .eq('id', appointment.individual_id)
       .maybeSingle();
 
-    if (individualError) {
-      console.error('[REQUEST API] Error fetching individual:', individualError);
-      throw new Error('Could not fetch individual details.');
-    }
-
+    if (individualError) throw new Error('Could not fetch individual details.');
     if (!individual) {
-      console.warn('[REQUEST API] Individual not found:', appointment.individual_id);
-      return NextResponse.json(
-        { success: false, error: 'Individual user not found.' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Individual user not found.' }, { status: 404 });
     }
 
     // --- Fetch volunteer user ---
@@ -98,22 +90,13 @@ export async function POST(req: NextRequest) {
       .eq('id', appointment.volunteer_id)
       .maybeSingle();
 
-    if (volunteerError) {
-      console.error('[REQUEST API] Error fetching volunteer:', volunteerError);
-      throw new Error('Could not fetch volunteer details.');
-    }
-
+    if (volunteerError) throw new Error('Could not fetch volunteer details.');
     if (!volunteer) {
-      console.warn('[REQUEST API] Volunteer not found:', appointment.volunteer_id);
-      return NextResponse.json(
-        { success: false, error: 'Volunteer user not found.' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Volunteer user not found.' }, { status: 404 });
     }
 
     // --- Build email content ---
     const appointmentTime = new Date(appointment.start_time).toLocaleString();
-
     let emailRecipient = '';
     let subject = '';
     let emailData: Record<string, any> = {};
@@ -143,19 +126,8 @@ export async function POST(req: NextRequest) {
         year: new Date().getFullYear(),
       };
     } else {
-      console.warn('[REQUEST API] Invalid type:', type);
-      return NextResponse.json(
-        { success: false, error: 'Invalid request type.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Invalid request type.' }, { status: 400 });
     }
-
-    console.log('[REQUEST API] Sending email:', {
-      to: emailRecipient,
-      subject,
-      templateName,
-      emailData,
-    });
 
     const emailResponse = await sendTransactionalEmail({
       to: emailRecipient,

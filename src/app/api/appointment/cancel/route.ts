@@ -1,9 +1,8 @@
-//src/app/api/appointment/cancel/route.ts
+// src/app/api/appointment/cancel/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptError } = await supabase
       .from('appointments')
-      .select('start_time, individual_id, volunteer_id')
+      .select('start_time, individual_id, volunteer_id, availability_id')
       .eq('id', appointmentId)
       .maybeSingle();
 
@@ -32,6 +31,20 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Appointment not found.' },
         { status: 404 }
       );
+    }
+
+    // ✅ Unhide availability slot
+    if (!appointment.availability_id) {
+      console.warn('No availability_id on appointment; skipping unhide.');
+    } else {
+      const { error: unhideError } = await supabase
+        .from('appointment_availability')
+        .update({ is_hidden: false })
+        .eq('id', appointment.availability_id);
+
+      if (unhideError) {
+        console.error('Error unhiding availability slot:', unhideError);
+      }
     }
 
     const { data: individual, error: individualError } = await supabase
@@ -78,7 +91,6 @@ export async function POST(req: NextRequest) {
     }
 
     const dogData = dogs?.[0] ?? null;
-
     const appointmentTime = new Date(appointment.start_time).toLocaleString();
 
     const individualEmailData = {

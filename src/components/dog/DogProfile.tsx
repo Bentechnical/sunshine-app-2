@@ -89,6 +89,14 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     };
   }, [showBookingModal]);
 
+  useEffect(() => {
+  if (dog && !showBookingModal) {
+    refreshAvailability(dog.volunteer_id);
+  }
+}, [dog, showBookingModal]);
+
+  
+
   function openBookingModal(slot: Availability) {
     setBookingSlot(slot);
     setBookingTime('');
@@ -184,16 +192,27 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     await refreshAvailability(bookingSlot.volunteer_id);
 
     await fetch('/api/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'individual', requestId: appointmentId, dogId: dog!.id }),
-    });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type: 'individual',
+    requestId: appointmentId,
+    dogId: dog!.id,
+    availabilityId: bookingSlot.id, // ✅ Include this
+  }),
+});
 
-    await fetch('/api/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'volunteer', requestId: appointmentId, dogId: dog!.id }),
-    });
+await fetch('/api/request', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type: 'volunteer',
+    requestId: appointmentId,
+    dogId: dog!.id,
+    availabilityId: bookingSlot.id, // ✅ Include this
+  }),
+});
+
 
     setIsSubmitting(false);
     setBookingStep('success');
@@ -208,6 +227,9 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     setComputedBookingStart(null);
     setComputedBookingEnd(null);
   }
+
+
+
 
   if (loading) return <p>Loading...</p>;
   if (!dog) return <p>Dog not found.</p>;
