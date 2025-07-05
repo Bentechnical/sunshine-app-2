@@ -1,4 +1,4 @@
-// src/components/dashboard/DashboardHome.tsx
+// DashboardHome.tsx
 'use client';
 
 import DashboardHomeIndividual from './DashboardHomeIndividual';

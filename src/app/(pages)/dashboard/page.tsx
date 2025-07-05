@@ -21,15 +21,17 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/sign-in');
-    }
-  }, [user, router]);
-
   const role = user?.publicMetadata?.role as 'individual' | 'volunteer' | 'admin' | undefined;
   const userId = user?.id ?? '';
   const profileImage = user?.imageUrl ?? '';
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/sign-in');
+    } else if (role === 'admin') {
+      router.push('/dashboard/admin');
+    }
+  }, [user, router, role]);
 
   const handleSelectDog = useCallback<React.Dispatch<React.SetStateAction<string | null>>>(
     (idOrSetter) => setSelectedDogId(idOrSetter),

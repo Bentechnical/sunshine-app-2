@@ -5,4 +5,8 @@ export type ActiveTab =
   | 'my-visits'
   | 'messaging'
   | 'my-therapy-dog'
-  | 'dashboard-home';
+  | 'dashboard-home'
+  | 'manage-users' // admin
+  | 'user-requests' // admin
+  | 'appointments' // admin
+  | 'system-logs'; // admin;

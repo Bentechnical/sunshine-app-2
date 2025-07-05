@@ -1,5 +1,3 @@
-// src/components/dashboard/fragments/ProfileCardBlock.tsx
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import EditProfileForm from '@/components/profile/EditProfileForm';
+import { geocodePostalCode } from '@/utils/geocode';
 
 interface ProfileData {
   first_name: string;
@@ -17,6 +16,11 @@ interface ProfileData {
   phone_number?: string | null;
   profile_image?: string | null;
   bio?: string | null;
+  postal_code?: string | null;
+  travel_distance_km?: number | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  role?: 'individual' | 'volunteer' | 'admin';
 }
 
 export default function ProfileCardBlock() {
@@ -35,7 +39,9 @@ export default function ProfileCardBlock() {
     const loadProfile = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('first_name, last_name, email, phone_number, profile_image, bio')
+        .select(
+          'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role'
+        )
         .eq('id', user.id)
         .single();
 
@@ -56,16 +62,41 @@ export default function ProfileCardBlock() {
     };
   }, [user?.id]);
 
-  const handleUpdateProfile = async (bio: string, phone: string, avatarUrl?: string) => {
+  const handleUpdateProfile = async (
+    bio: string,
+    phone: string,
+    avatarUrl?: string,
+    postalCode?: string,
+    travelDistanceKm?: number
+  ) => {
     if (!user?.id) return;
+
+    const updatePayload: any = {
+      bio,
+      phone_number: phone,
+      profile_image: avatarUrl,
+      postal_code: postalCode,
+    };
+
+    if (profile?.role === 'volunteer') {
+      updatePayload.travel_distance_km = travelDistanceKm ?? 10;
+    }
+
+    if (postalCode && user?.id) {
+  try {
+    const { lat, lng } = await geocodePostalCode(postalCode, user.id);
+
+        updatePayload.location_lat = lat;
+        updatePayload.location_lng = lng;
+        console.log('[Geo] Updated lat/lng for postal code:', postalCode, lat, lng);
+      } catch (err) {
+        console.error('[Geo] Failed to geocode postal code:', postalCode, err);
+      }
+    }
 
     const { error } = await supabase
       .from('users')
-      .update({
-        bio,
-        phone_number: phone,
-        profile_image: avatarUrl,
-      })
+      .update(updatePayload)
       .eq('id', user.id);
 
     if (error) {
@@ -75,9 +106,12 @@ export default function ProfileCardBlock() {
 
     setShowEditForm(false);
     setLoading(true);
+
     const { data } = await supabase
       .from('users')
-      .select('first_name, last_name, email, phone_number, profile_image, bio')
+      .select(
+        'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role'
+      )
       .eq('id', user.id)
       .single();
 
@@ -93,12 +127,16 @@ export default function ProfileCardBlock() {
     );
   }
 
-  if (showEditForm) {
+  if (showEditForm && user?.id) {
     return (
       <EditProfileForm
         initialBio={profile.bio}
         initialPhone={profile.phone_number ?? ''}
         initialAvatarUrl={profile.profile_image ?? ''}
+        initialPostalCode={profile.postal_code ?? ''}
+        initialTravelDistance={profile.travel_distance_km ?? 10}
+        role={profile.role ?? 'individual'}
+        userId={user.id}
         onSubmit={handleUpdateProfile}
       />
     );
@@ -112,34 +150,31 @@ export default function ProfileCardBlock() {
   return (
     <div className="rounded-lg px-3 py-2 flex flex-col justify-between min-h-[200px]">
       <div className="flex flex-col md:flex-row items-start">
-        {/* Square Profile Image with shadow */}
         {profile.profile_image && (
-  <div className="flex-shrink-0 mb-4 md:mb-0 mx-auto md:mx-0 md:mr-6">
-    <div className="relative w-36 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
-      <Image
-        src={profile.profile_image}
-        alt="Profile"
-        fill
-        className="object-cover"
-      />
-    </div>
-  </div>
-)}
+          <div className="flex-shrink-0 mb-4 md:mb-0 mx-auto md:mx-0 md:mr-6">
+            <div className="relative w-36 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
+              <Image
+                src={profile.profile_image}
+                alt="Profile"
+                fill
+                className="object-cover"
+              />
+            </div>
+          </div>
+        )}
 
-
-
-        {/* Info Block */}
         <div className="md:ml-6 flex-1">
           <h2 className="text-sm text-gray-500 tracking-wide mb-1 font-semibold">My Profile</h2>
           <hr className="border-t border-gray-200 mb-3" />
-
           <h3 className="text-lg font-semibold mb-1">{fullName}</h3>
-          <p className="text-sm text-gray-800">
-            <strong>Email:</strong> {email}
-          </p>
-          <p className="text-sm text-gray-800">
-            <strong>Phone:</strong> {phone}
-          </p>
+          <p className="text-sm text-gray-800"><strong>Email:</strong> {email}</p>
+          <p className="text-sm text-gray-800"><strong>Phone:</strong> {phone}</p>
+          {profile.postal_code && (
+            <p className="text-sm text-gray-800"><strong>Postal Code:</strong> {profile.postal_code}</p>
+          )}
+          {profile.role === 'volunteer' && profile.travel_distance_km && (
+            <p className="text-sm text-gray-800"><strong>Travel Distance:</strong> {profile.travel_distance_km} km</p>
+          )}
           {bio && (
             <div className="text-sm text-gray-700 mt-1 whitespace-pre-line break-words max-h-20 overflow-y-auto pr-1">
               {bio}

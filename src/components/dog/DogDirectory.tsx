@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
+import { useUser } from '@clerk/clerk-react';
 import { Button } from '@/components/ui/button';
 
 interface DogWithAvailability {
@@ -24,22 +25,51 @@ interface DogDirectoryProps {
 
 export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
   const supabase = useSupabaseClient();
+  const { user } = useUser();
+
   const [dogs, setDogs] = useState<DogWithAvailability[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDogs = async () => {
-      const { data, error } = await supabase.rpc('get_dogs_with_next_availability');
+    const fetchNearbyDogs = async () => {
+      if (!user?.id) return;
+
+      // Step 1: Fetch user’s location
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('location_lat, location_lng')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error('Failed to fetch user location:', userError);
+        return;
+      }
+
+      const { location_lat, location_lng } = userData;
+
+      if (!location_lat || !location_lng) {
+        console.warn('User does not have a saved location.');
+        return;
+      }
+
+      // Step 2: Fetch dogs near that location
+      const { data, error } = await supabase.rpc('get_nearby_dogs_with_availability', {
+        user_lat: location_lat,
+        user_lng: location_lng,
+      });
 
       if (error || !data) {
-        console.error('Error fetching dogs:', error?.message || error, error);
+        console.error('Error fetching dogs:', error?.message || error);
         return;
       }
 
       setDogs(data as DogWithAvailability[]);
+      setLoading(false);
     };
 
-    fetchDogs();
-  }, []);
+    fetchNearbyDogs();
+  }, [user?.id]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
@@ -50,6 +80,31 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
       minute: 'numeric',
     });
   };
+
+  if (loading) {
+  return (
+    <div className="p-4">
+      <p className="text-center text-gray-500">Loading nearby therapy dogs...</p>
+    </div>
+  );
+}
+
+if (dogs.length === 0) {
+  return (
+    <div className="p-6 text-center text-gray-600 flex flex-col items-center justify-center min-h-[60vh]">
+      <img
+        src="/images/no_dogs_found.png"
+        alt="No dogs found"
+        className="mb-6 max-w-xs sm:max-w-sm md:max-w-md w-full h-auto object-contain opacity-90"
+      />
+      <h2 className="text-2xl font-semibold mb-2 text-gray-800">No therapy dogs nearby</h2>
+      <p className="text-base text-gray-600 max-w-md">
+        We couldn't find any dogs currently available in your area. Please check back later.
+      </p>
+    </div>
+  );
+}
+
 
   return (
     <div className="p-4">
@@ -68,7 +123,6 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
-
 
               <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
               <p className="text-gray-700">

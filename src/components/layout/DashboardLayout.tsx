@@ -2,9 +2,9 @@
 'use client';
 
 import { ReactNode } from 'react';
-// Removed: import Image from 'next/image';
 import { ActiveTab } from '@/types/navigation';
 import { DesktopNav } from './DesktopNav';
+import DesktopNavAdmin from './DesktopNavAdmin'; // ✅ New
 import MobileNav from './MobileNav';
 import { SignOutButton } from '@clerk/clerk-react';
 
@@ -36,11 +36,12 @@ export default function DashboardLayout({
           />
         </div>
 
-        <DesktopNav
-          role={role}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-        />
+        {/* ✅ Role-based nav */}
+        {role === 'admin' ? (
+          <DesktopNavAdmin activeTab={activeTab} setActiveTab={setActiveTab} />
+        ) : (
+          <DesktopNav role={role} activeTab={activeTab} setActiveTab={setActiveTab} />
+        )}
 
         <div className="mt-auto pt-6">
           <SignOutButton>
@@ -77,7 +78,7 @@ export default function DashboardLayout({
         </div>
       </main>
 
-      {/* Mobile bottom nav wrapper */}
+      {/* Mobile bottom nav wrapper (optional: restrict this to non-admins) */}
       <div className="md:hidden fixed inset-x-0 bottom-0 z-50">
         <MobileNav
           role={role}
