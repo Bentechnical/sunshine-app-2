@@ -37,12 +37,20 @@ export async function POST(req: NextRequest) {
     const location = geoData.results[0].geometry.location;
     const { lat, lng } = location;
 
+    // 🌆 Extract city from address_components
+    const components = geoData.results[0].address_components;
+    const cityComponent = components.find((comp: any) =>
+      comp.types.includes('locality')
+    );
+    const city = cityComponent?.long_name || null;
+
     const supabase = createSupabaseAdminClient();
     const { error } = await supabase
       .from('users')
       .update({
         location_lat: lat,
         location_lng: lng,
+        city: city,
       })
       .eq('id', user_id);
 
@@ -51,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to update user location' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, lat, lng });
+    return NextResponse.json({ success: true, lat, lng, city });
   } catch (err: any) {
     console.error('[Geocode API] Fatal error:', err.message || err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

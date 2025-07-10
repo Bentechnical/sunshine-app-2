@@ -10,9 +10,9 @@ import DashboardHome from '@/components/dashboard/DashboardHome';
 import MeetWithDog from '@/components/visits/MeetWithDog';
 import MyVisits from '@/components/visits/MyVisits';
 import VolunteerAvailability from '@/components/availability/VolunteerAvailability';
-import EditDogProfile from '@/components/dog/EditDogProfile';
 import MessagingTab from '@/components/messaging/MessagingTab';
 
+import { useUserRole } from '@/hooks/useUserRole';
 import { ActiveTab } from '@/types/navigation';
 
 export default function DashboardPage() {
@@ -20,11 +20,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
+  const { role, loading } = useUserRole();
 
-  const role = user?.publicMetadata?.role as 'individual' | 'volunteer' | 'admin' | undefined;
   const userId = user?.id ?? '';
   const profileImage = user?.imageUrl ?? '';
 
+  // Redirect logic
   useEffect(() => {
     if (!user) {
       router.push('/sign-in');
@@ -38,12 +39,14 @@ export default function DashboardPage() {
     []
   );
 
-  if (!user || !role || role === 'admin') return null;
+  // Guard render until we have the user and non-admin role
+  if (!user || loading) return null;
+  if (!role || role === 'admin') return null;
 
   const renderActiveTabContent = () => {
     switch (activeTab) {
       case 'dashboard-home':
-        return <DashboardHome userId={userId} role={role} setActiveTab={setActiveTab} />;
+        return <DashboardHome userId={userId} role={role as 'volunteer' | 'individual'} setActiveTab={setActiveTab} />;
       case 'meet-with-dog':
         return (
           <MeetWithDog
@@ -52,7 +55,7 @@ export default function DashboardPage() {
           />
         );
       case 'my-visits':
-        return <MyVisits userId={userId} role={role} />;
+        return <MyVisits userId={userId} role={role as 'volunteer' | 'individual'} />;
       case 'my-therapy-dog':
         return (
           <div className="space-y-6">

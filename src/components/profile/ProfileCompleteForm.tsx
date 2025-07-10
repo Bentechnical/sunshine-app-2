@@ -157,6 +157,13 @@ export default function ProfileCompleteForm() {
           await supabase.from('dogs').insert(dogPayload);
         }
       }
+
+      await fetch('/api/setRoleMetadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: selectedRole }),
+      });
+
       await geocodePostalCode(normalizePostalCode(postalCode), user.id);
       router.push('/dashboard');
     } catch (error: any) {

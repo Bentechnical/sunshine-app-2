@@ -1,9 +1,12 @@
+// src/app/(pages)/dashboard/admin/page.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 
+import { useUserRole } from '@/hooks/useUserRole';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { ActiveTab } from '@/types/navigation';
 
@@ -15,21 +18,22 @@ import AdminUserRequests from '@/components/admin/AdminUserRequests';
 
 export default function AdminDashboardPage() {
   const { user } = useUser();
+  const { role, loading } = useUserRole();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
 
-  const role = user?.publicMetadata?.role as 'admin' | undefined;
   const profileImage = user?.imageUrl ?? '';
 
   useEffect(() => {
     if (!user) {
       router.push('/sign-in');
-    } else if (role !== 'admin') {
+    } else if (!loading && role !== 'admin') {
       router.push('/dashboard');
     }
-  }, [user, router, role]);
+  }, [user, router, role, loading]);
 
-  if (!user || role !== 'admin') return null;
+  // Wait for auth and role to resolve
+  if (!user || loading || role !== 'admin') return null;
 
   const renderActiveTab = () => {
     switch (activeTab) {
