@@ -2,11 +2,9 @@ Hi {{firstName}},
 
 Welcome to Sunshine Therapy Dogs! We're so glad you've joined our community.
 
-You can log into your dashboard, explore therapy dog profiles, and schedule a session using the link below:
+Your profile is now pending review by our team. You’ll receive another email once your account is approved.
 
-{{dashboardLink}}
-
-If you have any questions or need help getting started, feel free to reach out to our team.
+In the meantime, feel free to visit our website or reach out to us with any questions.
 
 — Sunshine Therapy Dogs  
 {{year}}  

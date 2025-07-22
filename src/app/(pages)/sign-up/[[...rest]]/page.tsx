@@ -43,12 +43,6 @@ export default function SignUpPage() {
             className="mx-auto max-w-[240px] h-auto object-contain"
           />
         </div>
-
-        <h2 className="text-2xl font-bold text-center text-[#0e62ae] mb-2">Sign Up</h2>
-        <p className="text-sm text-center text-gray-600 mb-6">
-          Create your account to get started
-        </p>
-
         <div className="clerk-custom-signup">
           <SignUp
             path="/sign-up"

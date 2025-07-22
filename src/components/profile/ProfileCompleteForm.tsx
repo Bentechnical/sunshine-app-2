@@ -131,6 +131,7 @@ export default function ProfileCompleteForm() {
         postal_code: normalizePostalCode(postalCode),
         profile_image: profilePictureUrl,
         travel_distance_km: selectedRole === 'volunteer' ? Number(travelDistance) : null,
+        profile_complete: true, // ✅ NEW
       }).eq('id', user.id);
 
       if (updateError) throw new Error(updateError.message);
@@ -148,7 +149,7 @@ export default function ProfileCompleteForm() {
           dog_age: dogAge,
           dog_breed: dogBreed,
           dog_bio: dogBio,
-          dog_picture_url: dogPhotoUrl,
+          dog_picture_url: dogPhotoUrl || DEFAULT_DOG_IMAGE,
         };
 
         if (existingDog) {
@@ -158,12 +159,6 @@ export default function ProfileCompleteForm() {
         }
       }
 
-      await fetch('/api/setRoleMetadata', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: selectedRole }),
-      });
-
       await geocodePostalCode(normalizePostalCode(postalCode), user.id);
       router.push('/dashboard');
     } catch (error: any) {
@@ -171,7 +166,7 @@ export default function ProfileCompleteForm() {
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
 
   if (!isLoaded || !user) {
     return (

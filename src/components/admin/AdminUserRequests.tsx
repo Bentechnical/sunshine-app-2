@@ -122,14 +122,14 @@ export default function UserRequestsTab() {
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => setActiveSubtab('volunteer')}
-          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeSubtab === 'volunteer' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
+          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'volunteer' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
             }`}
         >
           Volunteer Requests
         </button>
         <button
           onClick={() => setActiveSubtab('individual')}
-          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
+          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
             }`}
         >
           Individual Requests

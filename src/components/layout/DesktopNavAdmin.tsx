@@ -13,7 +13,6 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab }: Props) {
     { key: 'user-requests', label: 'New User Requests' },
     { key: 'manage-users', label: 'Manage Users' },
     { key: 'appointments', label: 'Appointments' },
-    { key: 'system-logs', label: 'System Logs' },
   ];
 
 

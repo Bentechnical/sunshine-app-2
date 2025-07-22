@@ -212,7 +212,7 @@ export default function ManageUsersTab() {
           <div className="flex space-x-4">
             <button
               onClick={() => setActiveSubtab('volunteer')}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+              className={`px-4 py-2 rounded text-sm font-semibold transition ${
                 activeSubtab === 'volunteer'
                   ? 'bg-[#0e62ae] text-white'
                   : 'bg-gray-200 text-gray-800'
@@ -222,7 +222,7 @@ export default function ManageUsersTab() {
             </button>
             <button
               onClick={() => setActiveSubtab('individual')}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+              className={`px-4 py-2 rounded text-sm font-semibold transition ${
                 activeSubtab === 'individual'
                   ? 'bg-[#0e62ae] text-white'
                   : 'bg-gray-200 text-gray-800'

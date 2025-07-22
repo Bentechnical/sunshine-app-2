@@ -6,19 +6,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { ActiveTab } from '@/types/navigation';
 
 import AdminDashboardHome from '@/components/admin/AdminDashboardHome';
 import AdminManageUsers from '@/components/admin/AdminManageUsers';
 import AdminAppointments from '@/components/admin/AdminAppointments';
-import AdminLogs from '@/components/admin/AdminLogs';
 import AdminUserRequests from '@/components/admin/AdminUserRequests';
 
 export default function AdminDashboardPage() {
   const { user } = useUser();
-  const { role, loading } = useUserRole();
+  const { role, status, loading } = useUserProfile();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
 
@@ -27,13 +26,13 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!user) {
       router.push('/sign-in');
-    } else if (!loading && role !== 'admin') {
+    } else if (!loading && (role !== 'admin' || status !== 'approved')) {
       router.push('/dashboard');
     }
-  }, [user, router, role, loading]);
+  }, [user, router, role, status, loading]);
 
-  // Wait for auth and role to resolve
-  if (!user || loading || role !== 'admin') return null;
+  // Wait until everything is loaded and valid
+  if (!user || loading || role !== 'admin' || status !== 'approved') return null;
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -45,8 +44,6 @@ export default function AdminDashboardPage() {
         return <AdminUserRequests />;
       case 'appointments':
         return <AdminAppointments />;
-      case 'system-logs':
-        return <AdminLogs />;
       default:
         return (
           <div className="p-4 text-red-600">

@@ -1,14 +1,14 @@
-// /app/api/webhooks/route.ts
-
+// src/app/api/webhooks/route.ts
 export const dynamic = 'force-dynamic';
 
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendTransactionalEmail } from '../../utils/mailer'; // ✅ Add this
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!, // ✅ Use the non-public backend variable!
+  process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
@@ -20,7 +20,6 @@ export async function POST(req: Request) {
       return new Response("Internal configuration error", { status: 500 });
     }
 
-    // 1️⃣ Read and verify Svix headers
     const svixHeaders = await headers();
     const id = svixHeaders.get("svix-id");
     const ts = svixHeaders.get("svix-timestamp");
@@ -30,7 +29,6 @@ export async function POST(req: Request) {
       return new Response("Missing Svix headers", { status: 400 });
     }
 
-    // 2️⃣ Parse body and verify signature
     const payload = await req.json();
     let evt: WebhookEvent;
     try {
@@ -44,10 +42,10 @@ export async function POST(req: Request) {
       return new Response("Invalid signature", { status: 400 });
     }
 
-    // 3️⃣ Handle only user.* events
     if (!evt.type.startsWith("user.")) {
       return new Response("Event type not handled", { status: 400 });
     }
+
     const data = evt.data as WebhookEvent["data"] & {
       first_name?: string;
       last_name?: string;
@@ -57,9 +55,10 @@ export async function POST(req: Request) {
       unsafe_metadata?: Record<string, any>;
       phone_number?: string;
     };
+
     const { id: userId, email_addresses, first_name, last_name, image_url, public_metadata, unsafe_metadata, phone_number } = data;
     const email = email_addresses?.[0]?.email_address ?? null;
-    const role = public_metadata?.user_type ?? "individual"; // Clerk's user_type in public_metadata
+    const role = unsafe_metadata?.role ?? "individual";
 
     console.log(`🟢 Processing ${evt.type} for user ${userId}`);
 
@@ -79,6 +78,21 @@ export async function POST(req: Request) {
         }]);
         if (error) throw error;
         console.log(`Inserted user ${userId}`);
+
+        // ✅ Send welcome email
+        if (email) {
+          await sendTransactionalEmail({
+            to: email,
+            subject: 'Welcome to Sunshine Therapy Dogs!',
+            templateName: 'welcome',
+            data: {
+              firstName: first_name ?? 'there',
+              year: new Date().getFullYear(),
+            },
+          });
+          console.log(`[Resend] Welcome email sent to ${email}`);
+        }
+
       } else if (evt.type === "user.updated") {
         const { error } = await supabase.from("users")
           .update({
@@ -94,6 +108,7 @@ export async function POST(req: Request) {
           .eq("id", userId);
         if (error) throw error;
         console.log(`Updated user ${userId}`);
+
       } else if (evt.type === "user.deleted") {
         const { error } = await supabase.from("users").delete().eq("id", userId);
         if (error) throw error;
@@ -104,7 +119,6 @@ export async function POST(req: Request) {
       return new Response("Database error", { status: 500 });
     }
 
-    // 5️⃣ Success!
     return new Response("Webhook processed", { status: 200 });
   } catch (err) {
     console.error("🔥 Unhandled error in /api/webhooks:", err);

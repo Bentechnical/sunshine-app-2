@@ -1,7 +1,7 @@
 // src/app/api/admin/updateUserStatus/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { sendTransactionalEmail } from '../../../utils/mailer'; // ✅ Added
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +38,31 @@ export async function POST(req: NextRequest) {
     if (dogError) {
       console.error('[updateUserStatus] Failed to update dog:', dogError.message);
       return NextResponse.json({ error: dogError.message }, { status: 500 });
+    }
+
+    // ✅ Send approval email if newly approved
+    if (resolvedStatus === 'approved') {
+      const { data: userData, error: fetchError } = await supabase
+        .from('users')
+        .select('email, first_name')
+        .eq('id', user_id)
+        .single();
+
+      if (fetchError) {
+        console.error('[updateUserStatus] Failed to fetch user email:', fetchError.message);
+      } else if (userData?.email) {
+        await sendTransactionalEmail({
+          to: userData.email,
+          subject: 'Your profile has been approved!',
+          templateName: 'userApproved',
+          data: {
+            firstName: userData.first_name ?? 'there',
+            year: new Date().getFullYear(),
+            dashboardLink: 'https://sunshinedogs.app/dashboard',
+          },
+        });
+        console.log(`[Resend] Approval email sent to ${userData.email}`);
+      }
     }
 
     return NextResponse.json({ success: true });

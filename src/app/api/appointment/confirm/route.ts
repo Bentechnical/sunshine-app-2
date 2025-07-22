@@ -87,14 +87,14 @@ export async function POST(req: NextRequest) {
       dogName: dogData?.dog_name || 'N/A',
       dogBreed: dogData?.dog_breed || 'N/A',
       dogAge: dogData?.dog_age || 'N/A',
-      volunteerName: volunteer.first_name,
+      firstName: volunteer.first_name,
       year: new Date().getFullYear(),
     };
 
     const volunteerEmailData = {
       appointmentTime,
       dogName: dogData?.dog_name || 'N/A',
-      individualName: individual.first_name,
+      firstName: individual.first_name,
       dashboardLink: `${getAppUrl()}/dashboard`,
       year: new Date().getFullYear(),
     };

@@ -1,4 +1,3 @@
-// src/app/api/unlock/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
@@ -6,11 +5,12 @@ export async function POST(req: NextRequest) {
   const correct = process.env.SITE_PASSWORD;
 
   if (password === correct) {
-    const res = NextResponse.redirect(new URL('/', req.url), 303);
+    const res = NextResponse.redirect(new URL('/dashboard', req.url), 303);
     res.cookies.set('access_granted', 'true', {
       path: '/',
       httpOnly: true,
       secure: true,
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24, // 1 day
     });
     return res;

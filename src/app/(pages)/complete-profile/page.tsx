@@ -1,4 +1,4 @@
-// src/app/(auth)/profile-complete/page.tsx
+// src/app/(pages)/profile-complete/page.tsx
 
 import ProfileCompleteForm from '@/components/profile/ProfileCompleteForm';
 
