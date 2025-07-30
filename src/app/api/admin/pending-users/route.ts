@@ -10,6 +10,9 @@ export async function GET() {
     .select(`
       id, first_name, last_name, email, phone_number, city, postal_code,
       bio, role, profile_image, travel_distance_km, status,
+      pronouns, birthday, physical_address, other_pets_on_site, other_pets_description,
+      third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at,
+      visit_recipient_type, relationship_to_recipient, dependant_name,
       dogs (
         dog_name, dog_breed, dog_bio, dog_picture_url, dog_age, status
       )

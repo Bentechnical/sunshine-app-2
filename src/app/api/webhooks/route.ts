@@ -75,6 +75,20 @@ export async function POST(req: Request) {
           updated_at: new Date(),
           profile_image: image_url ?? null,
           phone_number: phone_number ?? null,
+          // New individual user fields will be null initially
+          pronouns: null,
+          birthday: null,
+          physical_address: null,
+          other_pets_on_site: null,
+          other_pets_description: null,
+          third_party_available: null,
+          additional_information: null,
+          liability_waiver_accepted: null,
+          liability_waiver_accepted_at: null,
+          // Visit recipient fields will be null initially
+          visit_recipient_type: null,
+          relationship_to_recipient: null,
+          dependant_name: null,
         }]);
         if (error) throw error;
         console.log(`Inserted user ${userId}`);
@@ -104,6 +118,7 @@ export async function POST(req: Request) {
             updated_at: new Date(),
             profile_image: image_url ?? null,
             phone_number: phone_number ?? null,
+            // Note: We don't update individual fields here as they're managed by ProfileCompleteForm
           })
           .eq("id", userId);
         if (error) throw error;

@@ -29,13 +29,10 @@ export default function DashboardHomeIndividual({ userId, role, setActiveTab }: 
           <NextAppointmentCard role={role} setActiveTab={setActiveTab} />
         </div>
 
-        {/* Right Column: Profile + Suggested Dogs + Pending */}
+        {/* Right Column: Profile */}
         <div className="col-span-2 flex flex-col gap-2 max-h-[90vh] overflow-y-auto">
           <div className="rounded-2xl bg-white p-2">
             <ProfileCardBlock />
-          </div>
-          <div className="rounded-2xl bg-white p-2">
-            <SuggestedDogsPreview setActiveTab={setActiveTab} />
           </div>
         </div>
       </div>

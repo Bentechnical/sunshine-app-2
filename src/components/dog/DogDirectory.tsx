@@ -91,15 +91,17 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
 
 if (dogs.length === 0) {
   return (
-    <div className="p-6 text-center text-gray-600 flex flex-col items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center justify-center text-center px-4 py-8 space-y-4 bg-white rounded-lg shadow-inner">
       <img
-        src="/images/no_dogs_found.png"
-        alt="No dogs found"
-        className="mb-6 max-w-xs sm:max-w-sm md:max-w-md w-full h-auto object-contain opacity-90"
+        src="/images/missing_dog.png"
+        alt="No available therapy dogs"
+        className="w-32 h-32 object-contain opacity-80"
       />
-      <h2 className="text-2xl font-semibold mb-2 text-gray-800">No therapy dogs nearby</h2>
-      <p className="text-base text-gray-600 max-w-md">
-        We couldn't find any dogs currently available in your area. Please check back later.
+      <h3 className="text-lg font-semibold text-gray-800">
+        No Therapy Dogs Available
+      </h3>
+      <p className="text-sm text-gray-600 max-w-sm">
+        It looks like there are no therapy dogs currently available in your area. New dogs are added regularly — please check back again soon!
       </p>
     </div>
   );

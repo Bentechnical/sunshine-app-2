@@ -7,11 +7,15 @@ import { useRouter } from 'next/navigation';
 export default function UnlockPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     setError('');
+    setIsSubmitting(true);
 
     try {
       const res = await fetch('/api/unlock', {
@@ -31,6 +35,14 @@ export default function UnlockPage() {
       }
     } catch (err) {
       setError('Network error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isSubmitting) {
+      handleSubmit(e as any);
     }
   };
 
@@ -42,15 +54,19 @@ export default function UnlockPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="w-full border px-3 py-2 rounded mb-3"
           placeholder="Password"
+          disabled={isSubmitting}
+          autoFocus
         />
         {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+          disabled={isSubmitting}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Unlock
+          {isSubmitting ? 'Unlocking...' : 'Unlock'}
         </button>
       </form>
     </div>

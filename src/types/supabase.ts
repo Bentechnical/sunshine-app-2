@@ -125,6 +125,28 @@ export type Database = {
           profile_image: string | null
           role: string
           updated_at: string | null
+          phone_number: string | null
+          postal_code: string | null
+          location_lat: number | null
+          location_lng: number | null
+          travel_distance_km: number | null
+          status: string | null
+          city: string | null
+          profile_complete: boolean | null
+          // New individual user fields
+          pronouns: string | null
+          birthday: number | null
+          physical_address: string | null
+          other_pets_on_site: boolean | null
+          other_pets_description: string | null
+          third_party_available: string | null
+          additional_information: string | null
+          liability_waiver_accepted: boolean | null
+          liability_waiver_accepted_at: string | null
+          // Visit recipient fields
+          visit_recipient_type: string | null
+          relationship_to_recipient: string | null
+          dependant_name: string | null
         }
         Insert: {
           bio?: string | null
@@ -136,6 +158,28 @@ export type Database = {
           profile_image?: string | null
           role: string
           updated_at?: string | null
+          phone_number?: string | null
+          postal_code?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          travel_distance_km?: number | null
+          status?: string | null
+          city?: string | null
+          profile_complete?: boolean | null
+          // New individual user fields
+          pronouns?: string | null
+          birthday?: number | null
+          physical_address?: string | null
+          other_pets_on_site?: boolean | null
+          other_pets_description?: string | null
+          third_party_available?: string | null
+          additional_information?: string | null
+          liability_waiver_accepted?: boolean | null
+          liability_waiver_accepted_at?: string | null
+          // Visit recipient fields
+          visit_recipient_type?: string | null
+          relationship_to_recipient?: string | null
+          dependant_name?: string | null
         }
         Update: {
           bio?: string | null
@@ -147,6 +191,28 @@ export type Database = {
           profile_image?: string | null
           role?: string
           updated_at?: string | null
+          phone_number?: string | null
+          postal_code?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          travel_distance_km?: number | null
+          status?: string | null
+          city?: string | null
+          profile_complete?: boolean | null
+          // New individual user fields
+          pronouns?: string | null
+          birthday?: number | null
+          physical_address?: string | null
+          other_pets_on_site?: boolean | null
+          other_pets_description?: string | null
+          third_party_available?: string | null
+          additional_information?: string | null
+          liability_waiver_accepted?: boolean | null
+          liability_waiver_accepted_at?: string | null
+          // Visit recipient fields
+          visit_recipient_type?: string | null
+          relationship_to_recipient?: string | null
+          dependant_name?: string | null
         }
         Relationships: []
       }

@@ -21,6 +21,20 @@ interface ProfileData {
   location_lat?: number | null;
   location_lng?: number | null;
   role?: 'individual' | 'volunteer' | 'admin';
+  // New individual user fields
+  pronouns?: string | null;
+  birthday?: number | null;
+  physical_address?: string | null;
+  other_pets_on_site?: boolean | null;
+  other_pets_description?: string | null;
+  third_party_available?: string | null;
+  additional_information?: string | null;
+  liability_waiver_accepted?: boolean | null;
+  liability_waiver_accepted_at?: string | null;
+  // Visit recipient fields
+  visit_recipient_type?: string | null;
+  relationship_to_recipient?: string | null;
+  dependant_name?: string | null;
 }
 
 export default function ProfileCardBlock() {
@@ -40,7 +54,7 @@ export default function ProfileCardBlock() {
       const { data, error } = await supabase
         .from('users')
         .select(
-          'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role'
+          'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name'
         )
         .eq('id', user.id)
         .single();
@@ -67,7 +81,17 @@ export default function ProfileCardBlock() {
     phone: string,
     avatarUrl?: string,
     postalCode?: string,
-    travelDistanceKm?: number
+    travelDistanceKm?: number,
+    pronouns?: string,
+    birthday?: string,
+    physicalAddress?: string,
+    otherPetsOnSite?: boolean,
+    otherPetsDescription?: string,
+    thirdPartyAvailable?: string,
+    additionalInformation?: string,
+    visitRecipientType?: string,
+    relationshipToRecipient?: string,
+    dependantName?: string
   ) => {
     if (!user?.id) return;
 
@@ -80,6 +104,22 @@ export default function ProfileCardBlock() {
 
     if (profile?.role === 'volunteer') {
       updatePayload.travel_distance_km = travelDistanceKm ?? 10;
+    }
+
+    // Add individual-specific fields
+    if (profile?.role === 'individual') {
+      updatePayload.pronouns = pronouns;
+      updatePayload.birthday = birthday ? parseInt(birthday) : null;
+      updatePayload.physical_address = physicalAddress;
+      updatePayload.other_pets_on_site = otherPetsOnSite;
+      updatePayload.other_pets_description = otherPetsDescription;
+      updatePayload.third_party_available = thirdPartyAvailable;
+      updatePayload.additional_information = additionalInformation;
+      
+      // Add visit recipient fields
+      updatePayload.visit_recipient_type = visitRecipientType;
+      updatePayload.relationship_to_recipient = relationshipToRecipient;
+      updatePayload.dependant_name = dependantName;
     }
 
     if (postalCode && user?.id) {
@@ -110,7 +150,7 @@ export default function ProfileCardBlock() {
     const { data } = await supabase
       .from('users')
       .select(
-        'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role'
+        'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name'
       )
       .eq('id', user.id)
       .single();
@@ -135,6 +175,16 @@ export default function ProfileCardBlock() {
         initialAvatarUrl={profile.profile_image ?? ''}
         initialPostalCode={profile.postal_code ?? ''}
         initialTravelDistance={profile.travel_distance_km ?? 10}
+        initialPronouns={profile.pronouns ?? ''}
+        initialBirthday={profile.birthday?.toString() ?? ''}
+        initialPhysicalAddress={profile.physical_address ?? ''}
+        initialOtherPetsOnSite={profile.other_pets_on_site ?? false}
+        initialOtherPetsDescription={profile.other_pets_description ?? ''}
+        initialThirdPartyAvailable={profile.third_party_available ?? ''}
+        initialAdditionalInformation={profile.additional_information ?? ''}
+        initialVisitRecipientType={profile.visit_recipient_type ?? ''}
+        initialRelationshipToRecipient={profile.relationship_to_recipient ?? ''}
+        initialDependantName={profile.dependant_name ?? ''}
         role={profile.role ?? 'individual'}
         userId={user.id}
         onSubmit={handleUpdateProfile}
@@ -166,18 +216,84 @@ export default function ProfileCardBlock() {
         <div className="md:ml-6 flex-1">
           <h2 className="text-sm text-gray-500 tracking-wide mb-1 font-semibold">My Profile</h2>
           <hr className="border-t border-gray-200 mb-3" />
-          <h3 className="text-lg font-semibold mb-1">{fullName}</h3>
-          <p className="text-sm text-gray-800"><strong>Email:</strong> {email}</p>
-          <p className="text-sm text-gray-800"><strong>Phone:</strong> {phone}</p>
-          {profile.postal_code && (
-            <p className="text-sm text-gray-800"><strong>Postal Code:</strong> {profile.postal_code}</p>
+          
+          {/* Account Holder Information */}
+          <h3 className="text-xl font-semibold mb-2">{fullName}</h3>
+          <div className="text-sm text-gray-800 space-y-1 mb-4">
+            <p><span className="font-semibold text-gray-700">Email:</span> {email}</p>
+            <p><span className="font-semibold text-gray-700">Phone:</span> {phone}</p>
+            {profile.postal_code && <p><span className="font-semibold text-gray-700">Postal Code:</span> {profile.postal_code}</p>}
+            {profile.pronouns && <p><span className="font-semibold text-gray-700">Pronouns:</span> {profile.pronouns}</p>}
+            {profile.birthday && profile.visit_recipient_type !== 'other' && <p><span className="font-semibold text-gray-700">Birth Year:</span> {profile.birthday}</p>}
+          </div>
+
+          {/* Visit Recipient Information (for dependants) */}
+          {profile.role === 'individual' && profile.visit_recipient_type === 'other' && (
+            <div className="border-t border-gray-200 pt-4 mb-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Visit Recipient</h4>
+              <div className="text-sm text-gray-800 space-y-1">
+                <p><span className="font-semibold text-gray-700">Name:</span> {profile.dependant_name}</p>
+                <p><span className="font-semibold text-gray-700">Relationship:</span> {profile.relationship_to_recipient}</p>
+                {profile.pronouns && <p><span className="font-semibold text-gray-700">Pronouns:</span> {profile.pronouns}</p>}
+                {profile.birthday && <p><span className="font-semibold text-gray-700">Birth Year:</span> {profile.birthday}</p>}
+              </div>
+            </div>
           )}
-          {profile.role === 'volunteer' && profile.travel_distance_km && (
-            <p className="text-sm text-gray-800"><strong>Travel Distance:</strong> {profile.travel_distance_km} km</p>
+
+          {/* Visit Details Section */}
+          {profile.role === 'individual' && (
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Visit Details</h4>
+              <div className="text-sm text-gray-800 space-y-2">
+                {bio && (
+                  <div>
+                    <p className="font-medium text-gray-700">Reason for Visit:</p>
+                    <p className="text-gray-600 italic">"{bio}"</p>
+                  </div>
+                )}
+                {profile.physical_address && (
+                  <div>
+                    <p className="font-medium text-gray-700">Location of Visits:</p>
+                    <p className="text-gray-600 italic">"{profile.physical_address}"</p>
+                  </div>
+                )}
+                {profile.other_pets_on_site && (
+                  <div>
+                    <p className="font-medium text-gray-700">Other Animals on Site:</p>
+                    <p className="text-gray-600 italic">"{profile.other_pets_description || 'Yes'}"</p>
+                  </div>
+                )}
+                {profile.third_party_available && (
+                  <div>
+                    <p className="font-medium text-gray-700">Third Party Contact:</p>
+                    <p className="text-gray-600 italic">"{profile.third_party_available}"</p>
+                  </div>
+                )}
+                {profile.additional_information && (
+                  <div>
+                    <p className="font-medium text-gray-700">Additional Information:</p>
+                    <p className="text-gray-600 italic">"{profile.additional_information}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-          {bio && (
-            <div className="text-sm text-gray-700 mt-1 whitespace-pre-line break-words max-h-20 overflow-y-auto pr-1">
-              {bio}
+
+          {/* Volunteer Information */}
+          {profile.role === 'volunteer' && (
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Volunteer Details</h4>
+              <div className="text-sm text-gray-800 space-y-2">
+                {profile.travel_distance_km && (
+                  <p><span className="font-medium text-gray-700">Travel Distance:</span> {profile.travel_distance_km} km</p>
+                )}
+                {bio && (
+                  <div>
+                    <p className="font-medium text-gray-700">Bio:</p>
+                    <p className="text-gray-600 italic">"{bio}"</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
