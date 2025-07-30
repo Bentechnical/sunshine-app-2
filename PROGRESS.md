@@ -113,6 +113,15 @@ src/
   - Applied consistent birth year logic across sections
   - Standardized formatting and styling across admin components
   - Improved information organization and visual hierarchy
+- ✅ **COMPLETED: Enhanced admin appointments component with dependent support**
+  - Updated API to fetch dependent information (visit_recipient_type, relationship_to_recipient, dependant_name)
+  - Improved expanded view layout with cleaner visual hierarchy
+  - Added conditional display of visit recipient information (only shows for dependents)
+  - Enhanced appointment details visibility with better organization
+  - Implemented consistent field styling and labeling
+  - Added dedicated "Visit Information" section for reason and location
+  - Removed visual clutter while maintaining all important information
+  - Created professional, scannable interface for better admin workflow
 
 ## Current Priorities
 1. **Testing & Quality Assurance**

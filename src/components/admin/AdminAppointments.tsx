@@ -202,9 +202,10 @@ export default function AdminAppointments() {
                     <div className="font-medium">
                       {appointment.volunteer?.first_name} {appointment.volunteer?.last_name}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="text-xs text-gray-400 uppercase tracking-wide">Dog:</span> {dogName}
-                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Dog</div>
+                    <div className="font-medium">{dogName}</div>
                   </div>
                 </div>
               </div>
@@ -221,20 +222,9 @@ export default function AdminAppointments() {
         {/* Expanded View */}
         {isExpanded && (
           <div className="border-t border-gray-200 p-4 bg-gray-50">
-            {/* Appointment Details - Prominently Displayed */}
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">Appointment Details</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                <p><span className="font-medium">Date:</span> {formatDateTime(appointment.start_time).date}</p>
-                <p><span className="font-medium">Time:</span> {formatDateTime(appointment.start_time).time}</p>
-                <p><span className="font-medium">Duration:</span> {Math.round((new Date(appointment.end_time).getTime() - new Date(appointment.start_time).getTime()) / (1000 * 60))} minutes</p>
-                <p><span className="font-medium">Status:</span> <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(appointment.status)}`}>{appointment.status}</span></p>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Individual Details</h4>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Individual Details</h4>
                 <p><span className="font-medium">Name:</span> {appointment.individual?.first_name} {appointment.individual?.last_name}</p>
                 <p><span className="font-medium">Email:</span> {appointment.individual?.email}</p>
                 {appointment.individual?.phone_number && (
@@ -242,50 +232,58 @@ export default function AdminAppointments() {
                 )}
                 
                 {/* Dependent Information */}
-                {appointment.individual?.visit_recipient_type && (
-                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                    <p className="font-medium text-yellow-800">Visit Recipient:</p>
-                    <p className="text-yellow-700">
-                      {appointment.individual.visit_recipient_type === 'self' ? 'Self' : 'Other'}
-                      {appointment.individual.visit_recipient_type === 'other' && appointment.individual.dependant_name && (
-                        <span> - {appointment.individual.dependant_name}</span>
-                      )}
-                      {appointment.individual.visit_recipient_type === 'other' && appointment.individual.relationship_to_recipient && (
-                        <span> ({appointment.individual.relationship_to_recipient})</span>
-                      )}
-                    </p>
-                  </div>
-                )}
-                
-                {appointment.individual?.bio && (
-                  <div className="mt-2">
-                    <p className="font-medium">Reason for Visit:</p>
-                    <p className="text-gray-700 bg-white p-2 rounded border">{appointment.individual.bio}</p>
-                  </div>
-                )}
-                {appointment.individual?.physical_address && (
-                  <div className="mt-2">
-                    <p className="font-medium">Visit Location:</p>
-                    <p className="text-gray-700 bg-white p-2 rounded border">{appointment.individual.physical_address}</p>
+                {appointment.individual?.visit_recipient_type === 'other' && (
+                  <div className="mt-3">
+                    <p className="font-medium text-gray-700 mb-1">Visit Recipient</p>
+                    {appointment.individual.dependant_name && (
+                      <p><span className="font-medium">Name:</span> {appointment.individual.dependant_name}</p>
+                    )}
+                    {appointment.individual.relationship_to_recipient && (
+                      <p><span className="font-medium">Relationship:</span> {appointment.individual.relationship_to_recipient}</p>
+                    )}
                   </div>
                 )}
               </div>
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Volunteer Details</h4>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Volunteer Details</h4>
                 <p><span className="font-medium">Name:</span> {appointment.volunteer?.first_name} {appointment.volunteer?.last_name}</p>
                 <p><span className="font-medium">Email:</span> {appointment.volunteer?.email}</p>
                 {appointment.volunteer?.phone_number && (
                   <p><span className="font-medium">Phone:</span> {appointment.volunteer.phone_number}</p>
                 )}
-                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                  <p className="font-medium text-green-800">Therapy Dog:</p>
-                  <p className="text-green-700 font-medium">{dogName}</p>
+                
+                {/* Therapy Dog Section */}
+                <div className="mt-3">
+                  <p className="font-medium text-gray-700 mb-1">Therapy Dog</p>
+                  <p><span className="font-medium">Dog:</span> {dogName}</p>
                   {appointment.volunteer?.dogs?.[0]?.dog_breed && (
-                    <p className="text-green-700">{appointment.volunteer.dogs[0].dog_breed}</p>
+                    <p><span className="font-medium">Breed:</span> {appointment.volunteer.dogs[0].dog_breed}</p>
                   )}
                 </div>
               </div>
             </div>
+            
+            {/* Visit Information - Spans both columns */}
+            {(appointment.individual?.bio || appointment.individual?.physical_address) && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Visit Information</h4>
+                <div className="space-y-3">
+                  {appointment.individual?.bio && (
+                    <div>
+                      <p className="font-medium text-gray-700 mb-1">Reason for Visit:</p>
+                      <p className="text-gray-600 italic">"{appointment.individual.bio}"</p>
+                    </div>
+                  )}
+                  {appointment.individual?.physical_address && (
+                    <div>
+                      <p className="font-medium text-gray-700 mb-1">Visit Location:</p>
+                      <p className="text-gray-600 italic">"{appointment.individual.physical_address}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {appointment.cancellation_reason && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
                 <p className="font-medium text-red-800">Cancellation Reason:</p>
