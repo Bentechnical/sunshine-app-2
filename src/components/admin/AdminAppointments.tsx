@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSupabaseClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search, ChevronDown, ChevronRight } from 'lucide-react';
@@ -20,6 +19,9 @@ interface Appointment {
     phone_number?: string;
     bio?: string;
     physical_address?: string;
+    visit_recipient_type?: string;
+    relationship_to_recipient?: string;
+    dependant_name?: string;
   };
   volunteer: {
     id: string;
@@ -46,7 +48,6 @@ interface AppointmentSection {
 type SectionKey = 'nextWeek' | 'future' | 'past';
 
 export default function AdminAppointments() {
-  const supabase = useSupabaseClient();
   const [sections, setSections] = useState<{
     nextWeek: AppointmentSection;
     future: AppointmentSection;
@@ -56,21 +57,33 @@ export default function AdminAppointments() {
     future: { title: 'Future appointments', appointments: [], loading: true, hasMore: false, page: 1 },
     past: { title: 'Past appointments', appointments: [], loading: true, hasMore: false, page: 1 },
   });
+
+  // Update section titles based on active tab
+  const getSectionTitle = (sectionKey: SectionKey) => {
+    const baseTitles = {
+      nextWeek: 'Appointments in the next 7 days',
+      future: 'Future appointments',
+      past: 'Past appointments'
+    };
+    
+    if (activeTab === 'past') {
+      return baseTitles[sectionKey].replace('appointments', 'past appointments');
+    }
+    return baseTitles[sectionKey];
+  };
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
   const [expandedAppointments, setExpandedAppointments] = useState<Set<number>>(new Set());
-
-  // Calculate date ranges
-  const now = new Date();
-  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   useEffect(() => {
     loadAppointments();
-  }, [statusFilter]);
+  }, [statusFilter, activeTab]);
 
   const loadAppointments = async (section?: SectionKey, loadMore = false) => {
-    const sectionsToLoad = section ? [section] : ['nextWeek', 'future', 'past'] as const;
+    const sectionsToLoad = section ? [section] : 
+      activeTab === 'upcoming' ? ['nextWeek', 'future'] as const : ['past'] as const;
     
     for (const sectionKey of sectionsToLoad) {
       const currentSection = sections[sectionKey];
@@ -81,80 +94,42 @@ export default function AdminAppointments() {
         [sectionKey]: { ...prev[sectionKey], loading: true }
       }));
 
-      let query = supabase
-        .from('appointments')
-        .select(`
-          id,
-          start_time,
-          end_time,
-          status,
-          cancellation_reason,
-          individual:individual_id (
-            id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            bio,
-            physical_address
-          ),
-          volunteer:volunteer_id (
-            id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            dogs (
-              id,
-              dog_name,
-              dog_breed
-            )
-          )
-        `)
-        .order('start_time', { ascending: sectionKey === 'past' ? false : true })
-        .range((page - 1) * 20, page * 20 - 1);
+      try {
+        const params = new URLSearchParams({
+          section: sectionKey,
+          status: statusFilter,
+          page: page.toString()
+        });
 
-      // Apply status filter
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
+        const response = await fetch(`/api/admin/appointments?${params}`);
+        const result = await response.json();
 
-      // Apply date filters
-      if (sectionKey === 'nextWeek') {
-        query = query.gte('start_time', now.toISOString()).lt('start_time', nextWeek.toISOString());
-      } else if (sectionKey === 'future') {
-        query = query.gte('start_time', nextWeek.toISOString());
-      } else if (sectionKey === 'past') {
-        query = query.lt('start_time', now.toISOString());
-      }
+        console.log(`[AdminAppointments] ${sectionKey} API result:`, result);
+        if (result.debug) {
+          console.log(`[AdminAppointments] ${sectionKey} Debug info:`, result.debug);
+        }
 
-      const { data, error } = await query;
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to fetch appointments');
+        }
 
-      if (error) {
+        setSections(prev => ({
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            appointments: loadMore ? [...prev[sectionKey].appointments, ...result.appointments] : result.appointments,
+            loading: false,
+            hasMore: result.hasMore,
+            page
+          }
+        }));
+      } catch (error) {
         console.error(`Error loading ${sectionKey} appointments:`, error);
         setSections(prev => ({
           ...prev,
           [sectionKey]: { ...prev[sectionKey], loading: false }
         }));
-        continue;
       }
-
-      const processedData = data?.map((apt: any) => ({
-        ...apt,
-        individual: apt.individual ? apt.individual[0] : null,
-        volunteer: apt.volunteer ? apt.volunteer[0] : null,
-      })) || [];
-
-      setSections(prev => ({
-        ...prev,
-        [sectionKey]: {
-          ...prev[sectionKey],
-          appointments: loadMore ? [...prev[sectionKey].appointments, ...processedData] : processedData,
-          loading: false,
-          hasMore: processedData.length === 20,
-          page
-        }
-      }));
     }
   };
 
@@ -212,14 +187,25 @@ export default function AdminAppointments() {
         <div className="p-4 cursor-pointer hover:bg-gray-50" onClick={() => toggleExpanded(appointment.id)}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-500 w-20">{date}</div>
+              <div className="text-sm text-gray-500 w-24">{date}</div>
               <div className="text-sm font-medium w-16">{time}</div>
               <div className="flex-1">
-                <div className="font-medium">
-                  {appointment.individual?.first_name} {appointment.individual?.last_name}
-                </div>
-                <div className="text-sm text-gray-600">
-                  with {appointment.volunteer?.first_name} {appointment.volunteer?.last_name} • {dogName}
+                <div className="flex items-center space-x-6">
+                  <div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Individual</div>
+                    <div className="font-medium">
+                      {appointment.individual?.first_name} {appointment.individual?.last_name}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Volunteer</div>
+                    <div className="font-medium">
+                      {appointment.volunteer?.first_name} {appointment.volunteer?.last_name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="text-xs text-gray-400 uppercase tracking-wide">Dog:</span> {dogName}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -235,6 +221,17 @@ export default function AdminAppointments() {
         {/* Expanded View */}
         {isExpanded && (
           <div className="border-t border-gray-200 p-4 bg-gray-50">
+            {/* Appointment Details - Prominently Displayed */}
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">Appointment Details</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <p><span className="font-medium">Date:</span> {formatDateTime(appointment.start_time).date}</p>
+                <p><span className="font-medium">Time:</span> {formatDateTime(appointment.start_time).time}</p>
+                <p><span className="font-medium">Duration:</span> {Math.round((new Date(appointment.end_time).getTime() - new Date(appointment.start_time).getTime()) / (1000 * 60))} minutes</p>
+                <p><span className="font-medium">Status:</span> <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(appointment.status)}`}>{appointment.status}</span></p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Individual Details</h4>
@@ -243,11 +240,34 @@ export default function AdminAppointments() {
                 {appointment.individual?.phone_number && (
                   <p><span className="font-medium">Phone:</span> {appointment.individual.phone_number}</p>
                 )}
+                
+                {/* Dependent Information */}
+                {appointment.individual?.visit_recipient_type && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <p className="font-medium text-yellow-800">Visit Recipient:</p>
+                    <p className="text-yellow-700">
+                      {appointment.individual.visit_recipient_type === 'self' ? 'Self' : 'Other'}
+                      {appointment.individual.visit_recipient_type === 'other' && appointment.individual.dependant_name && (
+                        <span> - {appointment.individual.dependant_name}</span>
+                      )}
+                      {appointment.individual.visit_recipient_type === 'other' && appointment.individual.relationship_to_recipient && (
+                        <span> ({appointment.individual.relationship_to_recipient})</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                
                 {appointment.individual?.bio && (
-                  <p><span className="font-medium">Reason for Visit:</span> {appointment.individual.bio}</p>
+                  <div className="mt-2">
+                    <p className="font-medium">Reason for Visit:</p>
+                    <p className="text-gray-700 bg-white p-2 rounded border">{appointment.individual.bio}</p>
+                  </div>
                 )}
                 {appointment.individual?.physical_address && (
-                  <p><span className="font-medium">Visit Location:</span> {appointment.individual.physical_address}</p>
+                  <div className="mt-2">
+                    <p className="font-medium">Visit Location:</p>
+                    <p className="text-gray-700 bg-white p-2 rounded border">{appointment.individual.physical_address}</p>
+                  </div>
                 )}
               </div>
               <div>
@@ -257,10 +277,13 @@ export default function AdminAppointments() {
                 {appointment.volunteer?.phone_number && (
                   <p><span className="font-medium">Phone:</span> {appointment.volunteer.phone_number}</p>
                 )}
-                <p><span className="font-medium">Dog:</span> {dogName}</p>
-                {appointment.volunteer?.dogs?.[0]?.dog_breed && (
-                  <p><span className="font-medium">Breed:</span> {appointment.volunteer.dogs[0].dog_breed}</p>
-                )}
+                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                  <p className="font-medium text-green-800">Therapy Dog:</p>
+                  <p className="text-green-700 font-medium">{dogName}</p>
+                  {appointment.volunteer?.dogs?.[0]?.dog_breed && (
+                    <p className="text-green-700">{appointment.volunteer.dogs[0].dog_breed}</p>
+                  )}
+                </div>
               </div>
             </div>
             {appointment.cancellation_reason && (
@@ -282,7 +305,7 @@ export default function AdminAppointments() {
     return (
       <div key={sectionKey} className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{getSectionTitle(sectionKey)}</h3>
           {section.loading && <Loader2 className="w-4 h-4 animate-spin" />}
         </div>
         
@@ -313,6 +336,30 @@ export default function AdminAppointments() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-4">All Appointments</h2>
         
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 mb-6">
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'upcoming'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Upcoming Appointments
+          </button>
+          <button
+            onClick={() => setActiveTab('past')}
+            className={`px-4 py-2 text-sm font-medium rounded-colors ${
+              activeTab === 'past'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Past Appointments
+          </button>
+        </div>
+
         {/* Search and Filter Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -324,16 +371,6 @@ export default function AdminAppointments() {
               className="pl-10"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
           <Button onClick={() => loadAppointments()} variant="outline">
             Refresh
           </Button>
@@ -341,9 +378,17 @@ export default function AdminAppointments() {
       </div>
 
       {/* Appointment Sections */}
-      {renderSection('nextWeek')}
-      {renderSection('future')}
-      {renderSection('past')}
+      {activeTab === 'upcoming' && (
+        <>
+          {renderSection('nextWeek')}
+          {renderSection('future')}
+        </>
+      )}
+      {activeTab === 'past' && (
+        <>
+          {renderSection('past')}
+        </>
+      )}
     </div>
   );
 }
