@@ -1,0 +1,78 @@
+{
+  "name": "Sunshine Therapy Dogs",
+  "short_name": "Sunshine",
+  "description": "Connect with therapy dogs and volunteers for healing visits",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "start_url": "/",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["health", "lifestyle", "social"],
+  "icons": [
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Sunshine Therapy Dogs App"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Appointments",
+      "short_name": "Appointments",
+      "description": "View your upcoming therapy dog appointments",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/web-app-manifest-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Find Dogs",
+      "short_name": "Find Dogs",
+      "description": "Browse available therapy dogs",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/web-app-manifest-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
+} 

@@ -75,7 +75,7 @@ This document tracks the current database schema, relationships, and Row Level S
 | `start_time` | timestamp with time zone | NO | - | Appointment start time |
 | `end_time` | timestamp with time zone | NO | - | Appointment end time |
 | `status` | text | YES | 'pending' | Appointment status |
-| `availability_id` | text | NO | - | Reference to availability slot |
+| `availability_id` | text | NO | - | Reference to availability slot (TODO: Should be integer with foreign key constraint) |
 | `cancellation_reason` | text | YES | - | Reason if cancelled |
 | `created_at` | timestamp with time zone | YES | CURRENT_TIMESTAMP | Record creation time |
 | `updated_at` | timestamp with time zone | YES | CURRENT_TIMESTAMP | Record update time |
@@ -111,7 +111,7 @@ This document tracks the current database schema, relationships, and Row Level S
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
 | `individual_id` | text | NO | - | Foreign key to users.id |
-| `category_id` | uuid | NO | - | Foreign key to audience_categories.id |
+| `category_id` | integer | NO | - | Foreign key to audience_categories.id |
 
 ### `volunteer_audience_preferences` Table
 **Volunteer audience preferences**
@@ -183,6 +183,13 @@ This document tracks the current database schema, relationships, and Row Level S
 - **"Volunteers can insert their own preferences"** - Volunteers can add preferences
 - **"Volunteers can update their own preferences"** - Volunteers can update preferences
 - **"Volunteers can delete their own preferences"** - Volunteers can delete preferences
+- **"Allow public read access to volunteer preferences"** - All users can read volunteer preferences for matching
+
+### `individual_audience_tags` Table Policies
+- **"Allow public read access to individual audience tags"** - All users can read individual tags for matching
+
+### `audience_categories` Table Policies
+- **"Allow public read access to audience categories"** - All users can read category information
 
 ## Indexes
 
@@ -207,6 +214,16 @@ This document tracks the current database schema, relationships, and Row Level S
 
 ## Recent Schema Changes
 
+### 2024-01-XX - Fixed Audience Category System ✅ COMPLETED
+- **Fixed data type inconsistency**: Changed `individual_audience_tags.category_id` from UUID to INTEGER
+- **Added RLS policies** for public read access to audience-related tables:
+  - `volunteer_audience_preferences` - Allow public SELECT
+  - `individual_audience_tags` - Allow public SELECT  
+  - `audience_categories` - Allow public SELECT
+- **Enhanced search functionality** with category-based matching
+- **Improved API queries** to handle foreign key relationships properly
+- **Added privacy features** - individuals are blind to category system
+
 ### 2024-01-XX - Added Visit Recipient Support ✅ COMPLETED
 - Added `visit_recipient_type` (text) to `users` table
 - Added `relationship_to_recipient` (text) to `users` table  
@@ -220,6 +237,14 @@ This document tracks the current database schema, relationships, and Row Level S
 - Added individual user fields (pronouns, birthday, physical_address, etc.)
 - Added appointment management fields
 - Added location and travel distance fields
+
+### 2024-12-XX - Stream Chat Integration ✅ COMPLETED
+- Added `appointment_chats` table for chat channel tracking
+- Added `chat_logs` table for message audit logging
+- Implemented RLS policies for chat data protection
+- Added webhook integration for message logging
+- Created comprehensive chat system documentation
+- Implemented connection management to optimize Stream Chat usage
 
 ## Notes for Development
 
@@ -242,6 +267,13 @@ This document tracks the current database schema, relationships, and Row Level S
 - When 'other', `dependant_name` and `relationship_to_recipient` are required
 - Field labels in the UI change based on recipient type
 
+### Audience Category Matching Logic
+- **Individuals**: Categories assigned by admins only (users are blind to categories)
+- **Volunteers**: Categories selected during profile completion
+- **Search Logic**: Only dogs with matching categories are returned
+- **Privacy**: Individuals see no category information in UI
+- **Fallback**: If individual has no categories assigned, search returns empty results
+
 ---
-*Last Updated: [Current Date]*
+*Last Updated: December 2024*
 *Schema Version: 2.0* 

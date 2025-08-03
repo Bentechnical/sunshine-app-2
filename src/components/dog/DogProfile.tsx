@@ -108,15 +108,47 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   }
 
   function parseTimeInput(input: string) {
-    const match = input.trim().toLowerCase().match(/^(\d{1,2})(:?(\d{2}))?(am|pm)$/);
-    if (!match) return null;
-    let hour = parseInt(match[1], 10);
-    const minute = match[3] ? parseInt(match[3], 10) : 0;
-    const period = match[4];
-    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
-    if (period === 'pm' && hour !== 12) hour += 12;
-    if (period === 'am' && hour === 12) hour = 0;
-    return { hour, minute };
+    // Normalize the input: remove extra spaces, convert to lowercase
+    const normalized = input.trim().toLowerCase().replace(/\s+/g, ' ');
+    
+    // Handle various time formats with flexible regex patterns
+    const patterns = [
+      // 11am, 11:30am, 11:00am, 11 AM, 11:30 AM, 11:00 AM
+      /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/,
+      // 11:30 a.m., 11 a.m., 11:00 a.m.
+      /^(\d{1,2})(?::(\d{2}))?\s*a\.?m\.?$/,
+      // 11:30 p.m., 11 p.m., 11:00 p.m.
+      /^(\d{1,2})(?::(\d{2}))?\s*p\.?m\.?$/,
+      // 11:30, 11:00 (assume AM if no period specified)
+      /^(\d{1,2}):(\d{2})$/,
+      // 11 (assume AM if no period specified)
+      /^(\d{1,2})$/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern);
+      if (match) {
+        let hour = parseInt(match[1], 10);
+        const minute = match[2] ? parseInt(match[2], 10) : 0;
+        let period = match[3]; // Get the period if specified
+        
+        // Handle edge cases
+        if (hour < 1 || hour > 12 || minute < 0 || minute > 59) continue;
+        
+        // Smart default: AM for 8-12, PM for 1-7
+        if (!period) {
+          period = (hour >= 8 && hour <= 12) ? 'am' : 'pm';
+        }
+        
+        // Convert to 24-hour format
+        if (period === 'pm' && hour !== 12) hour += 12;
+        if (period === 'am' && hour === 12) hour = 0;
+        
+        return { hour, minute };
+      }
+    }
+    
+    return null;
   }
 
   function formatDate(iso: string) {
@@ -137,7 +169,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   function handleNext() {
     if (!bookingSlot) return;
     const parsed = parseTimeInput(bookingTime);
-    if (!parsed) return setBookingFeedback('Invalid time format. Use e.g., "11:30am"');
+    if (!parsed) return setBookingFeedback('Please enter a valid time (e.g., "11am", "11:30 AM", "2:00pm")');
 
     const start = new Date(bookingSlot.start_time);
     start.setHours(parsed.hour, parsed.minute, 0, 0);
@@ -273,14 +305,18 @@ await fetch('/api/request', {
             <ul className="space-y-4 pr-1">
               {availability.map((slot) => (
                 <li key={slot.id} className="border p-3 rounded-md shadow-sm">
-                  <p><strong>Date:</strong> {formatDate(slot.start_time)}</p>
-                  <p><strong>Time:</strong> {formatTime(slot.start_time)} – {formatTime(slot.end_time)}</p>
-                  <button
-                    onClick={() => openBookingModal(slot)}
-                    className="mt-2 bg-[#0e62ae] text-white px-4 py-2 rounded hover:bg-blue-700"
-                  >
-                    Book This Slot
-                  </button>
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <div className="flex-1">
+                      <p><strong>Date:</strong> {formatDate(slot.start_time)}</p>
+                      <p><strong>Time:</strong> {formatTime(slot.start_time)} – {formatTime(slot.end_time)}</p>
+                    </div>
+                    <button
+                      onClick={() => openBookingModal(slot)}
+                      className="lg:self-start bg-[#0e62ae] text-white px-4 py-2 rounded hover:bg-blue-700 w-full lg:w-auto"
+                    >
+                      Book This Slot
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -290,7 +326,7 @@ await fetch('/api/request', {
 
       {/* Booking Modal */}
       {showBookingModal && bookingSlot && (
-        <div className="fixed top-0 left-[256px] w-[calc(100vw-256px)] h-screen bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="fixed top-0 left-0 lg:left-[256px] w-full lg:w-[calc(100vw-256px)] h-screen bg-black bg-opacity-50 z-50 flex items-center justify-center">
 
           <div className="bg-white p-6 rounded-md max-w-md w-full">
             {bookingStep === 'input' && (
@@ -301,7 +337,7 @@ await fetch('/api/request', {
                   <label className="block mb-1 font-semibold">Enter Start Time</label>
                   <input
                     type="text"
-                    placeholder="e.g., 11:30 AM"
+                    placeholder="e.g., 11am, 2:30 PM, 3:00pm"
                     value={bookingTime}
                     onChange={(e) => setBookingTime(e.target.value)}
                     className="border p-2 w-full"

@@ -1,5 +1,5 @@
 // src/middleware.ts
-import { clerkMiddleware } from '@clerk/nextjs/server';
+import { clerkMiddleware, getAuth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -14,6 +14,18 @@ const isClerkPublicRoute = (path: string) =>
   path.startsWith('/oauth') ||
   path.startsWith('/api/clerk');
 
+// Admin API routes that should be accessible to authenticated users
+const isAdminApiRoute = (path: string) =>
+  path.startsWith('/api/admin/');
+
+// General API routes that should be accessible to authenticated users
+const isApiRoute = (path: string) =>
+  path.startsWith('/api/');
+
+// Admin dashboard routes that should be accessible to authenticated admin users
+const isAdminDashboardRoute = (path: string) =>
+  path.startsWith('/dashboard/admin');
+
 // Skip routes that shouldn't trigger middleware logic
 const isBypassablePath = (path: string) =>
   isClerkPublicRoute(path) ||
@@ -21,13 +33,16 @@ const isBypassablePath = (path: string) =>
   path.startsWith('/api/unlock') ||
   path.startsWith('/api/geocode') ||
   path.startsWith('/api/webhooks') ||
+  path.startsWith('/api/chat/webhook') ||  // ✅ Stream Chat webhook (no auth needed)
   path.startsWith('/_next') ||             // ✅ Next.js assets (CSS, JS)
   path.startsWith('/favicon.ico') ||       // ✅ Favicon
+  path.startsWith('/manifest.json') ||     // ✅ PWA Manifest (required for PWA functionality)
+  path.startsWith('/web-app-manifest-') || // ✅ PWA Icons (required for PWA functionality)
   path.startsWith('/images') ||            // ✅ Your static image assets
   path.startsWith('/fonts') ||             // ✅ Fonts if used
   path.startsWith('/assets');              // ✅ Any other custom static paths
 
-export const middleware = clerkMiddleware(async (_auth, req: NextRequest) => {
+export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   const { pathname } = req.nextUrl;
   console.log('[Middleware] Path:', pathname);
 
@@ -35,14 +50,51 @@ export const middleware = clerkMiddleware(async (_auth, req: NextRequest) => {
     return NextResponse.next();
   }
 
-  // Check cookie for access gating
+  // Allow admin API routes for authenticated users
+  if (isAdminApiRoute(pathname)) {
+    const { userId } = await auth();
+    if (userId) {
+      console.log('[Middleware] Admin API access granted for authenticated user:', userId);
+      return NextResponse.next();
+    } else {
+      console.log('[Middleware] Admin API access denied - no authenticated user');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
+
+  // Allow general API routes for authenticated users (no cookie required)
+  if (isApiRoute(pathname)) {
+    const { userId } = await auth();
+    if (userId) {
+      console.log('[Middleware] API access granted for authenticated user:', userId);
+      return NextResponse.next();
+    } else {
+      console.log('[Middleware] API access denied - no authenticated user');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
+
+  // Allow admin dashboard routes for authenticated users
+  if (isAdminDashboardRoute(pathname)) {
+    const { userId } = await auth();
+    if (userId) {
+      console.log('[Middleware] Admin dashboard access granted for authenticated user:', userId);
+      return NextResponse.next();
+    } else {
+      console.log('[Middleware] Admin dashboard access denied - no authenticated user');
+      const url = req.nextUrl.clone();
+      url.pathname = '/sign-in';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Check cookie for access gating (for non-admin routes)
   const cookie = req.cookies.get(PASSWORD_COOKIE);
   if (!cookie || cookie.value !== PASSWORD_COOKIE_VALUE) {
     console.log('[Middleware] Missing or invalid cookie. Redirecting to /unlock');
     const url = req.nextUrl.clone();
     url.pathname = '/unlock';
     return NextResponse.redirect(url);
-    
   }
 
   return NextResponse.next();

@@ -5,6 +5,9 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 export async function POST(req: NextRequest) {
   try {
     const supabase = createSupabaseAdminClient();
+    
+    // Test the connection and permissions
+    console.log('[Audience Prefs API] Testing admin client connection...');
     const { user_id, role, category_labels } = await req.json();
 
     if (!user_id || !role || !Array.isArray(category_labels)) {
@@ -19,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Fetch all available categories from DB
   const { data: categories, error: catError } = await supabase
   .from('audience_categories')
-  .select('id, name');
+  .select('*');
 
 if (catError || !categories) {
   console.error('[Audience Prefs API] Failed to fetch categories:', catError);
@@ -27,10 +30,12 @@ if (catError || !categories) {
 }
 
 // Map label → ID
-const categoryMap: Record<string, number> = {};
+const categoryMap: Record<string, any> = {};
 categories.forEach((cat) => {
   categoryMap[cat.name] = cat.id;
 });
+
+console.log('[Audience Prefs API] Available categories:', categories);
 
 
     const category_ids = category_labels
@@ -46,11 +51,14 @@ categories.forEach((cat) => {
       return NextResponse.json({ error: 'One or more categories not found' }, { status: 400 });
     }
 
+    console.log('[Audience Prefs API] Category IDs to insert:', category_ids);
+    console.log('[Audience Prefs API] Category IDs type:', typeof category_ids[0]);
+
     const joinTable =
       role === 'volunteer'
         ? 'volunteer_audience_preferences'
         : role === 'individual'
-        ? 'individual_audience_preferences'
+        ? 'individual_audience_tags'
         : null;
 
     if (!joinTable) {
@@ -76,13 +84,28 @@ categories.forEach((cat) => {
     }));
 
     console.log('[Audience Prefs API] Final insert payload:', insertPayload);
+    console.log('[Audience Prefs API] Using table:', joinTable);
 
-    const { error: insertError } = await supabase.from(joinTable).insert(insertPayload);
+    // Test if we can read from the table first
+    const { data: testRead, error: testError } = await supabase
+      .from(joinTable)
+      .select('*')
+      .limit(1);
+    
+    console.log('[Audience Prefs API] Test read result:', { testRead, testError });
+
+    const { data: insertData, error: insertError } = await supabase.from(joinTable).insert(insertPayload);
 
     if (insertError) {
       console.error('[Audience Prefs API] Insert failed:', insertError);
+      console.error('[Audience Prefs API] Insert payload was:', insertPayload);
+      console.error('[Audience Prefs API] Table was:', joinTable);
       return NextResponse.json({ error: 'Insert failed' }, { status: 500 });
     }
+
+    console.log('[Audience Prefs API] Insert successful, data:', insertData);
+
+    console.log('[Audience Prefs API] Successfully inserted preferences');
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -197,18 +197,27 @@ export default function ManageUsersTab() {
     );
   };
 
-  const renderCategoryBubbles = (categories: string[]) => (
-    <div className="flex flex-wrap gap-1">
-      {categories.map((label) => (
-        <span
-          key={label}
-          className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full"
-        >
-          {label}
-        </span>
-      ))}
-    </div>
-  );
+  const renderCategoryBubbles = (categories: string[]) => {
+    // Sort categories based on the predefined order
+    const sortedCategories = categories.sort((a, b) => {
+      const indexA = allCategories.indexOf(a);
+      const indexB = allCategories.indexOf(b);
+      return indexA - indexB;
+    });
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {sortedCategories.map((label) => (
+          <span
+            key={label}
+            className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   const renderAudienceCheckboxes = (
     userId: string,

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { createAppointmentChat } from '@/utils/stream-chat';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptError } = await supabase
       .from('appointments')
-      .select('start_time, individual_id, volunteer_id')
+      .select('start_time, individual_id, volunteer_id, availability_id')
       .eq('id', appointmentId)
       .maybeSingle();
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const { data: individual, error: individualError } = await supabase
       .from('users')
-      .select('first_name, email')
+      .select('first_name, last_name, email')
       .eq('id', appointment.individual_id)
       .maybeSingle();
 
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('first_name, email')
+      .select('first_name, last_name, email')
       .eq('id', appointment.volunteer_id)
       .maybeSingle();
 
@@ -87,14 +88,16 @@ export async function POST(req: NextRequest) {
       dogName: dogData?.dog_name || 'N/A',
       dogBreed: dogData?.dog_breed || 'N/A',
       dogAge: dogData?.dog_age || 'N/A',
-      firstName: volunteer.first_name,
+      firstName: individual.first_name,
+      volunteerName: volunteer.first_name,
       year: new Date().getFullYear(),
     };
 
     const volunteerEmailData = {
       appointmentTime,
       dogName: dogData?.dog_name || 'N/A',
-      firstName: individual.first_name,
+      firstName: volunteer.first_name,
+      individualName: individual.first_name,
       dashboardLink: `${getAppUrl()}/dashboard`,
       year: new Date().getFullYear(),
     };
@@ -112,6 +115,88 @@ export async function POST(req: NextRequest) {
       templateName: 'appointmentConfirmedVolunteer',
       data: volunteerEmailData,
     });
+
+    // Create chat channel for the appointment
+    try {
+      console.log('[Chat Creation] Starting chat creation for appointment:', appointmentId);
+      
+      // First, check if chat already exists
+      const { data: existingChat } = await supabase
+        .from('appointment_chats')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .single();
+
+      if (existingChat) {
+        console.log('[Chat Creation] Chat already exists for appointment:', appointmentId);
+        return NextResponse.json({
+          success: true,
+          individualResponse: emailResponseIndividual,
+          volunteerResponse: emailResponseVolunteer,
+        });
+      }
+
+      // Get appointment details for chat creation
+      // Handle both text and integer availability_id for backward compatibility
+      const availabilityId = parseInt(appointment.availability_id as string);
+      const { data: availability } = await supabase
+        .from('appointment_availability')
+        .select('start_time, end_time')
+        .eq('id', availabilityId)
+        .single();
+
+      const { data: dog } = await supabase
+        .from('dogs')
+        .select('dog_name')
+        .eq('volunteer_id', appointment.volunteer_id)
+        .single();
+
+      console.log('[Chat Creation] Availability:', availability);
+      console.log('[Chat Creation] Dog:', dog);
+
+      if (!availability || !dog) {
+        console.error('[Chat Creation] Missing required data for chat creation');
+        throw new Error('Missing availability or dog data for chat creation');
+      }
+
+      console.log('[Chat Creation] Creating Stream Chat channel...');
+      
+      // Create the Stream Chat channel
+      const channel = await createAppointmentChat(
+        appointmentId,
+        appointment.individual_id,
+        appointment.volunteer_id,
+        {
+          startTime: availability.start_time,
+          endTime: availability.end_time,
+          dogName: dog.dog_name,
+          individualName: `${individual.first_name} ${individual.last_name}`,
+          volunteerName: `${volunteer.first_name} ${volunteer.last_name}`,
+          location: 'Location to be discussed' // This could be enhanced later
+        }
+      );
+
+      console.log('[Chat Creation] Stream Chat channel created, storing in database...');
+
+      // Store chat record in database
+      const { error: insertError } = await supabase
+        .from('appointment_chats')
+        .insert({
+          appointment_id: appointmentId,
+          stream_channel_id: channel.cid,
+          created_by: 'system'
+        });
+
+      if (insertError) {
+        console.error('[Chat Creation] Database insert error:', insertError);
+        throw new Error(`Failed to save chat record: ${insertError.message}`);
+      } else {
+        console.log('[Chat Creation] Chat record stored successfully');
+      }
+    } catch (chatError) {
+      console.error('Error creating chat channel:', chatError);
+      // Don't fail the entire request if chat creation fails, but log the error
+    }
 
     return NextResponse.json({
       success: true,

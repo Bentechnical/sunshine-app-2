@@ -1,19 +1,13 @@
 // src/components/layout/MobileNav.tsx
 'use client';
 
-import { Dispatch, SetStateAction } from 'react';
+import { Home, PawPrint, MessageCircle, CalendarCheck } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
-import {
-  Home,
-  PawPrint,
-  CalendarCheck,
-  MessageCircle,
-} from 'lucide-react';
 
-export interface MobileNavProps {
-  role: 'individual' | 'volunteer' | 'admin';
+interface MobileNavProps {
+  role: 'individual' | 'volunteer';
   activeTab: ActiveTab;
-  setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
+  setActiveTab: (tab: ActiveTab) => void;
   profileImage: string;
 }
 
@@ -21,11 +15,13 @@ export default function MobileNav({
   role,
   activeTab,
   setActiveTab,
+  profileImage,
 }: MobileNavProps) {
   const tabs: {
     key: ActiveTab;
     label: string;
     icon: React.ReactNode;
+    showAlert?: boolean;
   }[] = role === 'individual'
     ? [
         { key: 'dashboard-home', label: 'Home', icon: <Home size={20} /> },
@@ -41,25 +37,28 @@ export default function MobileNav({
       ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around border-t bg-[#0e62ae] text-white shadow-md">
-      {tabs.map(({ key, label, icon }) => {
-        const isActive = activeTab === key;
-        return (
+    <nav className="bg-white border-t border-gray-200 px-4 py-2">
+      <div className="flex justify-around items-center">
+        {tabs.map(({ key, label, icon, showAlert }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`flex flex-col items-center justify-center flex-1 py-2 gap-1 transition-all ${
-              isActive ? 'text-[#f09f1a] font-semibold' : 'text-white opacity-90'
+            className={`flex flex-col items-center gap-1 py-2 px-3 rounded-lg transition-colors relative ${
+              activeTab === key
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
-            style={{
-              borderTop: isActive ? '2px solid #f09f1a' : '2px solid transparent',
-            }}
           >
-            {icon}
-            <span className="text-sm font-semibold">{label}</span>
+            <div className="relative">
+              {icon}
+              {showAlert && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
+            </div>
+            <span className="text-xs font-medium">{label}</span>
           </button>
-        );
-      })}
+        ))}
+      </div>
     </nav>
   );
 }

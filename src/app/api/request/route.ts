@@ -111,7 +111,8 @@ export async function POST(req: NextRequest) {
         dogName: dogData.dog_name || 'N/A',
         dogBreed: dogData.dog_breed || 'N/A',
         dogAge: dogData.dog_age || 'N/A',
-        firstName: volunteer.first_name,
+        firstName: individual.first_name,
+        volunteerName: volunteer.first_name,
         year: new Date().getFullYear(),
       };
     } else if (type === 'volunteer') {
@@ -121,7 +122,8 @@ export async function POST(req: NextRequest) {
       emailData = {
         appointmentTime,
         dogName: dogData.dog_name || 'N/A',
-        firstName: individual.first_name,
+        firstName: volunteer.first_name,
+        individualName: individual.first_name,
         dashboardLink: getAppUrl() + '/dashboard',
         year: new Date().getFullYear(),
       };

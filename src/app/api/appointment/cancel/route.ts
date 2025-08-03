@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
+import { closeAppointmentChat } from '@/utils/stream-chat';
 
 export async function POST(req: NextRequest) {
   try {
@@ -97,6 +98,7 @@ export async function POST(req: NextRequest) {
       appointmentTime,
       dogName: dogData?.dog_name || 'N/A',
       cancellationReason,
+      firstName: individual.first_name,
       year: new Date().getFullYear(),
     };
 
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
       appointmentTime,
       dogName: dogData?.dog_name || 'N/A',
       cancellationReason,
+      firstName: volunteer.first_name,
       year: new Date().getFullYear(),
     };
 
@@ -120,6 +123,47 @@ export async function POST(req: NextRequest) {
       templateName: 'appointmentCanceledVolunteer',
       data: volunteerEmailData,
     });
+
+    // Close the chat channel if it exists
+    try {
+      console.log('[Appointment Cancel] Closing chat for appointment:', appointmentId);
+      
+      // Close the Stream Chat channel
+      await closeAppointmentChat(appointmentId);
+      
+      // Update the database record
+      const { error: updateError } = await supabase
+        .from('appointment_chats')
+        .update({ 
+          status: 'closed',
+          closed_at: new Date().toISOString()
+        })
+        .eq('appointment_id', appointmentId);
+      
+      if (updateError) {
+        console.error('[Appointment Cancel] Error updating chat status:', updateError);
+      } else {
+        console.log('[Appointment Cancel] Chat closed successfully');
+      }
+    } catch (chatError) {
+      console.error('[Appointment Cancel] Error closing chat:', chatError);
+      // Don't fail the entire request if chat closing fails
+    }
+
+    // Update appointment status to canceled
+    const { error: statusError } = await supabase
+      .from('appointments')
+      .update({ 
+        status: 'canceled',
+        cancellation_reason: cancellationReason,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', appointmentId);
+
+    if (statusError) {
+      console.error('[Appointment Cancel] Error updating appointment status:', statusError);
+      throw new Error('Could not update appointment status.');
+    }
 
     return NextResponse.json({
       success: true,

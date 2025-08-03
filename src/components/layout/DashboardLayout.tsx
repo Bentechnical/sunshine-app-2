@@ -6,6 +6,7 @@ import { ActiveTab } from '@/types/navigation';
 import { DesktopNav } from './DesktopNav';
 import DesktopNavAdmin from './DesktopNavAdmin'; // ✅ New
 import MobileNav from './MobileNav';
+import MobileNavAdmin from './MobileNavAdmin'; // ✅ New
 import { SignOutButton } from '@clerk/clerk-react';
 
 interface DashboardLayoutProps {
@@ -14,6 +15,7 @@ interface DashboardLayoutProps {
   activeTab: ActiveTab;
   setActiveTab: React.Dispatch<React.SetStateAction<ActiveTab>>;
   children: ReactNode;
+  refreshTrigger?: number;
 }
 
 export default function DashboardLayout({
@@ -22,6 +24,7 @@ export default function DashboardLayout({
   activeTab,
   setActiveTab,
   children,
+  refreshTrigger,
 }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen relative">
@@ -38,7 +41,13 @@ export default function DashboardLayout({
 
         {/* ✅ Role-based nav */}
         {role === 'admin' ? (
-          <DesktopNavAdmin activeTab={activeTab} setActiveTab={setActiveTab} />
+          <>
+            {/* Admin Mode Banner */}
+            <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-6">
+              <span className="text-sm font-medium">Admin Mode</span>
+            </div>
+            <DesktopNavAdmin activeTab={activeTab} setActiveTab={setActiveTab} refreshTrigger={refreshTrigger} />
+          </>
         ) : (
           <DesktopNav role={role} activeTab={activeTab} setActiveTab={setActiveTab} />
         )}
@@ -80,12 +89,21 @@ export default function DashboardLayout({
 
       {/* Mobile bottom nav wrapper (optional: restrict this to non-admins) */}
       <div className="md:hidden fixed inset-x-0 bottom-0 z-50">
-        <MobileNav
-          role={role}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profileImage={profileImage}
-        />
+        {role === 'admin' ? (
+          <MobileNavAdmin
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            profileImage={profileImage}
+            refreshTrigger={refreshTrigger}
+          />
+        ) : (
+          <MobileNav
+            role={role}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            profileImage={profileImage}
+          />
+        )}
       </div>
     </div>
   );

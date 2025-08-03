@@ -28,6 +28,11 @@ export default function DashboardPage() {
   const userId = user?.id ?? '';
   const profileImage = user?.imageUrl ?? '';
 
+  const handleSelectDog = useCallback<React.Dispatch<React.SetStateAction<string | null>>>(
+    (idOrSetter) => setSelectedDogId(idOrSetter),
+    []
+  );
+
   // Redirect unauthenticated or admin users
   useEffect(() => {
     if (!user) {
@@ -60,11 +65,6 @@ export default function DashboardPage() {
 
     checkProfileComplete();
   }, [isLoaded, user, supabase, router]);
-
-  const handleSelectDog = useCallback<React.Dispatch<React.SetStateAction<string | null>>>(
-    (idOrSetter) => setSelectedDogId(idOrSetter),
-    []
-  );
 
   // Show nothing while loading
   if (!user || loading) return null;

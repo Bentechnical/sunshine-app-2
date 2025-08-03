@@ -14,14 +14,21 @@ import AdminDashboardHome from '@/components/admin/AdminDashboardHome';
 import AdminManageUsers from '@/components/admin/AdminManageUsers';
 import AdminAppointments from '@/components/admin/AdminAppointments';
 import AdminUserRequests from '@/components/admin/AdminUserRequests';
+import AdminChats from '@/components/admin/AdminChats';
+import AdminEmailTesting from '@/components/admin/AdminEmailTesting';
 
 export default function AdminDashboardPage() {
   const { user } = useUser();
   const { role, status, loading } = useUserProfile();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
+  const [unreadCountRefreshTrigger, setUnreadCountRefreshTrigger] = useState(0);
 
   const profileImage = user?.imageUrl ?? '';
+  
+  const handleUnreadCountChange = () => {
+    setUnreadCountRefreshTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     if (!user) {
@@ -44,6 +51,10 @@ export default function AdminDashboardPage() {
         return <AdminUserRequests />;
       case 'appointments':
         return <AdminAppointments />;
+      case 'chats':
+        return <AdminChats onUnreadCountChange={handleUnreadCountChange} />;
+      case 'email-testing':
+        return <AdminEmailTesting />;
       default:
         return (
           <div className="p-4 text-red-600">
@@ -59,6 +70,7 @@ export default function AdminDashboardPage() {
       role="admin"
       activeTab={activeTab}
       setActiveTab={setActiveTab}
+      refreshTrigger={unreadCountRefreshTrigger}
     >
       {renderActiveTab()}
     </DashboardLayout>

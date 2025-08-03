@@ -9,7 +9,7 @@ interface Appointment {
   id: number;
   start_time: string;
   end_time: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'canceled';
   cancellation_reason?: string;
   individual: {
     id: string;
@@ -73,7 +73,8 @@ export default function AdminAppointments() {
   };
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'canceled'>('all');
+  const [hideCanceled, setHideCanceled] = useState(false);
   const [expandedAppointments, setExpandedAppointments] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
@@ -163,17 +164,35 @@ export default function AdminAppointments() {
   };
 
   const filteredAppointments = (appointments: Appointment[]) => {
-    if (!searchTerm) return appointments;
+    let filtered = appointments;
     
-    return appointments.filter(apt => 
-      apt.individual?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.individual?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.volunteer?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.volunteer?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.volunteer?.dogs?.some(dog => 
-        dog.dog_name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
+    console.log(`[filteredAppointments] Total appointments: ${appointments.length}`);
+    console.log(`[filteredAppointments] hideCanceled: ${hideCanceled}`);
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(apt => 
+        apt.individual?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.individual?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.volunteer?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.volunteer?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.volunteer?.dogs?.some(dog => 
+          dog.dog_name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+      console.log(`[filteredAppointments] After search filter: ${filtered.length}`);
+    }
+    
+    // Apply hide canceled filter
+    if (hideCanceled) {
+      const beforeCount = filtered.length;
+      filtered = filtered.filter(apt => apt.status !== 'canceled');
+      const afterCount = filtered.length;
+      console.log(`[filteredAppointments] Hide canceled: ${beforeCount} -> ${afterCount} (removed ${beforeCount - afterCount})`);
+    }
+    
+    console.log(`[filteredAppointments] Final filtered count: ${filtered.length}`);
+    return filtered;
   };
 
   const renderAppointmentCard = (appointment: Appointment) => {
@@ -335,27 +354,46 @@ export default function AdminAppointments() {
         <h2 className="text-2xl font-bold mb-4">All Appointments</h2>
         
         {/* Tab Navigation */}
-        <div className="flex space-x-1 mb-6">
-          <button
-            onClick={() => setActiveTab('upcoming')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === 'upcoming'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Upcoming Appointments
-          </button>
-          <button
-            onClick={() => setActiveTab('past')}
-            className={`px-4 py-2 text-sm font-medium rounded-colors ${
-              activeTab === 'past'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Past Appointments
-          </button>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex space-x-1">
+            <button
+              onClick={() => setActiveTab('upcoming')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'upcoming'
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Upcoming Appointments
+            </button>
+            <button
+              onClick={() => setActiveTab('past')}
+              className={`px-4 py-2 text-sm font-medium rounded-colors ${
+                activeTab === 'past'
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Past Appointments
+            </button>
+          </div>
+          
+          {/* Hide Canceled Checkbox */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="hideCanceled"
+              checked={hideCanceled}
+              onChange={(e) => {
+                console.log(`[Checkbox] Changing hideCanceled from ${hideCanceled} to ${e.target.checked}`);
+                setHideCanceled(e.target.checked);
+              }}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <label htmlFor="hideCanceled" className="ml-2 text-sm font-medium text-gray-700">
+              Hide canceled appointments
+            </label>
+          </div>
         </div>
 
         {/* Search and Filter Controls */}

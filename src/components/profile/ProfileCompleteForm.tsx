@@ -46,6 +46,10 @@ export default function ProfileCompleteForm() {
   const [relationshipToRecipient, setRelationshipToRecipient] = useState('');
   const [dependantName, setDependantName] = useState('');
 
+  // Audience categories for volunteers only
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
   // Phone formatting function
   const formatPhoneNumber = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
@@ -75,6 +79,19 @@ export default function ProfileCompleteForm() {
 
   const DEFAULT_DOG_IMAGE = '/images/default_dog.png';
 
+  // Fetch available audience categories
+  const fetchAudienceCategories = async () => {
+    try {
+      const response = await fetch('/api/audience-categories');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableCategories(data.categories.map((cat: any) => cat.name));
+      }
+    } catch (error) {
+      console.error('Failed to fetch audience categories:', error);
+    }
+  };
+
   useEffect(() => {
     if (!isLoaded || !user || hasPrefilled) return;
     setTimeout(() => setFadeIn(true), 100);
@@ -101,29 +118,56 @@ export default function ProfileCompleteForm() {
         setVisitRecipientType(userData.visit_recipient_type || '');
         setRelationshipToRecipient(userData.relationship_to_recipient || '');
         setDependantName(userData.dependant_name || '');
+        
+        // Set individual user specific fields
+        setPronouns(userData.pronouns || '');
+        setBirthday(userData.birthday ? userData.birthday.toString() : '');
+        setPhysicalAddress(userData.physical_address || '');
+        setOtherPetsOnSite(userData.other_pets_on_site || false);
+        setOtherPetsDescription(userData.other_pets_description || '');
+        setThirdPartyAvailable(userData.third_party_available || '');
+        setAdditionalInformation(userData.additional_information || '');
+        setLiabilityWaiverAccepted(userData.liability_waiver_accepted || false);
 
+        // Fetch existing audience categories for volunteers only
         if (userData.role === 'volunteer') {
-          const { data: dog } = await supabase
+          const { data: audienceData } = await supabase
+            .from('volunteer_audience_preferences')
+            .select(`
+              category_id,
+              audience_categories (name)
+            `)
+            .eq('volunteer_id', user.id);
+          
+          if (audienceData) {
+            setSelectedCategories(audienceData.map((item: any) => item.audience_categories?.name).filter(Boolean));
+          }
+        }
+
+        // Fetch dog data for volunteers
+        if (userData.role === 'volunteer') {
+          const { data: dogData } = await supabase
             .from('dogs')
             .select('*')
             .eq('volunteer_id', user.id)
             .single();
 
-          if (dog) {
-            setDogName(dog.dog_name || '');
-            setDogAge(dog.dog_age?.toString() || '');
-            setDogBreed(dog.dog_breed || '');
-            setDogBio(dog.dog_bio || '');
-            setDogPhotoUrl(dog.dog_picture_url || '');
+          if (dogData) {
+            setDogName(dogData.dog_name || '');
+            setDogAge(dogData.dog_age ? dogData.dog_age.toString() : '');
+            setDogBreed(dogData.dog_breed || '');
+            setDogBio(dogData.dog_bio || '');
+            setDogPhotoUrl(dogData.dog_picture_url || '');
           }
         }
-      }
 
-      setHasPrefilled(true);
+        setHasPrefilled(true);
+      }
     };
 
     fetchUserProfile();
-  }, [isLoaded, user, hasPrefilled, supabase]);
+    fetchAudienceCategories();
+  }, [user, isLoaded, hasPrefilled]);
 
   const normalizePostalCode = (code: string): string => {
     const cleaned = code.toUpperCase().replace(/\s+/g, '');
@@ -231,6 +275,34 @@ export default function ProfileCompleteForm() {
           await supabase.from('dogs').update(dogPayload).eq('volunteer_id', user.id);
         } else {
           await supabase.from('dogs').insert(dogPayload);
+        }
+
+        // Update volunteer audience preferences
+        if (selectedRole === 'volunteer' && selectedCategories.length > 0) {
+          // First, clear existing preferences
+          await supabase
+            .from('volunteer_audience_preferences')
+            .delete()
+            .eq('volunteer_id', user.id);
+
+          // Then insert new preferences
+          const { data: categories } = await supabase
+            .from('audience_categories')
+            .select('id, name')
+            .in('name', selectedCategories);
+
+          if (categories && categories.length > 0) {
+            const preferencePayload = categories.map(cat => ({
+              volunteer_id: user.id,
+              category_id: cat.id
+            }));
+
+            const { error: audienceError } = await supabase
+              .from('volunteer_audience_preferences')
+              .insert(preferencePayload);
+
+            if (audienceError) throw new Error(audienceError.message);
+          }
         }
       }
 
@@ -540,6 +612,8 @@ export default function ProfileCompleteForm() {
                   </label>
                 </div>
               </div>
+
+
             </>
           )}
 
@@ -578,6 +652,38 @@ export default function ProfileCompleteForm() {
                 <option value="25">25 km</option>
                 <option value="50">50 km</option>
               </select>
+            </div>
+          )}
+
+          {/* Audience Categories for Volunteers */}
+          {selectedRole === 'volunteer' && (
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Preferred Audience Categories
+              </label>
+              <p className="text-sm text-gray-600 mb-3">
+                Select the types of individuals you'd prefer to work with:
+              </p>
+              <div className="space-y-2">
+                {availableCategories.map((category) => (
+                  <label key={category} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(category)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCategories([...selectedCategories, category]);
+                        } else {
+                          setSelectedCategories(selectedCategories.filter(cat => cat !== category));
+                        }
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      disabled={isLoading}
+                    />
+                    <span className="text-sm text-gray-700">{category}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

@@ -8,7 +8,12 @@
     "deploy-fast": "vercel build --prod && vercel deploy --prod --prebuilt",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test-chat": "tsx scripts/testChatCreation.ts",
+    "test-reconnection": "tsx scripts/testReconnection.ts",
+    "test-admin-chats": "tsx scripts/testAdminChats.ts",
+    "close-chats": "tsx scripts/closeExpiredChats.ts",
+    "monitor-chat": "tsx scripts/monitorStreamChat.ts"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.1.6",
@@ -43,6 +48,8 @@
     "react-filepond": "^7.1.3",
     "resend": "^4.5.2",
     "rrule": "^2.8.1",
+    "stream-chat": "^9.13.0",
+    "stream-chat-react": "^13.3.0",
     "svix": "^1.61.4",
     "tailwind-merge": "^3.0.2",
     "tw-animate-css": "^1.2.4",

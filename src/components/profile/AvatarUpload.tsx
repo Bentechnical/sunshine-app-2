@@ -21,7 +21,7 @@ export default function AvatarUpload({
   altText = 'Avatar',
 }: AvatarUploadProps) {
   const supabase = useSupabaseClient();
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://sunshinedogs.app';
 
   const [previewUrl, setPreviewUrl] = useState<string>(initialUrl || fallbackUrl || '');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
