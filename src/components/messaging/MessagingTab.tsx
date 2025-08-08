@@ -335,6 +335,11 @@ export default function MessagingTab({}: MessagingTabProps) {
       
       setActiveChannel(channel);
       streamChatManager.updateActivity(); // Update activity when user interacts
+      
+      // Switch to chat view on mobile
+      if (isMobile) {
+        setViewMode('activeChat');
+      }
     } catch (error) {
       console.error('Error selecting channel:', error);
       // If channel selection fails due to disconnection, trigger reconnection
@@ -344,6 +349,12 @@ export default function MessagingTab({}: MessagingTabProps) {
         await handleReconnect();
       }
     }
+  };
+
+  // Handle going back to channel list on mobile
+  const handleBackToChannelList = () => {
+    setViewMode('channelList');
+    setActiveChannel(null);
   };
 
   const getConnectionStatusIcon = () => {
@@ -393,6 +404,45 @@ export default function MessagingTab({}: MessagingTabProps) {
       default:
         return 'text-gray-600';
     }
+  };
+
+  // Custom mobile channel header with back button
+  const MobileChannelHeader = () => {
+    if (!activeChannel) return null;
+    
+    const channelData = channels.find(chat => 
+      chat.channelId.replace('messaging:', '') === activeChannel.id
+    );
+    
+    return (
+      <div className="flex items-center justify-between p-4 border-b bg-white">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleBackToChannelList}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </button>
+          <div className="flex items-center space-x-3">
+            {channelData?.dogImage ? (
+              <img
+                src={channelData.dogImage}
+                alt={channelData.dogName}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                <span className="text-gray-500 text-sm">🐕</span>
+              </div>
+            )}
+            <div>
+              <h3 className="font-medium text-gray-900">{channelData?.dogName}</h3>
+              <p className="text-sm text-gray-500">with {channelData?.otherUserName.split(' ')[0]}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -530,100 +580,210 @@ export default function MessagingTab({}: MessagingTabProps) {
       <div className="flex-1 overflow-hidden">
         {connectionStatus === 'connected' ? (
           <Chat client={client} theme="messaging light">
-            <div className="flex h-full">
-              {/* Channel List */}
-              <div className="w-80 border-r bg-white flex flex-col">
-                <div className="p-4 border-b shrink-0">
-                  <h3 className="font-semibold text-gray-900">Messages</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {(channels || []).length} active conversation{(channels || []).length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto">
-                  {(channels || []).length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
-                      <p>No active conversations</p>
-                      <p className="text-sm mt-1">Chats appear here when appointments are confirmed</p>
+            {isMobile ? (
+              // Mobile Layout: Stacked
+              <div className="h-full">
+                {viewMode === 'channelList' ? (
+                  // Channel List View
+                  <div className="h-full flex flex-col">
+                    <div className="p-4 border-b shrink-0">
+                      <h3 className="font-semibold text-gray-900">Messages</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {(channels || []).length} active conversation{(channels || []).length !== 1 ? 's' : ''}
+                      </p>
                     </div>
-                  ) : (
-                    <div>
-                      {(channels || []).map((chat) => (
-                        <div
-                          key={chat.appointmentId}
-                          onClick={() => handleChannelSelect(chat)}
-                          className="p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0">
-                              {chat.dogImage ? (
-                                <img
-                                  src={chat.dogImage}
-                                  alt={chat.dogName}
-                                  className="w-10 h-10 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                  <span className="text-gray-500 text-sm">🐕</span>
+                    
+                    <div className="flex-1 overflow-y-auto">
+                      {(channels || []).length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <p>No active conversations</p>
+                          <p className="text-sm mt-1">Chats appear here when appointments are confirmed</p>
+                        </div>
+                      ) : (
+                        <div>
+                          {(channels || []).map((chat) => (
+                            <div
+                              key={chat.appointmentId}
+                              onClick={() => handleChannelSelect(chat)}
+                              className="p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div className="flex-shrink-0">
+                                  {chat.dogImage ? (
+                                    <img
+                                      src={chat.dogImage}
+                                      alt={chat.dogName}
+                                      className="w-12 h-12 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                                      <span className="text-gray-500 text-lg">🐕</span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-500 truncate">
+                                    {new Date(chat.appointmentTime).toLocaleDateString('en-US', {
+                                      weekday: 'short',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })} at {new Date(chat.appointmentTime).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </p>
+                                  <div className="border-b border-gray-100 mb-2"></div>
+                                  <p className="text-sm font-medium text-gray-700 truncate">
+                                    {chat.dogName}
+                                  </p>
+                                  <p className="text-xs text-gray-400 truncate">
+                                    with {chat.otherUserName.split(' ')[0]}
+                                  </p>
+                                  {chat.unreadCount > 0 && (
+                                    <div className="mt-1">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {chat.unreadCount} unread
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-500 truncate">
-                                {new Date(chat.appointmentTime).toLocaleDateString('en-US', {
-                                  weekday: 'short',
-                                  month: 'short',
-                                  day: 'numeric'
-                                })} at {new Date(chat.appointmentTime).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                })}
-                              </p>
-                              <div className="border-b border-gray-100 mb-2"></div>
-                              <p className="text-sm font-medium text-gray-700 truncate">
-                                {chat.dogName}
-                              </p>
-                              <p className="text-xs text-gray-400 truncate">
-                                with {chat.otherUserName.split(' ')[0]}
-                              </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // Chat View
+                  activeChannel ? (
+                    <Channel channel={activeChannel}>
+                      <div className="h-full flex flex-col">
+                        <MobileChannelHeader />
+                        <div className="flex-1 overflow-hidden">
+                          <MessageList />
+                        </div>
+                        <div className="shrink-0 pb-20">
+                          <MessageInput />
+                        </div>
+                      </div>
+                      <Thread />
+                    </Channel>
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-gray-50">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-gray-500 text-2xl">💬</span>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          Select a conversation
+                        </h3>
+                        <p className="text-gray-500">
+                          Choose a conversation from the list to start messaging
+                        </p>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            ) : (
+              // Desktop Layout: Side-by-side (existing)
+              <div className="flex h-full">
+                {/* Channel List */}
+                <div className="w-80 border-r bg-white flex flex-col">
+                  <div className="p-4 border-b shrink-0">
+                    <h3 className="font-semibold text-gray-900">Messages</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {(channels || []).length} active conversation{(channels || []).length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto">
+                    {(channels || []).length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        <p>No active conversations</p>
+                        <p className="text-sm mt-1">Chats appear here when appointments are confirmed</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {(channels || []).map((chat) => (
+                          <div
+                            key={chat.appointmentId}
+                            onClick={() => handleChannelSelect(chat)}
+                            className="p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-shrink-0">
+                                {chat.dogImage ? (
+                                  <img
+                                    src={chat.dogImage}
+                                    alt={chat.dogName}
+                                    className="w-10 h-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                    <span className="text-gray-500 text-sm">🐕</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-gray-500 truncate">
+                                  {new Date(chat.appointmentTime).toLocaleDateString('en-US', {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })} at {new Date(chat.appointmentTime).toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </p>
+                                <div className="border-b border-gray-100 mb-2"></div>
+                                <p className="text-sm font-medium text-gray-700 truncate">
+                                  {chat.dogName}
+                                </p>
+                                <p className="text-xs text-gray-400 truncate">
+                                  with {chat.otherUserName.split(' ')[0]}
+                                </p>
+                              </div>
                             </div>
                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Chat Window */}
+                <div className="flex-1 flex flex-col">
+                  {activeChannel ? (
+                    <Channel channel={activeChannel}>
+                      <Window>
+                        <ChannelHeader />
+                        <MessageList />
+                        <MessageInput />
+                      </Window>
+                      <Thread />
+                    </Channel>
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-gray-50">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-gray-500 text-2xl">💬</span>
                         </div>
-                      ))}
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          Select a conversation
+                        </h3>
+                        <p className="text-gray-500">
+                          Choose a conversation from the list to start messaging
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Chat Window */}
-              <div className="flex-1 flex flex-col">
-                {activeChannel ? (
-                  <Channel channel={activeChannel}>
-                    <Window>
-                      <ChannelHeader />
-                      <MessageList />
-                      <MessageInput />
-                    </Window>
-                    <Thread />
-                  </Channel>
-                ) : (
-                  <div className="flex items-center justify-center h-full bg-gray-50">
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-gray-500 text-2xl">💬</span>
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Select a conversation
-                      </h3>
-                      <p className="text-gray-500">
-                        Choose a conversation from the list to start messaging
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </Chat>
         ) : (
           <div className="flex items-center justify-center h-full bg-gray-50">

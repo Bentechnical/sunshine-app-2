@@ -109,13 +109,23 @@ export default function CustomSignIn() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <div className="space-y-2">
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <div className="text-right">
+              <Link
+                href="/sign-in/forgot-password"
+                className="text-sm text-[#0e62ae] hover:text-[#094f91] underline"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 

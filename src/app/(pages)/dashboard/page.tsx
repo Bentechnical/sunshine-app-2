@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
+import { SignOutButton } from '@clerk/nextjs';
 
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import DashboardHome from '@/components/dashboard/DashboardHome';
@@ -122,7 +123,26 @@ export default function DashboardPage() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
     >
-      <main className="flex-grow p-4">{renderActiveTabContent()}</main>
+      <main className="flex-grow p-4">
+        {renderActiveTabContent()}
+        
+        {/* Mobile Logout Button - Only on home tab */}
+        {activeTab === 'dashboard-home' && (
+          <div className="md:hidden mt-8 pt-6 border-t border-gray-200 pb-8">
+            <SignOutButton>
+              <button
+                data-slot="button"
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] bg-red-600 hover:bg-red-700 text-white w-full px-4 py-3"
+              >
+                Log Out
+              </button>
+            </SignOutButton>
+          </div>
+        )}
+        
+        {/* Mobile bottom spacing for all tabs */}
+        <div className="md:hidden pb-20"></div>
+      </main>
     </DashboardLayout>
   );
 }

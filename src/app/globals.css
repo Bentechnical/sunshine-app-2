@@ -165,6 +165,70 @@
   }
 }
 
+/* --- Messaging Tab Mobile Responsiveness --- */
+
+/* Mobile messaging layout adjustments */
+@media (max-width: 767px) {
+  /* Ensure proper height for mobile messaging */
+  .str-chat {
+    height: 100% !important;
+  }
+  
+  /* Mobile channel list items */
+  .mobile-channel-list .str-chat__channel-list {
+    height: 100% !important;
+  }
+  
+  /* Mobile message list */
+  .str-chat__message-list {
+    height: 100% !important;
+    overflow-y: auto !important;
+    padding-bottom: 80px !important; /* Space for mobile nav */
+  }
+  
+  /* Mobile message input */
+  .str-chat__input-flat {
+    border-top: 1px solid #e5e7eb !important;
+    background: white !important;
+    position: relative !important;
+    z-index: 10 !important;
+    padding-bottom: 80px !important; /* Space for mobile nav */
+  }
+  
+  /* Mobile message input container */
+  .str-chat__input-flat .str-chat__input-flat--textarea-wrapper {
+    margin-bottom: 80px !important; /* Space for mobile nav */
+  }
+  
+  /* Mobile thread */
+  .str-chat__thread {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1000 !important;
+    background: white !important;
+  }
+  
+  /* Ensure touch-friendly button sizes */
+  .str-chat__button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  /* Mobile message bubbles */
+  .str-chat__message-bubble {
+    max-width: 85% !important;
+  }
+  
+  /* Mobile channel header */
+  .str-chat__channel-header {
+    padding: 12px 16px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+}
+
 /* Animate FullCalendar view when navigating */
 .fc-slide-fade {
   animation: slideIn 0.3s ease;
