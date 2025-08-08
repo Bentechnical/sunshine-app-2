@@ -15,7 +15,7 @@ import {
 import 'stream-chat-react/dist/css/v2/index.css';
 import { streamChatManager } from '@/utils/stream-chat-client';
 import { StreamChat } from 'stream-chat';
-import { Loader2, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, Wifi, WifiOff, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 
 interface ChatData {
   appointmentId: number;
@@ -43,6 +43,19 @@ export default function MessagingTab({}: MessagingTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [viewMode, setViewMode] = useState<'channelList' | 'activeChat'>('channelList');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Cleanup function to reset state when client is disconnected
   const cleanupDisconnectedState = useCallback(() => {

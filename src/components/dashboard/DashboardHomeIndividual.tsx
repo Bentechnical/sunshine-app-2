@@ -18,7 +18,7 @@ export default function DashboardHomeIndividual({ userId, role, setActiveTab }: 
     <div className="flex flex-col gap-2 px-2 md:px-4 h-auto lg:h-[90vh] pb-4">
       {/* Banner */}
       <div className="shrink-0">
-        <AnnouncementBanner message="Welcome back! Here's what's new..." />
+        <AnnouncementBanner userType="individual" />
       </div>
 
       {/* Main grid: 1/3 left column, 2/3 right column */}

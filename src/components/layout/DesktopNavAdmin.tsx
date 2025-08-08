@@ -18,6 +18,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, refreshTrigge
     { key: 'manage-users', label: 'Manage Users' },
     { key: 'appointments', label: 'Appointments' },
     { key: 'chats', label: 'Chat Management', showAlert: unreadCount > 0 },
+    { key: 'welcome-messages', label: 'Welcome Messages' },
     { key: 'email-testing', label: 'Email Testing' },
   ];
 

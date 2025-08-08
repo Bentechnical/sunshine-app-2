@@ -181,6 +181,28 @@
   }
 }
 
+/* Improve event click consistency on mobile */
+@media (max-width: 640px) {
+  .fc-event {
+    min-height: 24px;
+    padding: 4px 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  
+  .fc-event-main {
+    min-height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Make event click area larger */
+  .fc-timegrid-event-harness {
+    min-height: 24px;
+  }
+}
+
 
 @layer base {
   * {

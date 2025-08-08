@@ -17,7 +17,7 @@ export default function DashboardHomeVolunteer({ userId, role, setActiveTab }: P
   return (
     <div className="flex flex-col gap-2 px-2 md:px-4 h-auto lg:h-[90vh] pb-4">
       <div className="shrink-0">
-        <AnnouncementBanner message="Reminder: Confirm upcoming appointments at least 24 hours in advance." />
+        <AnnouncementBanner userType="volunteer" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-y-2 lg:gap-2 flex-1">

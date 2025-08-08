@@ -15,6 +15,7 @@ import AdminManageUsers from '@/components/admin/AdminManageUsers';
 import AdminAppointments from '@/components/admin/AdminAppointments';
 import AdminUserRequests from '@/components/admin/AdminUserRequests';
 import AdminChats from '@/components/admin/AdminChats';
+import AdminWelcomeMessages from '@/components/admin/AdminWelcomeMessages';
 import AdminEmailTesting from '@/components/admin/AdminEmailTesting';
 
 export default function AdminDashboardPage() {
@@ -53,6 +54,8 @@ export default function AdminDashboardPage() {
         return <AdminAppointments />;
       case 'chats':
         return <AdminChats onUnreadCountChange={handleUnreadCountChange} />;
+      case 'welcome-messages':
+        return <AdminWelcomeMessages />;
       case 'email-testing':
         return <AdminEmailTesting />;
       default:

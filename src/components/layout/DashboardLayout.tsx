@@ -82,7 +82,7 @@ export default function DashboardLayout({
         </div>
 
         {/* Page content (offset for top + bottom bars on mobile) */}
-        <div className="relative flex-1 overflow-y-auto pt-16 md:pt-0 pb-4 px-4 md:px-8">
+        <div className="relative flex-1 overflow-y-auto pt-16 md:pt-0 pb-4 px-2 md:px-8">
           {children}
         </div>
       </main>

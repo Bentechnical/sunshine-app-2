@@ -25,6 +25,7 @@ export default function ProfileCompleteForm() {
   const [fadeIn, setFadeIn] = useState(false);
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
+  const [showRoleSelection, setShowRoleSelection] = useState(true);
   const [travelDistance, setTravelDistance] = useState('10');
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
@@ -78,6 +79,13 @@ export default function ProfileCompleteForm() {
   const [bypassWarning, setBypassWarning] = useState(false);
 
   const DEFAULT_DOG_IMAGE = '/images/default_dog.png';
+
+  // Handle role selection with fade transition
+  const handleRoleSelect = (role: string) => {
+    setSelectedRole(role);
+    // Trigger fade transition
+    setShowRoleSelection(false);
+  };
 
   // Fetch available audience categories
   const fetchAudienceCategories = async () => {
@@ -332,23 +340,92 @@ export default function ProfileCompleteForm() {
         <p className="text-center mb-6">Please tell us more about yourself.</p>
 
         <form onSubmit={handleSubmit}>
-          {/* Role */}
-          <div className="mb-4">
-            <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-2">
-              Select your role
-            </label>
-            <select
-              id="role"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg text-gray-700"
-              disabled={isLoading}
-            >
-              <option value="">Select Role</option>
-              <option value="individual">Individual</option>
-              <option value="volunteer">Volunteer</option>
-            </select>
+          {/* Role Selection - Fade Transition */}
+          <div className={`transition-all duration-500 ease-in-out ${showRoleSelection ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${!showRoleSelection ? 'hidden' : ''}`}>
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-4 text-center">
+                Select your role
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Individual Button */}
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('individual')}
+                  disabled={isLoading}
+                  className="relative group p-6 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 transition-all duration-300 hover:shadow-lg"
+                >
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="relative w-24 h-40 md:w-32 md:h-32 overflow-hidden rounded-lg">
+                      <img
+                        src="/images/book-a-visit-dog.png"
+                        alt="Visit with a therapy dog"
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-gray-900 text-base md:text-base">
+                        I would like to visit with a therapy dog
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Volunteer Button */}
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('volunteer')}
+                  disabled={isLoading}
+                  className="relative group p-6 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300 transition-all duration-300 hover:shadow-lg"
+                >
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="relative w-24 h-40 md:w-32 md:h-32 overflow-hidden rounded-lg">
+                      <img
+                        src="/images/Volunteer-btn.png"
+                        alt="Volunteer with my dog"
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-gray-900 text-base md:text-base">
+                        I would like to volunteer with my dog
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Form Fields - Fade In After Role Selection */}
+          <div className={`transition-all duration-500 ease-in-out ${!showRoleSelection ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${showRoleSelection ? 'hidden' : ''}`}>
+            {selectedRole && (
+              <>
+                {/* Back Button */}
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRoleSelection(true);
+                      setSelectedRole('');
+                    }}
+                    className="flex items-center text-[#0e62ae] hover:text-blue-700 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to role selection
+                  </button>
+                </div>
+
+                {/* Role Confirmation */}
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-center text-blue-900 font-medium">
+                    {selectedRole === 'individual' 
+                      ? 'I would like to visit with a therapy dog'
+                      : 'I would like to volunteer with my dog'
+                    }
+                  </p>
+                </div>
 
           {/* Phone - Moved before visit recipient selection */}
           <div className="mb-4">
@@ -780,6 +857,9 @@ export default function ProfileCompleteForm() {
           >
             {isLoading ? 'Submitting...' : 'Submit Profile'}
           </button>
+              </>
+            )}
+          </div>
         </form>
       </div>
 

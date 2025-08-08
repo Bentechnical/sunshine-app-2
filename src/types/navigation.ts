@@ -11,4 +11,5 @@ export type ActiveTab =
   | 'appointments' // admin
   | 'chats' // admin
   | 'email-testing' // admin
+  | 'welcome-messages' // admin
   | 'system-logs'; // admin;

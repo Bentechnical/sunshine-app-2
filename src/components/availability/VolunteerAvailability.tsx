@@ -28,32 +28,32 @@ interface VolunteerAvailabilityProps {
 
 export default function VolunteerAvailability({ userId }: VolunteerAvailabilityProps) {
   const supabase = useSupabaseClient();
-  const [events, setEvents] = useState<AvailabilityEvent[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<AvailabilityEvent | null>(null);
+  const [events, setEvents] = useState<any[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState<number>(1);
   const [slideKey, setSlideKey] = useState(0);
   const calendarRef = useRef<any>(null);
 
   useEffect(() => {
-  const calendarApi = calendarRef.current?.getApi();
-  if (!calendarApi) return;
+    const calendarApi = calendarRef.current?.getApi();
+    if (!calendarApi) return;
 
-  const updateView = () => {
-    const width = window.innerWidth;
-    if (width < 640) {
-      calendarApi.changeView('timeGridThreeDay');
-    } else if (width < 1024) {
-      calendarApi.changeView('timeGridFiveDay');
-    } else {
-      calendarApi.changeView('timeGridWeek');
-    }
-  };
+    const updateView = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        calendarApi.changeView('timeGridThreeDay');
+      } else if (width < 1024) {
+        calendarApi.changeView('timeGridFiveDay');
+      } else {
+        calendarApi.changeView('timeGridWeek');
+      }
+    };
 
-  updateView(); // Run once on mount
-  window.addEventListener('resize', updateView);
-  return () => window.removeEventListener('resize', updateView);
-}, []);
+    updateView(); // Run once on mount
+    window.addEventListener('resize', updateView);
+    return () => window.removeEventListener('resize', updateView);
+  }, []);
 
   useEffect(() => {
     const attachSlideAnimation = () => {
@@ -78,19 +78,22 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
         .from('appointment_availability')
         .select('*')
         .eq('volunteer_id', userId);
-      if (error) console.error('Error fetching availability:', error);
-      else if (data) {
-        const fetchedEvents = data.map((row: any) => ({
-          id: String(row.id),
-          title: row.recurrence_id ? 'Weekly Availabiliy' : 'Available',
-          start: row.start_time,
-          end: row.end_time,
-          volunteer_id: row.volunteer_id,
-          recurrence_id: row.recurrence_id || null,
-          color: row.recurrence_id ? '#212df3' : '#2196F3',
-          textColor: 'white',
-        }));
-        setEvents(fetchedEvents);
+      if (error) {
+        console.error('Error fetching availability:', error);
+      } else {
+        if (data) {
+          const fetchedEvents = data.map((row: any) => ({
+            id: String(row.id),
+            title: row.recurrence_id ? 'Weekly Availability' : 'Available',
+            start: row.start_time,
+            end: row.end_time,
+            volunteer_id: row.volunteer_id,
+            recurrence_id: row.recurrence_id || null,
+            color: row.recurrence_id ? '#212df3' : '#2196F3',
+            textColor: 'white',
+          }));
+          setEvents(fetchedEvents);
+        }
       }
     };
     fetchAvailability();
@@ -99,7 +102,11 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
   const handleDateSelect = async (selectInfo: any) => {
     try {
       const startTime = selectInfo.startStr;
-      const endTime = selectInfo.endStr;
+      // Set default duration to 1 hour
+      const startDate = new Date(startTime);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+      const endTime = endDate.toISOString();
+      
       const { data, error } = await supabase
         .from('appointment_availability')
         .insert([{ volunteer_id: userId, start_time: startTime, end_time: endTime }])
@@ -125,12 +132,35 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
   };
 
   const handleEventClick = (clickInfo: any) => {
+    console.log('Event click triggered:', clickInfo);
     const eventId = clickInfo.event.id;
     const eventData = events.find((e) => e.id === eventId);
-    if (!eventData) return;
+    if (!eventData) {
+      console.log('Event data not found for ID:', eventId);
+      return;
+    }
+    console.log('Opening modal for event:', eventData);
     setSelectedEvent({ ...eventData });
     setShowEventModal(true);
   };
+
+  // Custom event content with edit button when selected
+  const handleEditClick = (eventId: string) => {
+    const eventData = events.find((e) => e.id === eventId);
+    if (eventData) {
+      console.log('Edit button clicked - opening modal for event:', eventData);
+      setSelectedEvent({ ...eventData });
+      setShowEventModal(true);
+    }
+  };
+
+  // Make the function available globally for inline onclick
+  useEffect(() => {
+    (window as any).handleEditClick = handleEditClick;
+    return () => {
+      delete (window as any).handleEditClick;
+    };
+  }, [events]);
 
   const deleteEvent = async (deleteSeries: boolean) => {
     if (!selectedEvent) return;
@@ -233,40 +263,86 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
 
   return (
     <div className="flex flex-col lg:h-[90vh] rounded-xl border border-gray-200 shadow-sm bg-white">
-      <div className="px-4 py-3 border-b border-gray-100">
+      <div className="px-4 py-3 border-b border-gray-100 md:block hidden">
         <h2 className="text-lg font-semibold">Your Availability</h2>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-2 md:p-4 pb-20 md:pb-4">
         <div className="fc-slide-fade">
           <FullCalendar
             key={slideKey}
             ref={calendarRef}
+            // FullCalendar configuration
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="timeGridWeek"            
+            initialView="timeGridWeek"
             views={{
               timeGridThreeDay: {
                 type: 'timeGrid',
                 duration: { days: 3 },
-                buttonText: '3 day',
+                buttonText: '3 day'
               },
               timeGridFiveDay: {
                 type: 'timeGrid',
                 duration: { days: 5 },
-                buttonText: '5 day',
-              },
+                buttonText: '5 day'
+              }
             }}
-            selectable
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'timeGridThreeDay,timeGridFiveDay,timeGridWeek'
+            }}
             editable
+            selectable
             events={events}
             select={handleDateSelect}
             eventClick={handleEventClick}
             eventResize={handleEventResize}
+            eventDragStart={(dragInfo) => {
+              // Drag started - no need for alert
+            }}
+            eventDrop={(dropInfo) => {
+              console.log('Event dropped:', dropInfo);
+              // Handle the drop to update the event time
+              const event = dropInfo.event;
+              const newStart = event.startStr;
+              const newEnd = event.endStr;
+              
+              // Update the event in the database
+              supabase
+                .from('appointment_availability')
+                .update({ start_time: newStart, end_time: newEnd })
+                .eq('id', Number(event.id))
+                .then(({ error }) => {
+                  if (error) {
+                    console.error('Error updating event time:', error);
+                    dropInfo.revert();
+                  } else {
+                    // Update local state
+                    setEvents((prev) =>
+                      prev.map((evt) => 
+                        evt.id === event.id 
+                          ? { ...evt, start: newStart, end: newEnd }
+                          : evt
+                      )
+                    );
+                  }
+                });
+            }}
             height="auto"
             slotMinTime="09:00:00"
             slotMaxTime="18:00:00"
             allDaySlot={false}
             selectConstraint={{ startTime: '09:00:00', endTime: '18:00:00' }}
             eventConstraint={{ startTime: '09:00:00', endTime: '18:00:00' }}
+            // Mobile touch selection fix
+            selectLongPressDelay={0}
+            longPressDelay={100}
+            // Simple event display - show only "Available" text
+            eventContent={(arg) => {
+              return {
+                html: '<div style="text-align: center; font-weight: 500; font-size: 0.8rem;">Available</div>'
+              };
+            }}
             datesSet={() => {
               const calendarContainer = document.querySelector('.fc') as HTMLElement | null;
               if (calendarContainer) {
