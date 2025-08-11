@@ -92,7 +92,11 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   // Check cookie for access gating (for non-admin routes)
   const cookie = req.cookies.get(PASSWORD_COOKIE);
   if (!cookie || cookie.value !== PASSWORD_COOKIE_VALUE) {
-    if (isDev) console.log('[Middleware] Missing or invalid cookie. Redirecting to /unlock');
+    if (isDev) {
+      const host = req.headers.get('host');
+      const ua = req.headers.get('user-agent');
+      console.log('[Middleware] Missing/invalid cookie. host:', host, 'ua:', ua, 'cookieValue:', cookie?.value);
+    }
     const url = req.nextUrl.clone();
     url.pathname = '/unlock';
     return NextResponse.redirect(url);

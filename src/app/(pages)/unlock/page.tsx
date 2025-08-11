@@ -23,12 +23,21 @@ export default function UnlockPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ password }),
       });
 
       if (res.ok) {
-        // Redirect manually to force page reload and trigger middleware again
-        window.location.href = '/';
+        // Dev-only client cookie set to ensure immediate visibility to middleware on iOS Simulator
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            document.cookie = 'access_granted=true; Path=/; SameSite=Lax';
+          } catch {}
+        }
+        // Slight delay to ensure cookie commit before navigation (Safari/iOS)
+        setTimeout(() => {
+          window.location.replace('/');
+        }, 150);
       } else {
         const data = await res.json();
         setError(data.error || 'Invalid password.');

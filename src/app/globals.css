@@ -203,6 +203,10 @@
     position: static !important;
     bottom: auto !important;
     z-index: 20 !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    display: flex !important;
+    align-items: center !important;
   }
   
   /* Mobile message input container */
@@ -272,12 +276,32 @@
   .str-chat__textarea,
   .str-chat__textarea > textarea,
   .str-chat__input-flat--textarea-wrapper textarea {
-    min-height: 36px !important;
-    max-height: 120px !important;
-    line-height: 1.25 !important;
+    min-height: 32px !important;
+    max-height: 96px !important;
+    line-height: 1.2 !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
   }
   .str-chat__input-flat--textarea-wrapper {
     padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Shrink icon buttons to reduce overall input height */
+  .str-chat__input-flat .str-chat__send-button,
+  .str-chat__input-flat .str-chat__fileupload,
+  .str-chat__input-flat .str-chat__emojiselect,
+  .str-chat__input-flat .str-chat__commands-button {
+    padding: 4px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+  .str-chat__input-flat .str-chat__send-button svg,
+  .str-chat__input-flat .str-chat__fileupload svg,
+  .str-chat__input-flat .str-chat__emojiselect svg,
+  .str-chat__input-flat .str-chat__commands-button svg {
+    width: 18px !important;
+    height: 18px !important;
   }
 }
 
