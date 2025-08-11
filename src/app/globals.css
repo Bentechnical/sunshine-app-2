@@ -169,7 +169,7 @@
 
 /* Mobile messaging layout adjustments */
 @media (max-width: 767px) {
-  /* Ensure proper height for mobile messaging */
+  /* Ensure chat fills available parent height (not viewport) */
   .str-chat {
     height: 100% !important;
   }
@@ -179,25 +179,45 @@
     height: 100% !important;
   }
   
-  /* Mobile message list */
+  /* Mobile message list: keep minimal padding; spacing handled by outer scroll container */
   .str-chat__message-list {
     height: 100% !important;
     overflow-y: auto !important;
-    padding-bottom: 80px !important; /* Space for mobile nav */
+    padding-bottom: 0 !important;
+    padding-top: 0 !important; /* Header offset handled in component */
+    padding-left: 12px !important; /* Prevent avatar overflow touching edge */
+    padding-right: 12px !important;
+  }
+
+  .str-chat__list,
+  .str-chat__ul,
+  .str-chat__virtual-list,
+  .str-chat__reverse-infinite-scroll {
+    padding-bottom: 0 !important;
   }
   
   /* Mobile message input */
   .str-chat__input-flat {
     border-top: 1px solid #e5e7eb !important;
     background: white !important;
-    position: relative !important;
-    z-index: 10 !important;
-    padding-bottom: 80px !important; /* Space for mobile nav */
+    position: static !important;
+    bottom: auto !important;
+    z-index: 20 !important;
   }
   
   /* Mobile message input container */
   .str-chat__input-flat .str-chat__input-flat--textarea-wrapper {
-    margin-bottom: 80px !important; /* Space for mobile nav */
+    margin-bottom: 0 !important;
+  }
+
+  /* Wrapper around MessageInput will sit in grid row 3 (no fixed) */
+  .chat-mobile-input {
+    position: static !important;
+    background: white !important;
+    z-index: 1 !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    padding-top: 8px !important;
   }
   
   /* Mobile thread */
@@ -219,13 +239,45 @@
   
   /* Mobile message bubbles */
   .str-chat__message-bubble {
-    max-width: 85% !important;
+    max-width: 92% !important; /* allow wider bubbles on mobile */
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  /* Fix overly large opposite margins on mobile */
+  .str-chat__message--me .str-chat__message-bubble {
+    margin-left: 6vw !important;
+    margin-right: 2vw !important;
+  }
+  .str-chat__message--other .str-chat__message-bubble {
+    margin-right: 6vw !important;
+    margin-left: 2vw !important;
   }
   
-  /* Mobile channel header */
-  .str-chat__channel-header {
-    padding: 12px 16px !important;
-    border-bottom: 1px solid #e5e7eb !important;
+  /* Tighten subheader and input heights */
+  .chat-mobile-subheader {
+    padding: 4px 12px !important;
+    min-height: 40px !important;
+  }
+  .chat-mobile-input {
+    min-height: auto !important;
+    padding: 0 0 env(safe-area-inset-bottom) 0 !important;
+  }
+
+  /* Compact Stream input on mobile */
+  .str-chat__input-flat {
+    padding: 4px 8px !important;
+  }
+  .str-chat__input-flat textarea,
+  .str-chat__textarea,
+  .str-chat__textarea > textarea,
+  .str-chat__input-flat--textarea-wrapper textarea {
+    min-height: 36px !important;
+    max-height: 120px !important;
+    line-height: 1.25 !important;
+  }
+  .str-chat__input-flat--textarea-wrapper {
+    padding: 0 !important;
   }
 }
 
@@ -274,5 +326,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }

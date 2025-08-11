@@ -19,12 +19,16 @@ export class StreamChatClientManager {
   private client: StreamChat | null = null;
   private currentUserId: string | null = null;
   private currentUserData: any = null; // Store user data for reconnection
+  private lastKnownUserId: string | null = null; // Persist across quickDisconnect
   private isConnecting = false;
   private isDisconnecting = false;
   private connectionHealthCheck: NodeJS.Timeout | null = null;
   private lastDisconnectTime = 0;
   private isPageVisible = true;
   private disconnectCallbacks: Array<() => void> = [];
+  private hiddenDisconnectTimer: NodeJS.Timeout | null = null;
+  private hiddenDisconnectDelayMs = 60_000; // default: 60s when tab hidden
+  private inactivityTimeoutMs = INACTIVITY_TIMEOUT; // default: 5min
 
   private constructor() {
     this.setupActivityTracking();
@@ -81,16 +85,23 @@ export class StreamChatClientManager {
       const wasVisible = this.isPageVisible;
       this.isPageVisible = !document.hidden;
       
-      if (wasVisible && !this.isPageVisible) {
-        // Page becoming hidden - quick disconnect
-        console.log('[StreamChatManager] Page hidden, quick disconnect...');
-        this.quickDisconnect().catch(error => {
-          console.error('[StreamChatManager] Quick disconnect failed:', error);
-        });
-      } else if (!wasVisible && this.isPageVisible) {
-        // Page becoming visible - quick reconnect
-        console.log('[StreamChatManager] Page visible, quick reconnect...');
-        this.quickReconnect();
+      if (!this.isPageVisible) {
+        // Tab hidden: schedule a disconnect to reduce concurrent connections
+        if (this.hiddenDisconnectTimer) clearTimeout(this.hiddenDisconnectTimer);
+        this.hiddenDisconnectTimer = setTimeout(() => {
+          // Only disconnect if still hidden and connected
+          if (!this.isPageVisible && this.client && this.client.userID) {
+            console.log('[StreamChatManager] Tab hidden for 60s, disconnecting to save usage');
+            this.disconnectUser();
+          }
+        }, this.hiddenDisconnectDelayMs);
+      } else {
+        // Tab visible: cancel any pending hidden disconnect
+        if (this.hiddenDisconnectTimer) {
+          clearTimeout(this.hiddenDisconnectTimer);
+          this.hiddenDisconnectTimer = null;
+        }
+        // SDK will handle reconnection automatically via provider
       }
     });
   }
@@ -99,20 +110,15 @@ export class StreamChatClientManager {
     if (typeof window === 'undefined') return;
 
     // More reliable than beforeunload
-    window.addEventListener('pagehide', () => {
-      console.log('[StreamChatManager] Page hiding, disconnecting...');
-      this.disconnectUser();
-    });
+    // Do not disconnect on pagehide; keep client alive
 
     // Handle online/offline events
     window.addEventListener('online', () => {
-      console.log('[StreamChatManager] Network online, reconnecting...');
-      this.reconnectIfNeeded();
+      console.log('[StreamChatManager] Network online');
     });
 
     window.addEventListener('offline', () => {
-      console.log('[StreamChatManager] Network offline, disconnecting...');
-      this.disconnectUser();
+      console.log('[StreamChatManager] Network offline');
     });
 
     // Handle beforeunload as backup
@@ -129,7 +135,7 @@ export class StreamChatClientManager {
     inactivityTimer = setTimeout(() => {
       console.log('[StreamChatManager] User inactive for 5 minutes, disconnecting...');
       this.disconnectUser();
-    }, INACTIVITY_TIMEOUT);
+    }, this.inactivityTimeoutMs);
   }
 
   private startConnectionHealthCheck() {
@@ -181,7 +187,7 @@ export class StreamChatClientManager {
         
         // Clear all references and create fresh client instance
         this.client = null;
-        this.currentUserId = null;
+        this.currentUserId = null; // keep lastKnownUserId for reconnection attempts
         this.currentUserData = null;
         this.stopConnectionHealthCheck();
         
@@ -196,47 +202,10 @@ export class StreamChatClientManager {
 
   // Quick reconnect for tab switching (uses cached token if available)
   private quickReconnect(): void {
-    if (!this.currentUserId || this.isConnecting) {
-      return;
+    // Prefer provider-driven reconnect; this is now a no-op
+    if (this.currentUserId && !this.isConnecting) {
+      this.reconnectIfNeeded();
     }
-
-    // Clear any existing reconnect timer
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-    }
-
-    // Use longer delay to ensure WebSocket is fully closed
-    const timeSinceDisconnect = Date.now() - this.lastDisconnectTime;
-    const minDelay = Math.max(500, timeSinceDisconnect < 5000 ? 1000 : RECONNECT_DELAY);
-    
-    console.log(`[StreamChatManager] Scheduling reconnect in ${minDelay}ms (${timeSinceDisconnect}ms since disconnect)`);
-    
-    reconnectTimer = setTimeout(async () => {
-      try {
-        console.log('[StreamChatManager] Quick reconnecting...');
-        
-        // Try to use cached token first
-        const cachedToken = this.getCachedToken(this.currentUserId!);
-        if (cachedToken) {
-          console.log('[StreamChatManager] Using cached token for quick reconnect');
-          await this.connectUser(
-            this.currentUserId!,
-            cachedToken,
-            this.currentUserData // Reuse stored user data
-          );
-          return;
-        }
-
-        // Fallback to fresh token
-        await this.reconnectWithFreshToken();
-      } catch (error) {
-        console.error('[StreamChatManager] Quick reconnection failed:', error);
-        // Fallback to full reconnection
-        this.reconnectIfNeeded();
-      } finally {
-        reconnectTimer = null;
-      }
-    }, minDelay);
   }
 
   private getCachedToken(userId: string): string | null {
@@ -258,45 +227,15 @@ export class StreamChatClientManager {
 
   private async reconnectWithFreshToken(): Promise<void> {
     try {
-      // Get fresh token
-      const tokenResponse = await fetch('/api/chat/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!tokenResponse.ok) {
-        throw new Error('Failed to get chat token for reconnection');
+      // Use provider connect to let SDK handle retry/reconnect
+      if (!this.currentUserId && this.lastKnownUserId) {
+        this.currentUserId = this.lastKnownUserId;
       }
-
-      const { token } = await tokenResponse.json();
-      
-      // Cache the new token
-      this.cacheToken(this.currentUserId!, token);
-
-      // Use stored user data for reconnection, with fallback
-      let userData = this.currentUserData;
-      if (!userData) {
-        console.warn('[StreamChatManager] No stored user data, using fallback');
-        userData = {
-          id: this.currentUserId!,
-          name: 'User',
-          image: undefined,
-        };
-      }
-
-      // Ensure user data has required fields
-      if (!userData.id) {
-        userData.id = this.currentUserId!;
-      }
-
-      // Reconnect with fresh token and user data
-      await this.connectUser(
-        this.currentUserId!,
-        token,
-        userData
-      );
-
-      console.log('[StreamChatManager] Reconnection with fresh token successful');
+      if (!this.currentUserId) throw new Error('No userId for reconnection');
+      const uid = this.currentUserId;
+      const u = this.currentUserData || { id: uid };
+      await this.connectUserWithProvider(uid, u);
+      console.log('[StreamChatManager] Reconnection (provider) successful');
     } catch (error) {
       console.error('[StreamChatManager] Reconnection with fresh token failed:', error);
       throw error;
@@ -378,7 +317,9 @@ export class StreamChatClientManager {
 
       // Connect to new user with a single automatic retry on transient failures
       const attemptConnect = async (): Promise<void> => {
-        await this.client!.connectUser(userData, userToken);
+        const u: any = userData && typeof userData === 'object' ? { ...userData } : { id: userId };
+        if (!u.id) u.id = userId;
+        await this.client!.connectUser(u, userToken);
       };
       try {
         await attemptConnect();
@@ -392,6 +333,7 @@ export class StreamChatClientManager {
         await attemptConnect();
       }
       this.currentUserId = userId;
+      this.lastKnownUserId = userId;
       this.currentUserData = userData; // Store user data
 
       // Cache the token for future quick reconnections
@@ -410,6 +352,42 @@ export class StreamChatClientManager {
       this.currentUserId = null;
       this.currentUserData = null; // Clear stored user data on error
       throw error;
+    } finally {
+      this.isConnecting = false;
+    }
+  }
+
+  // Preferred: connect using token provider so the SDK can refresh tokens and reconnect
+  async connectUserWithProvider(userId: string, userData: any): Promise<StreamChat> {
+    if (this.isDisconnecting) {
+      while (this.isDisconnecting) { await new Promise(r => setTimeout(r, 100)); }
+    }
+    if (this.client && this.currentUserId === userId && this.client.userID) {
+      this.resetInactivityTimer();
+      return this.client;
+    }
+    this.isConnecting = true;
+    try {
+      if (this.client) {
+        try { await this.client.disconnect(); } catch {}
+      }
+      this.client = StreamChat.getInstance(process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!);
+      const provider = async () => {
+        const res = await fetch('/api/chat/token', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        if (!res.ok) throw new Error('Failed to get chat token');
+        const { token } = await res.json();
+        this.cacheToken(userId, token);
+        return token;
+      };
+      const u: any = userData && typeof userData === 'object' ? { ...userData } : { id: userId };
+      if (!u.id) u.id = userId;
+      await this.client.connectUser(u, provider);
+      this.currentUserId = userId;
+      this.lastKnownUserId = userId;
+      this.currentUserData = u;
+      this.resetInactivityTimer();
+      this.startConnectionHealthCheck();
+      return this.client;
     } finally {
       this.isConnecting = false;
     }
@@ -509,6 +487,21 @@ export class StreamChatClientManager {
     this.resetInactivityTimer();
   }
 
+  // Testing/ops: adjust timeouts at runtime
+  setTestTimeouts(options: { hiddenMs?: number; idleMs?: number }): void {
+    if (typeof options.hiddenMs === 'number') {
+      this.hiddenDisconnectDelayMs = Math.max(0, options.hiddenMs);
+    }
+    if (typeof options.idleMs === 'number') {
+      this.inactivityTimeoutMs = Math.max(0, options.idleMs);
+      this.resetInactivityTimer();
+    }
+    console.log('[StreamChatManager] Test timeouts updated', {
+      hiddenMs: this.hiddenDisconnectDelayMs,
+      idleMs: this.inactivityTimeoutMs,
+    });
+  }
+
   // Clear cached tokens (useful for testing or token refresh)
   clearTokenCache(): void {
     tokenCache = {};
@@ -559,4 +552,12 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
     streamChatManager.disconnectUser();
   });
+  // Expose manager for debugging in development
+  try {
+    // @ts-ignore
+    if (process.env.NODE_ENV !== 'production') {
+      // @ts-ignore
+      (window as any).__scm = streamChatManager;
+    }
+  } catch {}
 } 

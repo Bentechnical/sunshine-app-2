@@ -1,7 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true,
+  // Disable React Strict Mode in development to avoid double-invoking effects
+  // which can interfere with websocket initialization timing. It has no
+  // functional impact in production builds.
+  reactStrictMode: false,
   typescript: {
     ignoreBuildErrors: false,
   },
