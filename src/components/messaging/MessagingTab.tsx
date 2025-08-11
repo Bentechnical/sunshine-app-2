@@ -16,6 +16,7 @@ import 'stream-chat-react/dist/css/v2/index.css';
 import { streamChatManager } from '@/utils/stream-chat-client';
 import { StreamChat } from 'stream-chat';
 import { Loader2, Wifi, WifiOff, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { useRef } from 'react';
 
 interface ChatData {
   appointmentId: number;
@@ -31,20 +32,24 @@ interface ChatData {
 }
 
 interface MessagingTabProps {
-  // No props needed for non-admin users
+  onActiveChatChange?: (isActiveChat: boolean) => void;
 }
 
-export default function MessagingTab({}: MessagingTabProps) {
+export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) {
   const { user } = useUser();
   const [client, setClient] = useState<StreamChat | null>(null);
   const [channels, setChannels] = useState<ChatData[]>([]);
   const [activeChannel, setActiveChannel] = useState<any>(null);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [viewMode, setViewMode] = useState<'channelList' | 'activeChat'>('channelList');
   const [isMobile, setIsMobile] = useState(false);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLDivElement | null>(null);
+  const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -57,11 +62,64 @@ export default function MessagingTab({}: MessagingTabProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Compute available height for messages (mobile) so only middle area scrolls
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const TOP_BAR_PX = 48; // mobile top bar in layout
+    const recompute = () => {
+      const vh = window.innerHeight;
+      const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
+      const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
+      const headerH = headerMeasured > 24 ? headerMeasured : 44; // sensible fallback
+      const inputH = inputMeasured > 24 ? inputMeasured : 60;    // sensible fallback
+      const safeBottom = Number(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)').replace('px','')) || 0;
+      const available = Math.max(100, vh - TOP_BAR_PX - headerH - inputH - safeBottom);
+      setMessagesHeight(available);
+    };
+
+    // Run immediately, next frame, and after a short delay to catch async mounts
+    recompute();
+    requestAnimationFrame(recompute);
+    const t1 = setTimeout(recompute, 150);
+    const t2 = setTimeout(recompute, 400);
+
+    // Observe header/input size changes
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => recompute());
+      if (headerRef.current) ro.observe(headerRef.current);
+      if (inputRef.current) ro.observe(inputRef.current);
+    }
+
+    window.addEventListener('resize', recompute);
+    window.addEventListener('orientationchange', recompute as any);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', recompute);
+      window.removeEventListener('orientationchange', recompute as any);
+      if (ro) ro.disconnect();
+    };
+  }, [isMobile]);
+
+  // No dynamic padding needed with grid layout
+
   // Cleanup function to reset state when client is disconnected
   const cleanupDisconnectedState = useCallback(() => {
     setActiveChannel(null);
+    setActiveChannelId(null);
     setChannels([]);
     setConnectionStatus('disconnected');
+  }, []);
+
+  // Expose minimal debug helpers for testing (safe in dev tools)
+  useEffect(() => {
+    try {
+      (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
+      (window as any).__openChat = (id: string) => setActiveChannelId(id);
+    } catch {}
   }, []);
 
   // Reconnection function
@@ -85,10 +143,9 @@ export default function MessagingTab({}: MessagingTabProps) {
 
       const { token } = await tokenResponse.json();
 
-      // Reconnect using the manager
-      const userClient = await streamChatManager.connectUser(
+      // Reconnect using provider path (SDK-managed)
+      const userClient = await streamChatManager.connectUserWithProvider(
         user.id,
-        token,
         {
           id: user.id,
           name: `${user.firstName} ${user.lastName}`,
@@ -98,9 +155,11 @@ export default function MessagingTab({}: MessagingTabProps) {
 
       setClient(userClient);
       setConnectionStatus('connected');
-      
-      // Refresh channels after reconnection
-      await fetchChannels();
+      setViewMode('channelList');
+      // Refresh channels immediately and with backoff to handle mobile timing
+      await fetchChannelsWithClient(userClient);
+      setTimeout(() => fetchChannelsWithClient(userClient), 300);
+      setTimeout(() => fetchChannelsWithClient(userClient), 1000);
       
     } catch (err) {
       console.error('Error reconnecting:', err);
@@ -148,10 +207,9 @@ export default function MessagingTab({}: MessagingTabProps) {
 
         const { token } = await tokenResponse.json();
 
-        // Use centralized client manager
-        const userClient = await streamChatManager.connectUser(
+        // Use centralized client manager (provider)
+        const userClient = await streamChatManager.connectUserWithProvider(
           user.id,
-          token,
           {
             id: user.id,
             name: `${user.firstName} ${user.lastName}`,
@@ -163,6 +221,7 @@ export default function MessagingTab({}: MessagingTabProps) {
           setClient(userClient);
           setConnectionStatus('connected');
           setError(null);
+          await fetchChannelsWithClient(userClient);
         }
 
       } catch (err) {
@@ -187,44 +246,30 @@ export default function MessagingTab({}: MessagingTabProps) {
     };
   }, [user?.id]); // Only depend on user.id to prevent re-initialization loops
 
-  // Monitor connection status and handle disconnections
+  // Monitor connection status and handle disconnections (event-driven only)
   useEffect(() => {
     if (!client) return;
 
-    const checkConnectionStatus = () => {
-      const state = streamChatManager.getConnectionState();
-      
-      // Map Stream Chat states to our UI states
-      switch (state) {
-        case 'connected':
-          setConnectionStatus('connected');
-          break;
-        case 'connecting':
-          setConnectionStatus('connecting');
-          break;
-        case 'disconnected':
-          setConnectionStatus('disconnected');
-          // Clean up state when disconnected
-          cleanupDisconnectedState();
-          break;
-        default:
-          setConnectionStatus('disconnected');
-          cleanupDisconnectedState();
+    // Listen for connection state changes
+    const handleConnectionChange = (e?: any) => {
+      if (e && e.online === true) {
+        setConnectionStatus('connected');
+        const freshClient = streamChatManager.getClient();
+        if (freshClient) {
+          // Immediate fetch
+          fetchChannelsWithClient(freshClient);
+          // Backoff re-fetch to handle mobile timing
+          setTimeout(() => fetchChannelsWithClient(freshClient), 300);
+          setTimeout(() => fetchChannelsWithClient(freshClient), 1000);
+        }
+        setViewMode('channelList');
+      } else if (e && e.online === false) {
+        // transient offline; don't clear UI state
+        setConnectionStatus('disconnected');
       }
     };
 
-    // Check immediately
-    checkConnectionStatus();
-
-    // Set up periodic checking
-    const interval = setInterval(checkConnectionStatus, 2000);
-
-    // Listen for connection state changes
-    const handleConnectionChange = () => {
-      checkConnectionStatus();
-    };
-
-    // Listen for client disconnect events
+    // Listen for client disconnect events (definitive)
     const handleDisconnect = () => {
       console.log('[MessagingTab] Client disconnected, cleaning up state');
       cleanupDisconnectedState();
@@ -239,12 +284,10 @@ export default function MessagingTab({}: MessagingTabProps) {
     };
 
     streamChatManager.onDisconnect(handleManagerDisconnect);
-
     client.on('connection.changed', handleConnectionChange);
     client.on('disconnect', handleDisconnect);
 
     return () => {
-      clearInterval(interval);
       client.off('connection.changed', handleConnectionChange);
       client.off('disconnect', handleDisconnect);
       streamChatManager.offDisconnect(handleManagerDisconnect);
@@ -278,50 +321,42 @@ export default function MessagingTab({}: MessagingTabProps) {
     };
   }, []);
 
-  const fetchChannels = async () => {
-    if (!client || connectionStatus !== 'connected' || !streamChatManager.isClientReady()) return;
-
+  const fetchChannelsWithClient = async (c: StreamChat | null) => {
     try {
       const response = await fetch('/api/chat/channels');
-      if (response.ok) {
-        const data = await response.json();
-        setChannels(data.chats || []);
-
-        // Ensure all channels are watched for unread count tracking
-        for (const chat of data.chats || []) {
-          const channelId = chat.channelId.replace('messaging:', '');
-          const channel = client.channel('messaging', channelId);
-          // Only watch if not already being watched
-          if (!channel.initialized || !(channel.state.watcher_count > 0)) {
-            try {
-              await channel.watch();
-            } catch (err) {
-              // Ignore errors if already being watched
-            }
-          }
-        }
-        
-        // Call the callback to update unread count in navigation
-        // if (onUnreadCountChange) { // This line is removed as per the edit hint
-        //   onUnreadCountChange();
-        // }
-      } else {
+      if (!response.ok) {
         console.error('Failed to fetch channels');
+        return;
+      }
+      const data = await response.json();
+      setChannels(data.chats || []);
+      if (!c) return;
+      for (const chat of data.chats || []) {
+        const channelId = chat.channelId.replace('messaging:', '');
+        const ch = c.channel('messaging', channelId);
+        if (!ch.initialized || !(ch.state.watcher_count > 0)) {
+          try { await ch.watch(); } catch {}
+        }
       }
     } catch (error) {
       console.error('Error fetching channels:', error);
     }
   };
 
+  const fetchChannels = async () => {
+    if (!client || connectionStatus !== 'connected' || !streamChatManager.isClientReady()) return;
+    await fetchChannelsWithClient(client);
+  };
+
   useEffect(() => {
     if (client && connectionStatus === 'connected') {
-      fetchChannels();
+      fetchChannelsWithClient(client);
     }
   }, [client, connectionStatus]);
 
   const handleChannelSelect = async (chat: ChatData) => {
     try {
-      if (!client || connectionStatus !== 'connected' || !streamChatManager.isClientReady()) {
+      if (!client || !client.userID) {
         console.log('[MessagingTab] Cannot select channel - client not ready');
         return;
       }
@@ -330,15 +365,22 @@ export default function MessagingTab({}: MessagingTabProps) {
       const channelId = chat.channelId.replace('messaging:', '');
       const channel = client.channel('messaging', channelId);
       
-      // Watch the channel to load messages
-      await channel.watch();
-      
+      // Set UI state immediately
+      setActiveChannelId(channelId);
+      try { (window as any).__activeChannelId = channelId; } catch {}
       setActiveChannel(channel);
+      // Watch in background; if it fails we will rebind via effect
+      channel.watch().catch((e: any) => {
+        console.warn('[MessagingTab] channel.watch failed (will rely on rebind):', e);
+      });
       streamChatManager.updateActivity(); // Update activity when user interacts
       
       // Switch to chat view on mobile
       if (isMobile) {
         setViewMode('activeChat');
+        if (onActiveChatChange) {
+          onActiveChatChange(true);
+        }
       }
     } catch (error) {
       console.error('Error selecting channel:', error);
@@ -351,10 +393,32 @@ export default function MessagingTab({}: MessagingTabProps) {
     }
   };
 
+  // Re-bind active channel to the fresh client after reconnects or client changes
+  useEffect(() => {
+    let cancelled = false;
+    const rebind = async () => {
+      if (!client || !activeChannelId) return;
+      try {
+        const ch = client.channel('messaging', activeChannelId);
+        setActiveChannel(ch); // set immediately for UI
+        // Always watch to hydrate message list; ignore errors
+        try { await ch.watch(); } catch {}
+        if (!cancelled) setActiveChannel(ch);
+      } catch (e) {
+        console.warn('[MessagingTab] Rebind channel failed:', e);
+      }
+    };
+    rebind();
+    return () => { cancelled = true; };
+  }, [client, activeChannelId]);
+
   // Handle going back to channel list on mobile
   const handleBackToChannelList = () => {
     setViewMode('channelList');
     setActiveChannel(null);
+    if (isMobile && onActiveChatChange) {
+      onActiveChatChange(false);
+    }
   };
 
   const getConnectionStatusIcon = () => {
@@ -414,30 +478,34 @@ export default function MessagingTab({}: MessagingTabProps) {
       chat.channelId.replace('messaging:', '') === activeChannel.id
     );
     
+    const headerBase = 'z-40 bg-white border-b md:relative';
+    const headerClass = isMobile
+      ? `chat-mobile-subheader ${headerBase}`
+      : `sticky top-0 px-3 py-2 ${headerBase}`;
     return (
-      <div className="flex items-center justify-between p-4 border-b bg-white">
-        <div className="flex items-center space-x-3">
+      <div className={headerClass}> 
+        <div className="flex items-center gap-2">
           <button
             onClick={handleBackToChannelList}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5 text-gray-600" />
           </button>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2">
             {channelData?.dogImage ? (
               <img
                 src={channelData.dogImage}
                 alt={channelData.dogName}
-                className="w-8 h-8 rounded-full object-cover"
+                className="w-7 h-7 rounded-full object-cover"
               />
             ) : (
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+              <div className="w-7 h-7 bg-gray-200 rounded-full flex items-center justify-center">
                 <span className="text-gray-500 text-sm">🐕</span>
               </div>
             )}
             <div>
-              <h3 className="font-medium text-gray-900">{channelData?.dogName}</h3>
-              <p className="text-sm text-gray-500">with {channelData?.otherUserName.split(' ')[0]}</p>
+              <h3 className="text-sm font-medium text-gray-900 leading-tight">{channelData?.dogName}</h3>
+              <p className="text-xs text-gray-500 leading-tight">with {channelData?.otherUserName.split(' ')[0]}</p>
             </div>
           </div>
         </div>
@@ -530,9 +598,9 @@ export default function MessagingTab({}: MessagingTabProps) {
   }
 
   return (
-    <div className="flex flex-col h-[90vh] max-h-[90vh]">
-      {/* Connection Status Bar */}
-      <div className="bg-gray-50 border-b px-4 py-2 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full min-h-0 md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
+      {/* Connection Status Bar (hidden on mobile) */}
+      <div className="hidden md:flex bg-gray-50 border-b px-4 py-2 items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">
           {getConnectionStatusIcon()}
           <span className={`text-sm ${getConnectionStatusColor()}`}>{getConnectionStatusText()}</span>
@@ -578,8 +646,8 @@ export default function MessagingTab({}: MessagingTabProps) {
 
       {/* Chat Interface */}
       <div className="flex-1 overflow-hidden">
-        {connectionStatus === 'connected' ? (
-          <Chat client={client} theme="messaging light">
+        {connectionStatus === 'connected' && client?.userID ? (
+          <Chat key={client.userID} client={client} theme="messaging light">
             {isMobile ? (
               // Mobile Layout: Stacked
               <div className="h-full">
@@ -598,6 +666,13 @@ export default function MessagingTab({}: MessagingTabProps) {
                         <div className="p-4 text-center text-gray-500">
                           <p>No active conversations</p>
                           <p className="text-sm mt-1">Chats appear here when appointments are confirmed</p>
+                          <button onClick={() => {
+                            const fresh = streamChatManager.getClient();
+                            if (fresh) {
+                              fetchChannelsWithClient(fresh);
+                              setTimeout(() => fetchChannelsWithClient(fresh), 300);
+                            }
+                          }} className="mt-3 px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">Retry</button>
                         </div>
                       ) : (
                         <div>
@@ -656,17 +731,23 @@ export default function MessagingTab({}: MessagingTabProps) {
                     </div>
                   </div>
                 ) : (
-                  // Chat View
-                  activeChannel ? (
-                    <Channel channel={activeChannel}>
-                      <div className="h-full flex flex-col">
-                        <MobileChannelHeader />
-                        <div className="flex-1 overflow-hidden">
+                  // Chat View (mobile grid layout)
+                  activeChannel && activeChannelId ? (
+                    <Channel key={activeChannelId} channel={activeChannel}>
+                      <div className="h-full w-full flex flex-col">
+                        <div ref={headerRef} className="bg-white">
+                          <MobileChannelHeader />
+                        </div>
+                        <div
+                          className="overflow-y-auto md:pt-0 px-3"
+                          style={isMobile && messagesHeight ? { height: messagesHeight } : undefined}
+                        >
                           <MessageList />
                         </div>
-                        <div className="shrink-0 pb-20">
+                        <div ref={inputRef} className="bg-white chat-mobile-input">
                           <MessageInput />
                         </div>
+                        <div className="h-0" />
                       </div>
                       <Thread />
                     </Channel>
@@ -704,6 +785,13 @@ export default function MessagingTab({}: MessagingTabProps) {
                       <div className="p-4 text-center text-gray-500">
                         <p>No active conversations</p>
                         <p className="text-sm mt-1">Chats appear here when appointments are confirmed</p>
+                        <button onClick={() => {
+                          const fresh = streamChatManager.getClient();
+                          if (fresh) {
+                            fetchChannelsWithClient(fresh);
+                            setTimeout(() => fetchChannelsWithClient(fresh), 300);
+                          }
+                        }} className="mt-3 px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">Retry</button>
                       </div>
                     ) : (
                       <div>
@@ -757,8 +845,8 @@ export default function MessagingTab({}: MessagingTabProps) {
 
                 {/* Chat Window */}
                 <div className="flex-1 flex flex-col">
-                  {activeChannel ? (
-                    <Channel channel={activeChannel}>
+                  {activeChannel && activeChannelId ? (
+                    <Channel key={activeChannelId} channel={activeChannel}>
                       <Window>
                         <ChannelHeader />
                         <MessageList />
@@ -786,7 +874,7 @@ export default function MessagingTab({}: MessagingTabProps) {
             )}
           </Chat>
         ) : (
-          <div className="flex items-center justify-center h-full bg-gray-50">
+          <div className="flex items-start md:items-center justify-center h-full bg-white md:bg-gray-50 pt-10 md:pt-0">
             <div className="text-center">
               <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-gray-500 text-2xl">📡</span>

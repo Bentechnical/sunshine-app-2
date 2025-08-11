@@ -16,6 +16,8 @@ interface DashboardLayoutProps {
   setActiveTab: React.Dispatch<React.SetStateAction<ActiveTab>>;
   children: ReactNode;
   refreshTrigger?: number;
+  hideMobileNav?: boolean;
+  noMobileTopPadding?: boolean;
 }
 
 export default function DashboardLayout({
@@ -25,6 +27,8 @@ export default function DashboardLayout({
   setActiveTab,
   children,
   refreshTrigger,
+  hideMobileNav = false,
+  noMobileTopPadding = false,
 }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen relative">
@@ -82,29 +86,40 @@ export default function DashboardLayout({
         </div>
 
         {/* Page content (offset for top + bottom bars on mobile) */}
-        <div className="relative flex-1 overflow-y-auto pt-16 md:pt-0 pb-4 px-2 md:px-8">
+        <div
+          className={
+            `relative flex-1 ` +
+            (activeTab === 'messaging' ? 'overflow-hidden' : 'overflow-y-auto') +
+            ' ' +
+            (noMobileTopPadding ? 'pt-0 ' : 'pt-12 ') +
+            `md:pt-0 ` +
+            (activeTab === 'messaging' ? 'px-0 md:px-8 bg-white md:bg-transparent' : 'pb-4 px-2 md:px-8')
+          }
+        >
           {children}
         </div>
       </main>
 
       {/* Mobile bottom nav wrapper (optional: restrict this to non-admins) */}
-      <div className="md:hidden fixed inset-x-0 bottom-0 z-50">
-        {role === 'admin' ? (
-          <MobileNavAdmin
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            profileImage={profileImage}
-            refreshTrigger={refreshTrigger}
-          />
-        ) : (
-          <MobileNav
-            role={role}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            profileImage={profileImage}
-          />
-        )}
-      </div>
+      {!hideMobileNav && (
+        <div className="md:hidden fixed inset-x-0 bottom-0 z-50">
+          {role === 'admin' ? (
+            <MobileNavAdmin
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              profileImage={profileImage}
+              refreshTrigger={refreshTrigger}
+            />
+          ) : (
+            <MobileNav
+              role={role}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              profileImage={profileImage}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -44,7 +44,8 @@ const isBypassablePath = (path: string) =>
 
 export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   const { pathname } = req.nextUrl;
-  console.log('[Middleware] Path:', pathname);
+  const isDev = process.env.NODE_ENV === 'development';
+  if (isDev) console.log('[Middleware] Path:', pathname);
 
   if (isBypassablePath(pathname)) {
     return NextResponse.next();
@@ -54,10 +55,10 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   if (isAdminApiRoute(pathname)) {
     const { userId } = await auth();
     if (userId) {
-      console.log('[Middleware] Admin API access granted for authenticated user:', userId);
+      if (isDev) console.log('[Middleware] Admin API access granted for authenticated user:', userId);
       return NextResponse.next();
     } else {
-      console.log('[Middleware] Admin API access denied - no authenticated user');
+      if (isDev) console.log('[Middleware] Admin API access denied - no authenticated user');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
@@ -66,10 +67,10 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   if (isApiRoute(pathname)) {
     const { userId } = await auth();
     if (userId) {
-      console.log('[Middleware] API access granted for authenticated user:', userId);
+      if (isDev) console.log('[Middleware] API access granted for authenticated user:', userId);
       return NextResponse.next();
     } else {
-      console.log('[Middleware] API access denied - no authenticated user');
+      if (isDev) console.log('[Middleware] API access denied - no authenticated user');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
@@ -78,10 +79,10 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   if (isAdminDashboardRoute(pathname)) {
     const { userId } = await auth();
     if (userId) {
-      console.log('[Middleware] Admin dashboard access granted for authenticated user:', userId);
+      if (isDev) console.log('[Middleware] Admin dashboard access granted for authenticated user:', userId);
       return NextResponse.next();
     } else {
-      console.log('[Middleware] Admin dashboard access denied - no authenticated user');
+      if (isDev) console.log('[Middleware] Admin dashboard access denied - no authenticated user');
       const url = req.nextUrl.clone();
       url.pathname = '/sign-in';
       return NextResponse.redirect(url);
@@ -91,7 +92,7 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   // Check cookie for access gating (for non-admin routes)
   const cookie = req.cookies.get(PASSWORD_COOKIE);
   if (!cookie || cookie.value !== PASSWORD_COOKIE_VALUE) {
-    console.log('[Middleware] Missing or invalid cookie. Redirecting to /unlock');
+    if (isDev) console.log('[Middleware] Missing or invalid cookie. Redirecting to /unlock');
     const url = req.nextUrl.clone();
     url.pathname = '/unlock';
     return NextResponse.redirect(url);

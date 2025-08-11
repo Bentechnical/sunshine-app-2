@@ -25,6 +25,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const { role, status, loading } = useUserProfile();
+  const [hideMobileNav, setHideMobileNav] = useState<boolean>(false);
 
   const userId = user?.id ?? '';
   const profileImage = user?.imageUrl ?? '';
@@ -110,7 +111,11 @@ export default function DashboardPage() {
           </div>
         );
       case 'messaging':
-        return <MessagingTab />;
+        return (
+          <MessagingTab
+            onActiveChatChange={(isActive) => setHideMobileNav(isActive)}
+          />
+        );
       default:
         return <p>Unknown tab</p>;
     }
@@ -122,8 +127,10 @@ export default function DashboardPage() {
       role={role}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
+      hideMobileNav={hideMobileNav}
+      noMobileTopPadding={activeTab === 'messaging' && false}
     >
-      <main className="flex-grow p-4">
+      <main className={`flex-grow ${activeTab === 'messaging' ? 'p-0 md:p-4' : 'p-4'}`}>
         {renderActiveTabContent()}
         
         {/* Mobile Logout Button - Only on home tab */}
@@ -140,8 +147,8 @@ export default function DashboardPage() {
           </div>
         )}
         
-        {/* Mobile bottom spacing for all tabs */}
-        <div className="md:hidden pb-20"></div>
+        {/* Mobile bottom spacing for all tabs except messaging (handled inside component) */}
+        {activeTab !== 'messaging' && <div className="md:hidden pb-20"></div>}
       </main>
     </DashboardLayout>
   );
