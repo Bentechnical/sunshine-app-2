@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    console.log('[Admin Chats API] Fetching chats for admin:', userId);
+    const isDev = process.env.NODE_ENV === 'development';
+    if (isDev) console.log('[Admin Chats API] Fetching chats for admin:', userId);
 
     // Get all appointment chats with appointment details
     const { data: chats, error: chatsError } = await supabase
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch chats' }, { status: 500 });
     }
 
-    console.log('[Admin Chats API] Found chats:', chats?.length || 0);
+    if (isDev) console.log('[Admin Chats API] Found chats:', chats?.length || 0);
 
     // Get dog details for each chat separately
     const chatsWithDogs = await Promise.all(
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
             .eq('volunteer_id', chat.appointment.volunteer.id)
             .single();
 
-          if (dogError) {
+          if (dogError && isDev) {
             console.error('[Admin Chats API] Error fetching dog for chat:', chat.id, dogError);
           }
 
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
             }
           };
         } catch (error) {
-          console.error('[Admin Chats API] Error processing chat:', chat.id, error);
+          if (isDev) console.error('[Admin Chats API] Error processing chat:', chat.id, error);
           return {
             ...chat,
             appointment: {
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
             .select('*', { count: 'exact', head: true })
             .eq('appointment_id', chat.appointment_id);
 
-          if (countError) {
+          if (countError && isDev) {
             console.error('[Admin Chats API] Error counting messages for chat:', chat.id, countError);
           }
 
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
             .limit(1)
             .maybeSingle();
 
-          if (lastMessageError && lastMessageError.code !== 'PGRST116') {
+          if (lastMessageError && lastMessageError.code !== 'PGRST116' && isDev) {
             console.error('[Admin Chats API] Error getting last message for chat:', chat.id, lastMessageError);
           }
 
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    console.log('[Admin Chats API] Returning chats with counts:', chatsWithCounts.length);
+    if (isDev) console.log('[Admin Chats API] Returning chats with counts:', chatsWithCounts.length);
 
     return NextResponse.json({ 
       chats: chatsWithCounts,

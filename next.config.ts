@@ -9,15 +9,15 @@ const nextConfig: NextConfig = {
     domains: ['img.clerk.com', 'rodqnqzfjixznlblnlpe.supabase.co'],
   },
   webpack: (config) => {
+    // Suppress known dev-only warnings from supabase realtime client
     config.ignoreWarnings = [
-      {
-        message: /require\.extensions is not supported by webpack/i,
-      },
-      // Suppress font preload warnings (optional)
-      {
-        message: /was preloaded using link preload but not used within a few seconds/i,
-      },
+      ...(config.ignoreWarnings || []),
+      { message: /Critical dependency: the request of a dependency is an expression/ },
     ];
+    config.ignoreWarnings.push(
+      { message: /require\.extensions is not supported by webpack/i },
+      { message: /was preloaded using link preload but not used within a few seconds/i },
+    );
     return config;
   },
 };

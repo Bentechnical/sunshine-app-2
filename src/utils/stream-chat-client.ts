@@ -332,14 +332,31 @@ export class StreamChatClientManager {
       await this.disconnectUser();
     }
 
-    // Prevent multiple simultaneous connection attempts
+    // Prevent multiple simultaneous connection attempts, with a safety timeout to break stale waits
     if (this.isConnecting) {
+      const waitStart = Date.now();
       console.log('[StreamChatManager] Connection already in progress, waiting...');
-      while (this.isConnecting) {
+      while (this.isConnecting && Date.now() - waitStart < 15000) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      if (this.client && this.currentUserId === userId) {
+      if (this.client && this.currentUserId === userId && this.client.userID) {
         return this.client;
+      }
+      // If we waited too long, reset stale state to allow a fresh attempt
+      if (this.isConnecting) {
+        console.warn('[StreamChatManager] Previous connection attempt appears stuck. Resetting state.');
+        this.isConnecting = false;
+        try {
+          if (this.client) {
+            await this.client.disconnectUser();
+            await this.client.disconnect();
+          }
+        } catch {
+          // ignore
+        }
+        this.client = null;
+        this.currentUserId = null;
+        this.currentUserData = null;
       }
     }
 
@@ -358,10 +375,22 @@ export class StreamChatClientManager {
       
       // Create new client instance
       this.client = StreamChat.getInstance(process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!);
-      console.log('[StreamChatManager] Created fresh client instance');
 
-      // Connect to new user
-      await this.client.connectUser(userData, userToken);
+      // Connect to new user with a single automatic retry on transient failures
+      const attemptConnect = async (): Promise<void> => {
+        await this.client!.connectUser(userData, userToken);
+      };
+      try {
+        await attemptConnect();
+      } catch (firstError) {
+        console.warn('[StreamChatManager] Initial connect failed, retrying once...', firstError);
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Ensure socket fully closed
+        try { await this.client!.disconnectUser(); await this.client!.disconnect(); } catch {}
+        this.client = StreamChat.getInstance(process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!);
+        await attemptConnect();
+      }
       this.currentUserId = userId;
       this.currentUserData = userData; // Store user data
 

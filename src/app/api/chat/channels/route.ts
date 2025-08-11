@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createSupabaseServerClient();
     const supabaseAdmin = createSupabaseAdminClient();
-
-    console.log('[Chat Channels API] Fetching appointments for user:', userId);
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (isDev) console.log('[Chat Channels API] Fetching appointments for user:', userId);
     
     // Get user's active appointments with chat information (using admin client to bypass RLS)
     // Note: We still filter by user ID in the query for security
@@ -50,8 +50,10 @@ export async function GET(request: NextRequest) {
       .gte('start_time', new Date().toISOString()) // Restored date filter
       .order('start_time', { ascending: true });
 
-    console.log('[Chat Channels API] Raw appointments:', appointments);
-    console.log('[Chat Channels API] Appointments error:', appointmentsError);
+    if (isDev) {
+      console.log('[Chat Channels API] Raw appointments:', appointments);
+      console.log('[Chat Channels API] Appointments error:', appointmentsError);
+    }
 
     if (appointmentsError) {
       console.error('[Chat Channels API] Error fetching appointments:', appointmentsError);
@@ -59,26 +61,28 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter appointments that have active chats
-    console.log('[Chat Channels API] Filtering appointments...');
-    appointments?.forEach(appointment => {
-      console.log(`[Chat Channels API] Appointment ${appointment.id}:`, {
-        hasChat: !!appointment.chat,
-        chatLength: appointment.chat?.length || 0,
-        chatStatus: appointment.chat?.[0]?.status,
-        startTime: appointment.start_time,
-        status: appointment.status
+    if (isDev) {
+      console.log('[Chat Channels API] Filtering appointments...');
+      appointments?.forEach(appointment => {
+        console.log(`[Chat Channels API] Appointment ${appointment.id}:`, {
+          hasChat: !!appointment.chat,
+          chatLength: appointment.chat?.length || 0,
+          chatStatus: appointment.chat?.[0]?.status,
+          startTime: appointment.start_time,
+          status: appointment.status
+        });
       });
-    });
+    }
     
     const appointmentsWithChats = appointments?.filter(appointment => 
       appointment.chat && appointment.chat.length > 0 && appointment.chat[0].status === 'active'
     ) || [];
 
-    console.log('[Chat Channels API] Appointments with chats:', appointmentsWithChats);
+    if (isDev) console.log('[Chat Channels API] Appointments with chats:', appointmentsWithChats);
 
     // Get Stream Chat channels for these appointments
     const channels = await getUserChats(userId);
-    console.log('[Chat Channels API] Stream Chat channels:', channels);
+    if (isDev) console.log('[Chat Channels API] Stream Chat channels:', channels);
     
     // Combine appointment data with Stream Chat data
     const chatData = await Promise.all(appointmentsWithChats.map(async (appointment) => {

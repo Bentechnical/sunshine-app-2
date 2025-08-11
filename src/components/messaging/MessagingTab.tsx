@@ -530,7 +530,7 @@ export default function MessagingTab({}: MessagingTabProps) {
   }
 
   return (
-    <div className="flex flex-col h-[90vh] max-h-[90vh]">
+    <div className="flex flex-col h-full md:h-[90vh] md:max-h-[90vh] -mx-2 md:mx-0 -mb-4 md:mb-0 bg-white">
       {/* Connection Status Bar */}
       <div className="bg-gray-50 border-b px-4 py-2 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">

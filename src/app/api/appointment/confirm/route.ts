@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
 
     // Create chat channel for the appointment
     try {
-      console.log('[Chat Creation] Starting chat creation for appointment:', appointmentId);
+      const isDev = process.env.NODE_ENV !== 'production';
+      if (isDev) console.log('[Chat Creation] Starting chat creation for appointment:', appointmentId);
       
       // First, check if chat already exists
       const { data: existingChat } = await supabase
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (existingChat) {
-        console.log('[Chat Creation] Chat already exists for appointment:', appointmentId);
+        if (isDev) console.log('[Chat Creation] Chat already exists for appointment:', appointmentId);
         return NextResponse.json({
           success: true,
           individualResponse: emailResponseIndividual,
@@ -151,15 +152,17 @@ export async function POST(req: NextRequest) {
         .eq('volunteer_id', appointment.volunteer_id)
         .single();
 
-      console.log('[Chat Creation] Availability:', availability);
-      console.log('[Chat Creation] Dog:', dog);
+      if (isDev) {
+        console.log('[Chat Creation] Availability:', availability);
+        console.log('[Chat Creation] Dog:', dog);
+      }
 
       if (!availability || !dog) {
         console.error('[Chat Creation] Missing required data for chat creation');
         throw new Error('Missing availability or dog data for chat creation');
       }
 
-      console.log('[Chat Creation] Creating Stream Chat channel...');
+      if (isDev) console.log('[Chat Creation] Creating Stream Chat channel...');
       
       // Create the Stream Chat channel
       const channel = await createAppointmentChat(
@@ -176,7 +179,7 @@ export async function POST(req: NextRequest) {
         }
       );
 
-      console.log('[Chat Creation] Stream Chat channel created, storing in database...');
+      if (isDev) console.log('[Chat Creation] Stream Chat channel created, storing in database...');
 
       // Store chat record in database
       const { error: insertError } = await supabase
@@ -191,7 +194,7 @@ export async function POST(req: NextRequest) {
         console.error('[Chat Creation] Database insert error:', insertError);
         throw new Error(`Failed to save chat record: ${insertError.message}`);
       } else {
-        console.log('[Chat Creation] Chat record stored successfully');
+        if (isDev) console.log('[Chat Creation] Chat record stored successfully');
       }
     } catch (chatError) {
       console.error('Error creating chat channel:', chatError);
