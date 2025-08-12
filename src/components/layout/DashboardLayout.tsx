@@ -89,11 +89,19 @@ export default function DashboardLayout({
         <div
           className={
             `relative flex-1 ` +
-            (activeTab === 'messaging' ? 'overflow-hidden' : 'overflow-y-auto') +
+            (activeTab === 'messaging'
+              ? 'overflow-hidden'
+              : activeTab === 'my-therapy-dog'
+                ? 'overflow-hidden md:overflow-y-auto'
+                : 'overflow-y-auto') +
             ' ' +
             (noMobileTopPadding ? 'pt-0 ' : 'pt-12 ') +
             `md:pt-0 ` +
-            (activeTab === 'messaging' ? 'px-0 md:px-8 bg-white md:bg-transparent' : 'pb-4 px-2 md:px-8')
+            (activeTab === 'messaging'
+              ? 'px-0 md:px-8 bg-white md:bg-transparent'
+              : activeTab === 'my-therapy-dog'
+                ? 'px-0 md:px-8 bg-white md:bg-transparent'
+                : 'pb-4 px-2 md:px-8')
           }
         >
           {children}
