@@ -474,7 +474,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
             <p className="mt-2 text-sm">
               <strong>Recurring?</strong> {selectedEvent.recurrence_id ? 'Yes' : 'No'}
             </p>
-            {!selectedEvent.recurrence_id && (
+            {!selectedEvent.recurrence_id && !selectedEvent.booked && !selectedEvent.requested && (
               <div className="mt-4">
                 <label htmlFor="repeatWeeks" className="block text-sm font-medium text-gray-700 mb-1">
                   Repeat this availability weekly for:
@@ -520,7 +520,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
                     Delete
                   </button>
                 )}
-                {!selectedEvent.recurrence_id && repeatWeeks > 1 && (
+                {!selectedEvent.recurrence_id && !selectedEvent.booked && !selectedEvent.requested && repeatWeeks > 1 && (
                   <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={makeEventRecurringInDB}>
                     Save
                   </button>
