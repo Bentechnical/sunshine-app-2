@@ -86,25 +86,40 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
       // Determine which availability slots are booked by looking for appointments that reference them
       const availabilityIds = availabilityRows.map((r: any) => Number(r.id)).filter((n: any) => Number.isFinite(n));
       let bookedIdSet = new Set<number>();
+      let confirmedIdSet = new Set<number>();
+      let pendingIdSet = new Set<number>();
       if (availabilityIds.length > 0) {
         const { data: appts, error: apptErr } = await supabase
           .from('appointments')
-          .select('availability_id')
-          .in('availability_id', availabilityIds);
+          .select('availability_id, status, volunteer_id')
+          .eq('volunteer_id', userId)
+          .in('availability_id', availabilityIds)
+          .in('status', ['pending', 'confirmed']);
         if (apptErr) {
           console.error('Error fetching appointments for availability:', apptErr);
         } else {
-          bookedIdSet = new Set<number>((appts || [])
-            .map((a: any) => Number(a.availability_id))
-            .filter((n: any) => Number.isFinite(n)));
+          for (const a of appts || []) {
+            const idNum = Number(a.availability_id);
+            if (!Number.isFinite(idNum)) continue;
+            if (a.status === 'confirmed') confirmedIdSet.add(idNum);
+            if (a.status === 'pending') pendingIdSet.add(idNum);
+          }
         }
       }
 
       const fetchedEvents = availabilityRows.map((row: any) => {
         const isRecurring = Boolean(row.recurrence_id);
-        const isBooked = bookedIdSet.has(Number(row.id));
-        // Colors: booked → green, else recurring → darker blue, else normal blue
-        const baseColor = isBooked ? '#16a34a' : isRecurring ? '#212df3' : '#2196F3';
+        const idNum = Number(row.id);
+        const isBooked = confirmedIdSet.has(idNum);
+        const isRequested = pendingIdSet.has(idNum) && !isBooked; // confirmed takes precedence
+        // Colors: booked → green, requested → amber, else recurring → darker blue, else normal blue
+        const baseColor = isBooked
+          ? '#16a34a'
+          : isRequested
+          ? '#f59e0b'
+          : isRecurring
+          ? '#212df3'
+          : '#2196F3';
         return {
           id: String(row.id),
           title: isRecurring ? 'Weekly Availability' : 'Available',
@@ -113,6 +128,7 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
           volunteer_id: row.volunteer_id,
           recurrence_id: row.recurrence_id || null,
           booked: isBooked,
+          requested: isRequested,
           color: baseColor,
           textColor: 'white',
         } as any;
@@ -194,8 +210,10 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
         if (availabilityIds.length === 0) return new Set();
         const { data: appts, error: apptErr } = await supabase
           .from('appointments')
-          .select('id, availability_id')
-          .in('availability_id', availabilityIds);
+          .select('id, availability_id, status, volunteer_id')
+          .eq('volunteer_id', userId)
+          .in('availability_id', availabilityIds)
+          .in('status', ['pending', 'confirmed']);
         if (apptErr) {
           console.error('Error checking appointments referencing availability:', apptErr);
           return new Set();
@@ -240,8 +258,10 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
         const referenced = await (async () => {
           const { data: appts } = await supabase
             .from('appointments')
-            .select('id')
+            .select('id, status, volunteer_id')
             .eq('availability_id', idNum)
+            .eq('volunteer_id', userId)
+            .in('status', ['pending', 'confirmed'])
             .limit(1);
           return (appts || []).length > 0;
         })();
@@ -407,10 +427,17 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
               const props: any = (arg.event as any).extendedProps || {};
               const isRecurring = Boolean(props?.recurrence_id);
               const isBooked = Boolean(props?.booked);
+              const isRequested = Boolean(props?.requested);
               if (isBooked) {
                 return {
                   html:
                     '<div style="text-align:center;font-weight:700;font-size:0.78rem;line-height:1.1;padding-top:6px">Availability<br/>Booked</div>',
+                };
+              }
+              if (isRequested) {
+                return {
+                  html:
+                    '<div style="text-align:center;font-weight:700;font-size:0.78rem;line-height:1.1;padding-top:6px">Availability<br/>Requested</div>',
                 };
               }
               if (isRecurring) {
@@ -466,11 +493,10 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
                 </select>
               </div>
             )}
-            {selectedEvent.booked ? (
+            {selectedEvent.booked || selectedEvent.requested ? (
               <div className="mt-6">
                 <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800">
-                  This availability is connected to a scheduled or pending appointment.
-                  To remove this time slot, cancel the appointment first and then delete the availability.
+                  This availability has an appointment scheduled or requested. To remove this time slot, please cancel the appointment first. Then you can delete the availability.
                 </div>
                 <div className="mt-4">
                   <button className="px-4 py-2 bg-gray-400 rounded" onClick={() => { setShowEventModal(false); setSelectedEvent(null); }}>
