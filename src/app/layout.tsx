@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import StreamChatCleanup from '@/components/layout/StreamChatCleanup';
+import OrientationLock from '@/components/layout/OrientationLock';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </head>
         <body className={`min-h-screen overflow-auto ${geistSans.variable} ${geistMono.variable} antialiased`}>
           <StreamChatCleanup />
+          <OrientationLock />
           {children}
         </body>
       </html>

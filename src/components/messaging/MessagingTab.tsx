@@ -68,17 +68,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
     const TOP_BAR_PX = 48; // mobile top bar in layout
     const recompute = () => {
-      const vh = window.innerHeight;
+      // Prefer visualViewport to account for soft keyboard and browser UI chrome
+      const vv: any = (window as any).visualViewport;
+      const viewportHeight = vv?.height ?? window.innerHeight;
       const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
       const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
       const headerH = headerMeasured > 24 ? headerMeasured : 44; // sensible fallback
-      const inputH = inputMeasured > 24 ? inputMeasured : 60;    // sensible fallback
-      const safeBottom = Number(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)').replace('px','')) || 0;
-      const available = Math.max(100, vh - TOP_BAR_PX - headerH - inputH - safeBottom);
+      const inputH = inputMeasured > 24 ? inputMeasured : 56;    // tighter fallback for compact input
+      // Do NOT subtract safe-area here; input wrapper already adds padding-bottom via CSS
+      const available = Math.max(100, viewportHeight - TOP_BAR_PX - headerH - inputH);
       setMessagesHeight(available);
     };
 
-    // Run immediately, next frame, and after a short delay to catch async mounts
+    // Run immediately, next frame, and after short delays to catch async mount/keyboard show
     recompute();
     requestAnimationFrame(recompute);
     const t1 = setTimeout(recompute, 150);
@@ -92,8 +94,15 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       if (inputRef.current) ro.observe(inputRef.current);
     }
 
+    // Window and orientation changes
     window.addEventListener('resize', recompute);
     window.addEventListener('orientationchange', recompute as any);
+    // Visual viewport changes on mobile
+    const vv: any = (window as any).visualViewport;
+    if (vv && typeof vv.addEventListener === 'function') {
+      vv.addEventListener('resize', recompute);
+      vv.addEventListener('scroll', recompute);
+    }
 
     return () => {
       clearTimeout(t1);
@@ -101,8 +110,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       window.removeEventListener('resize', recompute);
       window.removeEventListener('orientationchange', recompute as any);
       if (ro) ro.disconnect();
+      if (vv && typeof vv.removeEventListener === 'function') {
+        vv.removeEventListener('resize', recompute);
+        vv.removeEventListener('scroll', recompute);
+      }
     };
-  }, [isMobile]);
+  }, [isMobile, viewMode]);
 
   // No dynamic padding needed with grid layout
 
