@@ -66,7 +66,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   useEffect(() => {
     if (!isMobile) return;
 
-    const TOP_BAR_PX = 48; // mobile top bar in layout
+    const TOP_BAR_PX = 48; // matches the spacer we add in activeChat mode
     const recompute = () => {
       // Prefer visualViewport to account for soft keyboard and browser UI chrome
       const vv: any = (window as any).visualViewport;
@@ -747,7 +747,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                   // Chat View (mobile grid layout)
                   activeChannel && activeChannelId ? (
                     <Channel key={activeChannelId} channel={activeChannel}>
-                      <div className="h-full w-full flex flex-col">
+              <div className="h-full w-full flex flex-col">
+                {/* Spacer for fixed mobile top bar so header doesn't sit underneath it */}
+                <div className="md:hidden" style={{ height: 48 }} />
                         <div ref={headerRef} className="bg-white">
                           <MobileChannelHeader />
                         </div>

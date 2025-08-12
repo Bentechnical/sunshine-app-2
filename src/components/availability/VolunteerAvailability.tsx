@@ -80,21 +80,45 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
         .eq('volunteer_id', userId);
       if (error) {
         console.error('Error fetching availability:', error);
-      } else {
-        if (data) {
-          const fetchedEvents = data.map((row: any) => ({
-            id: String(row.id),
-            title: row.recurrence_id ? 'Weekly Availability' : 'Available',
-            start: row.start_time,
-            end: row.end_time,
-            volunteer_id: row.volunteer_id,
-            recurrence_id: row.recurrence_id || null,
-            color: row.recurrence_id ? '#212df3' : '#2196F3',
-            textColor: 'white',
-          }));
-          setEvents(fetchedEvents);
+        return;
+      }
+      const availabilityRows = data || [];
+      // Determine which availability slots are booked by looking for appointments that reference them
+      const availabilityIds = availabilityRows.map((r: any) => Number(r.id)).filter((n: any) => Number.isFinite(n));
+      let bookedIdSet = new Set<number>();
+      if (availabilityIds.length > 0) {
+        const { data: appts, error: apptErr } = await supabase
+          .from('appointments')
+          .select('availability_id')
+          .in('availability_id', availabilityIds);
+        if (apptErr) {
+          console.error('Error fetching appointments for availability:', apptErr);
+        } else {
+          bookedIdSet = new Set<number>((appts || [])
+            .map((a: any) => Number(a.availability_id))
+            .filter((n: any) => Number.isFinite(n)));
         }
       }
+
+      const fetchedEvents = availabilityRows.map((row: any) => {
+        const isRecurring = Boolean(row.recurrence_id);
+        const isBooked = bookedIdSet.has(Number(row.id));
+        // Colors: booked → green, else recurring → darker blue, else normal blue
+        const baseColor = isBooked ? '#16a34a' : isRecurring ? '#212df3' : '#2196F3';
+        return {
+          id: String(row.id),
+          title: isRecurring ? 'Weekly Availability' : 'Available',
+          start: row.start_time,
+          end: row.end_time,
+          volunteer_id: row.volunteer_id,
+          recurrence_id: row.recurrence_id || null,
+          booked: isBooked,
+          color: baseColor,
+          textColor: 'white',
+        } as any;
+      });
+
+      setEvents(fetchedEvents);
     };
     fetchAvailability();
   }, [userId]);
@@ -165,20 +189,74 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
   const deleteEvent = async (deleteSeries: boolean) => {
     if (!selectedEvent) return;
     try {
+      // Helper: check if an availability id is referenced by any appointment
+      const isReferenced = async (availabilityIds: number[]): Promise<Set<number>> => {
+        if (availabilityIds.length === 0) return new Set();
+        const { data: appts, error: apptErr } = await supabase
+          .from('appointments')
+          .select('id, availability_id')
+          .in('availability_id', availabilityIds);
+        if (apptErr) {
+          console.error('Error checking appointments referencing availability:', apptErr);
+          return new Set();
+        }
+        const set = new Set<number>();
+        (appts || []).forEach((a: any) => {
+          if (typeof a.availability_id === 'number') set.add(a.availability_id);
+        });
+        return set;
+      };
+
       if (selectedEvent.recurrence_id && deleteSeries) {
-        const { error } = await supabase
+        // Load all availability ids in the series
+        const { data: rows, error: fetchErr } = await supabase
           .from('appointment_availability')
-          .delete()
+          .select('id')
           .eq('recurrence_id', selectedEvent.recurrence_id);
-        if (error) throw error;
-        setEvents((prev) => prev.filter((evt) => evt.recurrence_id !== selectedEvent.recurrence_id));
+        if (fetchErr) throw fetchErr;
+        const ids: number[] = (rows || []).map((r: any) => Number(r.id)).filter((n) => Number.isFinite(n));
+
+        const referenced = await isReferenced(ids);
+        const deletableIds = ids.filter((id) => !referenced.has(id));
+
+        if (deletableIds.length > 0) {
+          const { error: delErr } = await supabase
+            .from('appointment_availability')
+            .delete()
+            .in('id', deletableIds);
+          if (delErr) throw delErr;
+          setEvents((prev) => prev.filter((evt) => !deletableIds.includes(Number(evt.id))));
+        }
+
+        if (referenced.size > 0) {
+          window.alert(
+            `${referenced.size} instance(s) were not deleted because there are appointment(s) scheduled on them. ` +
+            `Cancel those appointment(s) first to delete the remaining recurring availability.`
+          );
+        }
       } else {
-        const { error } = await supabase
-          .from('appointment_availability')
-          .delete()
-          .eq('id', Number(selectedEvent.id));
-        if (error) throw error;
-        setEvents((prev) => prev.filter((evt) => evt.id !== selectedEvent.id));
+        // Single instance delete: block if referenced
+        const idNum = Number(selectedEvent.id);
+        const referenced = await (async () => {
+          const { data: appts } = await supabase
+            .from('appointments')
+            .select('id')
+            .eq('availability_id', idNum)
+            .limit(1);
+          return (appts || []).length > 0;
+        })();
+        if (referenced) {
+          window.alert(
+            'This availability has an appointment scheduled. Please cancel the appointment before deleting this slot.'
+          );
+        } else {
+          const { error } = await supabase
+            .from('appointment_availability')
+            .delete()
+            .eq('id', idNum);
+          if (error) throw error;
+          setEvents((prev) => prev.filter((evt) => evt.id !== selectedEvent.id));
+        }
       }
     } catch (err) {
       console.error('Error deleting event:', err);
@@ -200,36 +278,46 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
       count: repeatWeeks,
     });
     const occurrences = rule.all();
-    const insertPayload = occurrences.map((dt) => ({
+    // Skip the first occurrence because it is the currently selected event.
+    const occurrencesToInsert = occurrences.slice(1);
+    const insertPayload = occurrencesToInsert.map((dt) => ({
       volunteer_id: userId,
       start_time: dt.toISOString(),
       end_time: new Date(dt.getTime() + duration).toISOString(),
       recurrence_id: recurrenceId,
     }));
     try {
+      // First, update the existing availability to attach it to the recurrence group
+      const { error: updateError } = await supabase
+        .from('appointment_availability')
+        .update({ recurrence_id: recurrenceId })
+        .eq('id', Number(selectedEvent.id));
+      if (updateError) throw updateError;
+
+      // Then insert the additional occurrences
       const { data: newEvents, error: insertError } = await supabase
         .from('appointment_availability')
         .insert(insertPayload)
         .select();
       if (insertError) throw insertError;
-      const { error: deleteError } = await supabase
-        .from('appointment_availability')
-        .delete()
-        .eq('id', Number(selectedEvent.id));
-      if (deleteError) throw deleteError;
-      setEvents((prev) => [
-        ...prev.filter((evt) => evt.id !== selectedEvent.id),
-        ...newEvents.map((row: any) => ({
+      setEvents((prev) => {
+        const updatedExisting = prev.map((evt) =>
+          evt.id === selectedEvent.id
+            ? { ...evt, recurrence_id: recurrenceId, color: '#212df3', title: 'Weekly Availability' }
+            : evt
+        );
+        const appended = newEvents.map((row: any) => ({
           id: String(row.id),
-          title: 'Recurring Availability',
+          title: 'Weekly Availability',
           start: row.start_time,
           end: row.end_time,
           volunteer_id: row.volunteer_id,
           recurrence_id: row.recurrence_id || null,
           color: '#212df3',
           textColor: 'white',
-        })),
-      ]);
+        }));
+        return [...updatedExisting, ...appended];
+      });
     } catch (err) {
       console.error('Error making event recurring:', err);
     } finally {
@@ -262,12 +350,13 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
   };
 
   return (
-    <div className="flex flex-col lg:h-[90vh] rounded-xl border border-gray-200 shadow-sm bg-white">
-      <div className="px-4 py-3 border-b border-gray-100 md:block hidden">
+    <div className="flex flex-col bg-white h-full">
+      <div className="px-4 py-3" style={{ marginBottom: 0 }}>
         <h2 className="text-lg font-semibold">Your Availability</h2>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 md:p-4 pb-20 md:pb-4">
-        <div className="fc-slide-fade">
+      {/* Scroll container: header fixed, calendar grid scrolls within this port */}
+      <div className="flex-1 p-0 md:p-4 md:overflow-y-auto">
+        <div className="fc-slide-fade availability-scroll-port">
           <FullCalendar
             key={slideKey}
             ref={calendarRef}
@@ -275,39 +364,22 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="timeGridWeek"
             views={{
-              timeGridThreeDay: {
-                type: 'timeGrid',
-                duration: { days: 3 },
-                buttonText: '3 day'
-              },
-              timeGridFiveDay: {
-                type: 'timeGrid',
-                duration: { days: 5 },
-                buttonText: '5 day'
-              }
+              timeGridThreeDay: { type: 'timeGrid', duration: { days: 3 }, buttonText: '3 day' },
+              timeGridFiveDay: { type: 'timeGrid', duration: { days: 5 }, buttonText: '5 day' }
             }}
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'timeGridThreeDay,timeGridFiveDay,timeGridWeek'
-            }}
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+            stickyHeaderDates
             editable
             selectable
             events={events}
             select={handleDateSelect}
             eventClick={handleEventClick}
             eventResize={handleEventResize}
-            eventDragStart={(dragInfo) => {
-              // Drag started - no need for alert
-            }}
+            eventDragStart={(dragInfo) => {}}
             eventDrop={(dropInfo) => {
-              console.log('Event dropped:', dropInfo);
-              // Handle the drop to update the event time
               const event = dropInfo.event;
               const newStart = event.startStr;
               const newEnd = event.endStr;
-              
-              // Update the event in the database
               supabase
                 .from('appointment_availability')
                 .update({ start_time: newStart, end_time: newEnd })
@@ -317,30 +389,39 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
                     console.error('Error updating event time:', error);
                     dropInfo.revert();
                   } else {
-                    // Update local state
                     setEvents((prev) =>
-                      prev.map((evt) => 
-                        evt.id === event.id 
-                          ? { ...evt, start: newStart, end: newEnd }
-                          : evt
-                      )
+                      prev.map((evt) => (evt.id === event.id ? { ...evt, start: newStart, end: newEnd } : evt))
                     );
                   }
                 });
             }}
             height="auto"
             slotMinTime="09:00:00"
-            slotMaxTime="18:00:00"
+            slotMaxTime="21:00:00"
             allDaySlot={false}
-            selectConstraint={{ startTime: '09:00:00', endTime: '18:00:00' }}
-            eventConstraint={{ startTime: '09:00:00', endTime: '18:00:00' }}
-            // Mobile touch selection fix
+            selectConstraint={{ startTime: '09:00:00', endTime: '21:00:00' }}
+            eventConstraint={{ startTime: '09:00:00', endTime: '21:00:00' }}
             selectLongPressDelay={0}
             longPressDelay={100}
-            // Simple event display - show only "Available" text
             eventContent={(arg) => {
+              const props: any = (arg.event as any).extendedProps || {};
+              const isRecurring = Boolean(props?.recurrence_id);
+              const isBooked = Boolean(props?.booked);
+              if (isBooked) {
+                return {
+                  html:
+                    '<div style="text-align:center;font-weight:700;font-size:0.78rem;line-height:1.1;padding-top:6px">Availability<br/>Booked</div>',
+                };
+              }
+              if (isRecurring) {
+                return {
+                  html:
+                    '<div style="text-align:center;font-weight:600;font-size:0.78rem;line-height:1.1;padding-top:6px">Availability<br/>Recurring</div>',
+                };
+              }
               return {
-                html: '<div style="text-align: center; font-weight: 500; font-size: 0.8rem;">Available</div>'
+                html:
+                  '<div style="text-align:center;font-weight:500;font-size:0.8rem;padding-top:6px">Available</div>',
               };
             }}
             datesSet={() => {
@@ -385,30 +466,44 @@ export default function VolunteerAvailability({ userId }: VolunteerAvailabilityP
                 </select>
               </div>
             )}
-            <div className="mt-6 flex flex-col space-y-2">
-              {selectedEvent.recurrence_id ? (
-                <>
+            {selectedEvent.booked ? (
+              <div className="mt-6">
+                <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+                  This availability is connected to a scheduled or pending appointment.
+                  To remove this time slot, cancel the appointment first and then delete the availability.
+                </div>
+                <div className="mt-4">
+                  <button className="px-4 py-2 bg-gray-400 rounded" onClick={() => { setShowEventModal(false); setSelectedEvent(null); }}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col space-y-2">
+                {selectedEvent.recurrence_id ? (
+                  <>
+                    <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={() => deleteEvent(false)}>
+                      Delete This Instance
+                    </button>
+                    <button className="px-4 py-2 bg-red-800 text-white rounded" onClick={() => deleteEvent(true)}>
+                      Delete Entire Series
+                    </button>
+                  </>
+                ) : (
                   <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={() => deleteEvent(false)}>
-                    Delete This Instance
+                    Delete
                   </button>
-                  <button className="px-4 py-2 bg-red-800 text-white rounded" onClick={() => deleteEvent(true)}>
-                    Delete Entire Series
+                )}
+                {!selectedEvent.recurrence_id && repeatWeeks > 1 && (
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={makeEventRecurringInDB}>
+                    Save
                   </button>
-                </>
-              ) : (
-                <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={() => deleteEvent(false)}>
-                  Delete
+                )}
+                <button className="px-4 py-2 bg-gray-400 rounded" onClick={() => { setShowEventModal(false); setSelectedEvent(null); }}>
+                  Close
                 </button>
-              )}
-              {!selectedEvent.recurrence_id && repeatWeeks > 1 && (
-                <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={makeEventRecurringInDB}>
-                  Save
-                </button>
-              )}
-              <button className="px-4 py-2 bg-gray-400 rounded" onClick={() => { setShowEventModal(false); setSelectedEvent(null); }}>
-                Close
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}

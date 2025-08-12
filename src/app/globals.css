@@ -151,6 +151,12 @@
 }
 
 @media (max-width: 640px) {
+  /* Add small horizontal padding so prev/next buttons don't hug screen edges */
+  .fc .fc-toolbar {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
   .fc-toolbar-title {
     font-size: 1rem !important;
   }
@@ -169,6 +175,21 @@
 
 /* Mobile messaging layout adjustments */
 @media (max-width: 767px) {
+  /* Fill viewport between top bar, subheader, and bottom nav for availability */
+  .availability-fill {
+    height: calc(100dvh - 176px - env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+  }
+  /* Make only the calendar grid scroll; keep toolbar + subheader visible */
+  .availability-scroll-port { height: calc(100dvh - 176px - env(safe-area-inset-bottom)); overflow-y: auto; background: #fff; }
+  @media (min-width: 768px) {
+    /* On desktop, let the port fill the available area without blocking page scroll */
+    .availability-scroll-port { height: auto; max-height: calc(100vh - 220px); }
+  }
+  .availability-scroll-port .fc-header-toolbar { position: sticky; top: 0; background: white; z-index: 5; margin: 0 !important; padding: 6px 8px !important; border-top: 0 !important; }
+  /* Use FullCalendar's built-in stickyHeaderDates for the day header */
+  .availability-scroll-port .fc-col-header { position: static; top: auto; background: white; z-index: auto; border-top: 0 !important; }
   /* Ensure chat fills available parent height (not viewport) */
   .str-chat {
     height: 100% !important;
@@ -407,8 +428,8 @@
   }
 }
 
-/* --- Block landscape on small devices (overlay) --- */
-@media (orientation: landscape) and (max-width: 900px) {
+/* --- Block landscape on touch devices only (exclude desktop) --- */
+@media (orientation: landscape) and (hover: none) and (pointer: coarse) {
   html, body { height: 100%; overflow: hidden; }
   body::before {
     content: "Please rotate your device to portrait";

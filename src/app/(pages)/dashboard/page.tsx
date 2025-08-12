@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const { role, status, loading } = useUserProfile();
   const [hideMobileNav, setHideMobileNav] = useState<boolean>(false);
+  const [isMessagingActiveChat, setIsMessagingActiveChat] = useState<boolean>(false);
 
   const userId = user?.id ?? '';
   const profileImage = user?.imageUrl ?? '';
@@ -106,14 +107,17 @@ export default function DashboardPage() {
         return <MyVisits userId={userId} role={role as 'volunteer' | 'individual'} />;
       case 'my-therapy-dog':
         return (
-          <div className="space-y-6">
+          <div className="space-y-0 md:space-y-6 md:bg-transparent">
             <VolunteerAvailability userId={userId} />
           </div>
         );
       case 'messaging':
         return (
           <MessagingTab
-            onActiveChatChange={(isActive) => setHideMobileNav(isActive)}
+            onActiveChatChange={(isActive) => {
+              setHideMobileNav(isActive);
+              setIsMessagingActiveChat(isActive);
+            }}
           />
         );
       default:
@@ -128,9 +132,9 @@ export default function DashboardPage() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       hideMobileNav={hideMobileNav}
-      noMobileTopPadding={activeTab === 'messaging' && false}
+      noMobileTopPadding={activeTab === 'messaging' && isMessagingActiveChat}
     >
-      <main className={`flex-grow ${activeTab === 'messaging' ? 'p-0 md:p-4' : 'p-4'}`}>
+      <main className={`flex-grow ${activeTab === 'messaging' || activeTab === 'my-therapy-dog' ? 'p-0 md:p-4' : 'p-4'}`}>
         {renderActiveTabContent()}
         
         {/* Mobile Logout Button - Only on home tab */}
@@ -148,7 +152,9 @@ export default function DashboardPage() {
         )}
         
         {/* Mobile bottom spacing for all tabs except messaging (handled inside component) */}
-        {activeTab !== 'messaging' && <div className="md:hidden pb-20"></div>}
+        {activeTab !== 'messaging' && activeTab !== 'my-therapy-dog' && (
+          <div className="md:hidden pb-20"></div>
+        )}
       </main>
     </DashboardLayout>
   );
