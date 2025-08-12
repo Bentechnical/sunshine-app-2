@@ -11,9 +11,7 @@ import { useEffect } from "react";
 export default function OrientationLock(): null {
   useEffect(() => {
     const tryLock = async () => {
-      const orientation = (window.screen as any)?.orientation as
-        | ScreenOrientation
-        | undefined;
+      const orientation: any = (window.screen as any)?.orientation;
       if (!orientation || typeof orientation.lock !== "function") return;
       try {
         // Prefer "portrait-primary" but some browsers accept "portrait"
