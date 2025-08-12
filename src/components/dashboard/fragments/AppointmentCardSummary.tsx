@@ -18,6 +18,7 @@ interface Props {
 interface Appointment {
   id: number;
   start_time: string;
+  end_time: string;
   individual_first_name: string;
   individual_last_name: string;
   individual_profile_picture_url?: string;
@@ -39,7 +40,7 @@ export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
       const { data, error } = await supabase
         .from('appointments_with_individuals')
         .select(
-          'id, start_time, status, individual_first_name, individual_last_name, individual_profile_picture_url'
+          'id, start_time, end_time, status, individual_first_name, individual_last_name, individual_profile_picture_url'
         )
         .eq('volunteer_id', user.id)
         .order('start_time', { ascending: true });
@@ -47,7 +48,9 @@ export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
       if (error) throw error;
 
       const now = new Date();
-      setPending(data.filter((a) => a.status === 'pending'));
+      setPending(
+        data.filter((a) => a.status === 'pending' && new Date(a.end_time) > now)
+      );
       setNextConfirmed(
         data
           .filter((a) => a.status === 'confirmed' && new Date(a.start_time) > now)
