@@ -19,7 +19,6 @@ export default function OrientationLock(): null {
       } catch {
         try {
           // Fallback string option
-          // @ts-expect-error legacy string
           await orientation.lock("portrait");
         } catch {
           // Ignore; CSS overlay will handle unsupported cases
