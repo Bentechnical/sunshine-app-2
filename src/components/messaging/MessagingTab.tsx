@@ -246,6 +246,25 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     try {
       (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
       (window as any).__openChat = (id: string) => setActiveChannelId(id);
+      // Add debug helpers for keyboard issues
+      (window as any).__checkKeyboard = () => {
+        const hasClass = document.body.classList.contains('keyboard-open');
+        const activeEl = document.activeElement;
+        const vv = (window as any).visualViewport;
+        console.log('Keyboard Debug:', {
+          hasKeyboardClass: hasClass,
+          activeElement: activeEl?.tagName,
+          windowHeight: window.innerHeight,
+          viewportHeight: vv?.height,
+          offsetTop: vv?.offsetTop,
+          screenHeight: window.screen.height
+        });
+        return { hasClass, activeElement: activeEl?.tagName };
+      };
+      (window as any).__forceKeyboardClose = () => {
+        document.body.classList.remove('keyboard-open');
+        console.log('Forced keyboard class removal');
+      };
     } catch {}
   }, []);
 
@@ -543,6 +562,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const handleBackToChannelList = () => {
     setViewMode('channelList');
     setActiveChannel(null);
+    // Clean up keyboard state when leaving chat
+    document.body.classList.remove('keyboard-open');
     if (isMobile && onActiveChatChange) {
       onActiveChatChange(false);
     }
