@@ -248,28 +248,47 @@
 
   /* When keyboard is open, handle iOS keyboard height */
   .keyboard-open .chat-mobile-input { 
-    padding-bottom: var(--keyboard-padding, 0) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
     margin-bottom: 0 !important;
   }
   
-  /* iOS-specific adjustments */
+  /* iOS-specific adjustments using modern dvh units */
   @supports (-webkit-touch-callout: none) {
+    /* When keyboard is open, fix the input to the bottom of the visible viewport */
+    .keyboard-open .chat-mobile-input {
+      position: fixed !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 40 !important;
+      margin: 0 !important;
+      padding: 8px 0 env(safe-area-inset-bottom) 0 !important;
+      background: white !important;
+      border-top: 1px solid #e5e7eb !important;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* When keyboard is open, constrain chat container to not overlap with fixed input */
+    .keyboard-open .chat-vv {
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      overflow: hidden !important;
+      padding-bottom: 60px !important; /* Space for fixed input */
+    }
+    
+    /* Adjust message list for fixed input when keyboard is open */
+    .keyboard-open .str-chat__message-list {
+      padding-top: 96px !important; /* Account for main header (48px) + subheader (48px) */
+      padding-bottom: 80px !important; /* Account for fixed input */
+    }
+    
+    /* Force Stream Chat components to not add extra space */
     .keyboard-open .str-chat__input-flat,
     .keyboard-open .str-chat__input-ui,
-    .keyboard-open .str-chat__textarea-container { 
-      padding-bottom: 0 !important; 
-      margin-bottom: 0 !important; 
-    }
-    
-    /* Prevent any extra padding during keyboard */
-    .keyboard-open .relative.flex-1 { 
-      padding-bottom: 0 !important;
-      height: calc(var(--vh, 1vh) * 100 - var(--keyboard-padding, 0)) !important;
-    }
-    
-    /* Adjust message list container height */
-    .keyboard-open .str-chat__main-panel {
-      height: calc(var(--vh, 1vh) * 100 - var(--keyboard-padding, 0) - var(--input-height, 60px)) !important;
+    .keyboard-open .str-chat__textarea-container,
+    .keyboard-open .str-chat__message-input { 
+      padding: 8px !important;
+      margin: 0 !important; 
     }
   }
   
@@ -311,6 +330,17 @@
   .chat-mobile-subheader {
     padding: 4px 12px !important;
     min-height: 40px !important;
+  }
+  
+  /* When keyboard is open, position subheader below main header */
+  .keyboard-open .chat-mobile-subheader {
+    position: fixed !important;
+    top: 48px !important; /* Position below main header */
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 30 !important; /* Lower than main header */
+    background: white !important;
+    border-bottom: 1px solid #e5e7eb !important;
   }
   .chat-mobile-input {
     min-height: auto !important;

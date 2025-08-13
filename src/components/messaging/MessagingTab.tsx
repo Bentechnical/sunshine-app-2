@@ -54,26 +54,78 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   // Detect keyboard open/close (iOS Safari-compatible via visualViewport)
   useEffect(() => {
     const vv: any = (window as any).visualViewport;
-    if (!vv || typeof vv.addEventListener !== 'function') return;
+    if (!vv || typeof vv.addEventListener !== 'function') {
+      // Fallback for devices without visual viewport API
+      const fallbackKeyboardDetection = () => {
+        const windowH = window.innerHeight;
+        const screenH = window.screen.height;
+        const isOpen = (screenH - windowH) > 150; // Significant height difference
+        document.body.classList.toggle('keyboard-open', isOpen);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Fallback keyboard detection:', { windowH, screenH, isOpen });
+        }
+      };
+      
+      window.addEventListener('resize', fallbackKeyboardDetection);
+      fallbackKeyboardDetection();
+      
+      return () => {
+        window.removeEventListener('resize', fallbackKeyboardDetection);
+        document.body.classList.remove('keyboard-open');
+      };
+    }
     
     const updateKb = () => {
       try {
-        // More accurate iOS keyboard detection
-        const isOpen = Math.abs(window.innerHeight - vv.height) > 150;
+        // Multiple detection methods for iOS keyboard
+        const windowH = window.innerHeight;
+        const viewportH = vv.height;
+        const screenH = window.screen.height;
+        const heightDiff = windowH - viewportH;
+        const offsetTop = vv.offsetTop || 0;
+        
+        // Use multiple heuristics for iOS keyboard detection:
+        // 1. Visual viewport height significantly smaller than window height
+        // 2. Visual viewport has positive offsetTop (keyboard pushes viewport up)
+        // 3. Window height is much smaller than screen height (keyboard present)
+        const method1 = heightDiff > 50; // viewport shrank
+        const method2 = offsetTop > 20; // viewport pushed up
+        const method3 = (screenH - windowH) > 100; // window shrank from screen
+        const method4 = viewportH < (windowH * 0.75); // viewport less than 75% of window
+        
+        const isOpen = method1 || method2 || method3 || method4;
+        
         document.body.classList.toggle('keyboard-open', Boolean(isOpen));
         
-        // Update CSS variable for viewport height
+        // Always use visual viewport height when available
         const vh = vv.height * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
         
-        // For iOS, adjust padding to prevent overscroll
-        if (isOpen) {
-          const bottomPadding = window.innerHeight - vv.height;
-          document.documentElement.style.setProperty('--keyboard-padding', `${bottomPadding}px`);
-        } else {
-          document.documentElement.style.removeProperty('--keyboard-padding');
+        // Debug logging for development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Keyboard detection:', {
+            windowHeight: windowH,
+            viewportHeight: viewportH,
+            screenHeight: screenH,
+            heightDiff,
+            offsetTop,
+            methods: { method1, method2, method3, method4 },
+            isOpen,
+            vh: vh + 'px'
+          });
         }
-      } catch {}
+        
+        // Store keyboard height for reference
+        if (isOpen) {
+          document.documentElement.style.setProperty('--keyboard-height', `${Math.max(heightDiff, offsetTop)}px`);
+        } else {
+          document.documentElement.style.removeProperty('--keyboard-height');
+        }
+      } catch (e) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Keyboard detection failed:', e);
+        }
+      }
     };
     
     updateKb();
@@ -84,9 +136,56 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       vv.removeEventListener('resize', updateKb);
       vv.removeEventListener('scroll', updateKb);
       document.body.classList.remove('keyboard-open');
-      document.documentElement.style.removeProperty('--keyboard-padding');
+      document.documentElement.style.removeProperty('--keyboard-height');
     };
   }, []);
+
+  // Additional iOS keyboard detection via input focus (more reliable)
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    let keyboardTimer: NodeJS.Timeout;
+    
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        // Small delay to allow keyboard to appear
+        clearTimeout(keyboardTimer);
+        keyboardTimer = setTimeout(() => {
+          document.body.classList.add('keyboard-open');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Keyboard opened via input focus');
+          }
+        }, 300);
+      }
+    };
+    
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        clearTimeout(keyboardTimer);
+        keyboardTimer = setTimeout(() => {
+          // Check if no other input is focused
+          const activeElement = document.activeElement;
+          if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
+            document.body.classList.remove('keyboard-open');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Keyboard closed via input blur');
+            }
+          }
+        }, 100);
+      }
+    };
+    
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    
+    return () => {
+      clearTimeout(keyboardTimer);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
+  }, [isMobile]);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -734,8 +833,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                   activeChannel && activeChannelId ? (
                     <Channel key={activeChannelId} channel={activeChannel}>
               <div className="h-full w-full flex flex-col">
-                {/* Spacer for fixed mobile top bar so header doesn't sit underneath it */}
-                <div className="md:hidden" style={{ height: 48 }} />
+                {/* Spacer for fixed mobile top bar - hidden when keyboard is open */}
+                <div className="md:hidden keyboard-open:hidden" style={{ height: 48 }} />
                         <div ref={headerRef} className="bg-white">
                           <MobileChannelHeader />
                         </div>
