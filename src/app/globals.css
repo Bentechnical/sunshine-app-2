@@ -248,6 +248,12 @@
 
   /* When keyboard is open, remove bottom safe-area padding to avoid extra whitespace */
   .keyboard-open .chat-mobile-input { padding-bottom: 0 !important; }
+  /* iOS-only: also zero Stream input wrappers while keyboard is open */
+  @supports (-webkit-touch-callout: none) {
+    .keyboard-open .str-chat__input-flat,
+    .keyboard-open .str-chat__input-ui,
+    .keyboard-open .str-chat__textarea-container { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+  }
   
   /* Mobile thread */
   .str-chat__thread {

@@ -103,6 +103,7 @@ export default function DashboardLayout({
                 ? 'px-0 md:px-8 bg-white md:bg-transparent'
                 : 'pb-4 px-2 md:px-8')
           }
+          style={{ paddingBottom: activeTab === 'messaging' ? 0 : undefined }}
         >
           {children}
         </div>

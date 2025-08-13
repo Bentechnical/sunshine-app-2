@@ -49,6 +49,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const [isMobile, setIsMobile] = useState(false);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
   
   // Detect keyboard open/close (iOS Safari-compatible via visualViewport)
@@ -92,6 +93,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       const vv: any = (window as any).visualViewport;
       const baseHeight = window.innerHeight; // This will be 100dvh equivalent
       const viewportHeight = vv?.height ?? baseHeight;
+      const viewportTop = vv?.offsetTop ?? 0;
       const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
       const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
       const headerH = headerMeasured > 24 ? headerMeasured : 44; // sensible fallback
@@ -99,6 +101,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       // Do NOT subtract safe-area here; input wrapper already adds padding-bottom via CSS
       const available = Math.max(100, viewportHeight - TOP_BAR_PX - headerH - inputH);
       setMessagesHeight(available);
+
+      // Align the root container with the visual viewport so the bottom hugs the keyboard on iOS
+      if (rootRef.current) {
+        rootRef.current.style.height = `${viewportHeight}px`;
+        rootRef.current.style.marginTop = `${viewportTop}px`;
+      }
     };
 
     // Run immediately, next frame, and after short delays to catch async mount/keyboard show
@@ -136,6 +144,10 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       if (vv && typeof vv.removeEventListener === 'function') {
         vv.removeEventListener('resize', recompute);
         vv.removeEventListener('scroll', recompute);
+      }
+      if (rootRef.current) {
+        rootRef.current.style.height = '';
+        rootRef.current.style.marginTop = '';
       }
     };
   }, [isMobile, viewMode]);
@@ -663,7 +675,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   }
 
   return (
-    <div className="flex flex-col vh-screen md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
+    <div ref={rootRef} className="flex flex-col h-full md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
       {/* Connection Status Bar (hidden on mobile) */}
       <div className="hidden md:flex bg-gray-50 border-b px-4 py-2 items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">
