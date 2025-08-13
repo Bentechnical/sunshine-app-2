@@ -50,6 +50,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const headerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const prevRootH = useRef<number>(0);
+  const prevRootMT = useRef<number>(0);
   const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
   
   // Detect keyboard open/close (iOS Safari-compatible via visualViewport)
@@ -87,7 +89,16 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   useEffect(() => {
     if (!isMobile) return;
 
-    const TOP_BAR_PX = 48; // matches the spacer we add in activeChat mode
+    const TOP_BAR_PX = 48; // mobile fixed top bar height in DashboardLayout
+    let rafId: number | null = null;
+    const schedule = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        recompute();
+      });
+    };
+
     const recompute = () => {
       // Use 100dvh for consistent mobile viewport handling, fallback to visualViewport for keyboard changes
       const vv: any = (window as any).visualViewport;
@@ -99,51 +110,53 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       const headerH = headerMeasured > 24 ? headerMeasured : 44; // sensible fallback
       const inputH = inputMeasured > 24 ? inputMeasured : 56;    // tighter fallback for compact input
       // Do NOT subtract safe-area here; input wrapper already adds padding-bottom via CSS
-      const available = Math.max(100, viewportHeight - TOP_BAR_PX - headerH - inputH);
-      setMessagesHeight(available);
+      const available = Math.max(100, Math.round(viewportHeight) - TOP_BAR_PX - headerH - inputH);
+      setMessagesHeight(prev => (prev !== available ? available : prev));
 
       // Align the root container with the visual viewport so the bottom hugs the keyboard on iOS
       if (rootRef.current) {
-        rootRef.current.style.height = `${viewportHeight}px`;
-        rootRef.current.style.marginTop = `${viewportTop}px`;
+        const h = Math.max(120, Math.round(viewportHeight) - TOP_BAR_PX);
+        const mt = Math.round(viewportTop + TOP_BAR_PX);
+        if (h !== prevRootH.current) {
+          prevRootH.current = h;
+          rootRef.current.style.height = `${h}px`;
+        }
+        if (mt !== prevRootMT.current) {
+          prevRootMT.current = mt;
+          rootRef.current.style.marginTop = `${mt}px`;
+        }
       }
     };
 
-    // Run immediately, next frame, and after short delays to catch async mount/keyboard show
+    // Run immediately and once more shortly after to catch initial keyboard metrics
     recompute();
-    requestAnimationFrame(recompute);
-    const t1 = setTimeout(recompute, 150);
-    const t2 = setTimeout(recompute, 400);
-    const t3 = setTimeout(recompute, 1000); // Additional delay for reconnection scenarios
+    const t1 = setTimeout(recompute, 120);
 
-    // Observe header/input size changes
+    // Observe header/input size changes (schedule via rAF to avoid thrash)
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => recompute());
+      ro = new ResizeObserver(() => schedule());
       if (headerRef.current) ro.observe(headerRef.current);
       if (inputRef.current) ro.observe(inputRef.current);
     }
 
     // Window and orientation changes
-    window.addEventListener('resize', recompute);
-    window.addEventListener('orientationchange', recompute as any);
-    // Visual viewport changes on mobile
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule as any);
+    // Visual viewport changes on mobile (resize only; scroll events can be noisy during pan)
     const vv: any = (window as any).visualViewport;
     if (vv && typeof vv.addEventListener === 'function') {
-      vv.addEventListener('resize', recompute);
-      vv.addEventListener('scroll', recompute);
+      vv.addEventListener('resize', schedule);
     }
 
     return () => {
       clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      window.removeEventListener('resize', recompute);
-      window.removeEventListener('orientationchange', recompute as any);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('orientationchange', schedule as any);
       if (ro) ro.disconnect();
       if (vv && typeof vv.removeEventListener === 'function') {
-        vv.removeEventListener('resize', recompute);
-        vv.removeEventListener('scroll', recompute);
+        vv.removeEventListener('resize', schedule);
       }
       if (rootRef.current) {
         rootRef.current.style.height = '';
