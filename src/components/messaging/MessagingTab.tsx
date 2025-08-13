@@ -270,10 +270,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         console.log('Forced keyboard class addition');
       };
       (window as any).__inspectChatLayout = () => {
+        // Find all possible selectors
         const chatContainer = document.querySelector('.chat-vv');
         const input = document.querySelector('.chat-mobile-input');
-        const streamInput = document.querySelector('.str-chat__input-flat');
-        const messageList = document.querySelector('.str-chat__message-list');
+        const allInputs = document.querySelectorAll('[class*="input"]');
+        const allMessageLists = document.querySelectorAll('[class*="message"]');
+        const allStreamElements = document.querySelectorAll('[class*="str-chat"]');
+        
         console.log('Chat Layout Inspection:', {
           chatContainer: chatContainer ? {
             height: getComputedStyle(chatContainer).height,
@@ -287,13 +290,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             marginBottom: getComputedStyle(input).marginBottom,
             paddingBottom: getComputedStyle(input).paddingBottom
           } : null,
-          streamInput: streamInput ? {
-            marginBottom: getComputedStyle(streamInput).marginBottom,
-            paddingBottom: getComputedStyle(streamInput).paddingBottom
-          } : null,
-          messageList: messageList ? {
-            paddingBottom: getComputedStyle(messageList).paddingBottom
-          } : null
+          foundInputs: Array.from(allInputs).map(el => el.className),
+          foundMessageLists: Array.from(allMessageLists).map(el => el.className),
+          foundStreamElements: Array.from(allStreamElements).slice(0, 5).map(el => el.className)
         });
       };
       (window as any).__testInputFocus = () => {
