@@ -55,19 +55,36 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   useEffect(() => {
     const vv: any = (window as any).visualViewport;
     if (!vv || typeof vv.addEventListener !== 'function') return;
+    
     const updateKb = () => {
       try {
-        const isOpen = vv.height < window.innerHeight - 100; // heuristic
+        // More accurate iOS keyboard detection
+        const isOpen = Math.abs(window.innerHeight - vv.height) > 150;
         document.body.classList.toggle('keyboard-open', Boolean(isOpen));
+        
+        // Update CSS variable for viewport height
+        const vh = vv.height * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        
+        // For iOS, adjust padding to prevent overscroll
+        if (isOpen) {
+          const bottomPadding = window.innerHeight - vv.height;
+          document.documentElement.style.setProperty('--keyboard-padding', `${bottomPadding}px`);
+        } else {
+          document.documentElement.style.removeProperty('--keyboard-padding');
+        }
       } catch {}
     };
+    
     updateKb();
     vv.addEventListener('resize', updateKb);
     vv.addEventListener('scroll', updateKb);
+    
     return () => {
       vv.removeEventListener('resize', updateKb);
       vv.removeEventListener('scroll', updateKb);
       document.body.classList.remove('keyboard-open');
+      document.documentElement.style.removeProperty('--keyboard-padding');
     };
   }, []);
 

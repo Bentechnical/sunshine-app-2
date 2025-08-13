@@ -246,15 +246,31 @@
     padding-top: 8px !important;
   }
 
-  /* When keyboard is open, remove bottom safe-area padding to avoid extra whitespace */
-  .keyboard-open .chat-mobile-input { padding-bottom: 0 !important; }
-  /* iOS-only: also zero Stream input wrappers while keyboard is open */
+  /* When keyboard is open, handle iOS keyboard height */
+  .keyboard-open .chat-mobile-input { 
+    padding-bottom: var(--keyboard-padding, 0) !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* iOS-specific adjustments */
   @supports (-webkit-touch-callout: none) {
     .keyboard-open .str-chat__input-flat,
     .keyboard-open .str-chat__input-ui,
-    .keyboard-open .str-chat__textarea-container { padding-bottom: 0 !important; margin-bottom: 0 !important; }
-    /* Prevent outer page from adding any extra bottom padding during keyboard */
-    .keyboard-open .relative.flex-1 { padding-bottom: 0 !important; }
+    .keyboard-open .str-chat__textarea-container { 
+      padding-bottom: 0 !important; 
+      margin-bottom: 0 !important; 
+    }
+    
+    /* Prevent any extra padding during keyboard */
+    .keyboard-open .relative.flex-1 { 
+      padding-bottom: 0 !important;
+      height: calc(var(--vh, 1vh) * 100 - var(--keyboard-padding, 0)) !important;
+    }
+    
+    /* Adjust message list container height */
+    .keyboard-open .str-chat__main-panel {
+      height: calc(var(--vh, 1vh) * 100 - var(--keyboard-padding, 0) - var(--input-height, 60px)) !important;
+    }
   }
   
   /* Mobile thread */
