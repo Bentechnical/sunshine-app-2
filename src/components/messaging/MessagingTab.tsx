@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import {
   Chat,
@@ -16,7 +16,7 @@ import 'stream-chat-react/dist/css/v2/index.css';
 import { streamChatManager } from '@/utils/stream-chat-client';
 import { StreamChat } from 'stream-chat';
 import { Loader2, Wifi, WifiOff, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
-import { useRef } from 'react';
+ 
 
 interface ChatData {
   appointmentId: number;
@@ -47,12 +47,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [viewMode, setViewMode] = useState<'channelList' | 'activeChat'>('channelList');
   const [isMobile, setIsMobile] = useState(false);
+  const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLDivElement | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const prevRootH = useRef<number>(0);
-  const prevRootMT = useRef<number>(0);
-  const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
   
   // Detect keyboard open/close (iOS Safari-compatible via visualViewport)
   useEffect(() => {
@@ -85,118 +82,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Compute available height for messages (mobile) so only middle area scrolls
-  useEffect(() => {
-    if (!isMobile) return;
+  // Simplified: rely on CSS vh helper and flex layout (no dynamic height writes)
 
-    const TOP_BAR_PX = 48; // mobile fixed top bar height in DashboardLayout
-    let rafId: number | null = null;
-    const schedule = () => {
-      if (rafId !== null) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        recompute();
-      });
-    };
-
-    const recompute = () => {
-      // Use 100dvh for consistent mobile viewport handling, fallback to visualViewport for keyboard changes
-      const vv: any = (window as any).visualViewport;
-      const baseHeight = window.innerHeight; // This will be 100dvh equivalent
-      const viewportHeight = vv?.height ?? baseHeight;
-      const viewportTop = vv?.offsetTop ?? 0;
-      const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
-      const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
-      const headerH = headerMeasured > 24 ? headerMeasured : 44; // sensible fallback
-      const inputH = inputMeasured > 24 ? inputMeasured : 56;    // tighter fallback for compact input
-      // Do NOT subtract safe-area here; input wrapper already adds padding-bottom via CSS
-      const available = Math.max(100, Math.round(viewportHeight) - TOP_BAR_PX - headerH - inputH);
-      setMessagesHeight(prev => (prev !== available ? available : prev));
-
-      // Align the root container with the visual viewport so the bottom hugs the keyboard on iOS
-      if (rootRef.current) {
-        const h = Math.max(120, Math.round(viewportHeight) - TOP_BAR_PX);
-        const mt = Math.round(viewportTop + TOP_BAR_PX);
-        if (h !== prevRootH.current) {
-          prevRootH.current = h;
-          rootRef.current.style.height = `${h}px`;
-        }
-        if (mt !== prevRootMT.current) {
-          prevRootMT.current = mt;
-          rootRef.current.style.marginTop = `${mt}px`;
-        }
-      }
-    };
-
-    // Run immediately and once more shortly after to catch initial keyboard metrics
-    recompute();
-    const t1 = setTimeout(recompute, 120);
-
-    // Observe header/input size changes (schedule via rAF to avoid thrash)
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => schedule());
-      if (headerRef.current) ro.observe(headerRef.current);
-      if (inputRef.current) ro.observe(inputRef.current);
-    }
-
-    // Window and orientation changes
-    window.addEventListener('resize', schedule);
-    window.addEventListener('orientationchange', schedule as any);
-    // Visual viewport changes on mobile (resize + geometrychange for iOS 17+)
-    const vv: any = (window as any).visualViewport;
-    if (vv && typeof vv.addEventListener === 'function') {
-      vv.addEventListener('resize', schedule);
-      if (typeof (vv as any).addEventListener === 'function') {
-        try { (vv as any).addEventListener('geometrychange', schedule); } catch {}
-      }
-    }
-
-    return () => {
-      clearTimeout(t1);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', schedule);
-      window.removeEventListener('orientationchange', schedule as any);
-      if (ro) ro.disconnect();
-      if (vv && typeof vv.removeEventListener === 'function') {
-        vv.removeEventListener('resize', schedule);
-        try { (vv as any).removeEventListener('geometrychange', schedule); } catch {}
-      }
-      if (rootRef.current) {
-        rootRef.current.style.height = '';
-        rootRef.current.style.marginTop = '';
-      }
-    };
-  }, [isMobile, viewMode]);
-
-  // Force height recalculation when connection status changes (helps with reconnection layout issues)
-  useEffect(() => {
-    if (!isMobile || !messagesHeight) return;
-    
-    // Force recalculation after connection state changes
-    const forceRecalc = () => {
-      const recompute = () => {
-        const vv: any = (window as any).visualViewport;
-        const baseHeight = window.innerHeight; // This will be 100dvh equivalent
-        const viewportHeight = vv?.height ?? baseHeight;
-        const TOP_BAR_PX = 48;
-        const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
-        const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
-        const headerH = headerMeasured > 24 ? headerMeasured : 44;
-        const inputH = inputMeasured > 24 ? inputMeasured : 56;
-        const available = Math.max(100, viewportHeight - TOP_BAR_PX - headerH - inputH);
-        setMessagesHeight(available);
-      };
-      
-      // Immediate + delayed recalculation
-      recompute();
-      requestAnimationFrame(recompute);
-      setTimeout(recompute, 100);
-      setTimeout(recompute, 500);
-    };
-    
-    forceRecalc();
-  }, [connectionStatus, isMobile, messagesHeight]);
+  // No per-frame recalcs; the container height is driven by --vh via CSS
 
   // No dynamic padding needed with grid layout
 
@@ -692,7 +580,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   }
 
   return (
-    <div ref={rootRef} className="flex flex-col h-full md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
+    <div className="flex flex-col vh-screen md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
       {/* Connection Status Bar (hidden on mobile) */}
       <div className="hidden md:flex bg-gray-50 border-b px-4 py-2 items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">
