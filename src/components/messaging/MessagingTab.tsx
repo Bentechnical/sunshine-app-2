@@ -265,6 +265,46 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         document.body.classList.remove('keyboard-open');
         console.log('Forced keyboard class removal');
       };
+      (window as any).__forceKeyboardOpen = () => {
+        document.body.classList.add('keyboard-open');
+        console.log('Forced keyboard class addition');
+      };
+      (window as any).__inspectChatLayout = () => {
+        const chatContainer = document.querySelector('.chat-vv');
+        const input = document.querySelector('.chat-mobile-input');
+        const streamInput = document.querySelector('.str-chat__input-flat');
+        const messageList = document.querySelector('.str-chat__message-list');
+        console.log('Chat Layout Inspection:', {
+          chatContainer: chatContainer ? {
+            height: getComputedStyle(chatContainer).height,
+            maxHeight: getComputedStyle(chatContainer).maxHeight,
+            overflow: getComputedStyle(chatContainer).overflow,
+            paddingBottom: getComputedStyle(chatContainer).paddingBottom
+          } : null,
+          input: input ? {
+            position: getComputedStyle(input).position,
+            bottom: getComputedStyle(input).bottom,
+            marginBottom: getComputedStyle(input).marginBottom,
+            paddingBottom: getComputedStyle(input).paddingBottom
+          } : null,
+          streamInput: streamInput ? {
+            marginBottom: getComputedStyle(streamInput).marginBottom,
+            paddingBottom: getComputedStyle(streamInput).paddingBottom
+          } : null,
+          messageList: messageList ? {
+            paddingBottom: getComputedStyle(messageList).paddingBottom
+          } : null
+        });
+      };
+      (window as any).__testInputFocus = () => {
+        const input = document.querySelector('.str-chat__textarea');
+        if (input) {
+          (input as HTMLElement).focus();
+          console.log('Focused input programmatically');
+        } else {
+          console.log('Input not found');
+        }
+      };
     } catch {}
   }, []);
 
