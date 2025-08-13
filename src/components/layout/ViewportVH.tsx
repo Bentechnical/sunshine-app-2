@@ -13,12 +13,17 @@ export default function ViewportVH(): null {
       try {
         const vv: any = (window as any).visualViewport;
         const height = Math.max(200, Math.floor((vv?.height ?? window.innerHeight)));
-        const vh = height * 0.01;
-        document.documentElement.style.setProperty("--vh", `${vh}px`);
+        const offsetTop = Math.max(0, Math.floor(vv?.offsetTop ?? 0));
+        // Traditional 1% unit for broader usage
+        document.documentElement.style.setProperty("--vh", `${height * 0.01}px`);
+        // Raw pixel helpers for precise alignment
+        document.documentElement.style.setProperty("--vvh", `${height}px`);
+        document.documentElement.style.setProperty("--vvt", `${offsetTop}px`);
 
         // Heuristic keyboard detection (more robust): consider offsetTop as well
         const isKeyboardOpen = vv ? (vv.offsetTop > 40 || (window.innerHeight - vv.height) > 80) : false;
         document.body.classList.toggle("keyboard-open", Boolean(isKeyboardOpen));
+        document.body.classList.add("vv-ready");
       } catch {
         // best-effort only
       }

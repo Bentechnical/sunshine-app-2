@@ -580,7 +580,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   }
 
   return (
-    <div className="flex flex-col vh-screen md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
+    <div className="chat-vv flex flex-col vh-screen md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
       {/* Connection Status Bar (hidden on mobile) */}
       <div className="hidden md:flex bg-gray-50 border-b px-4 py-2 items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">

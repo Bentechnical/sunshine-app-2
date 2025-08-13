@@ -442,6 +442,9 @@
 /* JS-managed viewport height helper: height = 100 * var(--vh) */
 .vh-screen { height: calc(var(--vh, 1vh) * 100); }
 .min-vh-screen { min-height: calc(var(--vh, 1vh) * 100); }
+/* Raw pixel helpers (set by ViewportVH) */
+.vv-screen { height: var(--vvh, 100vh); }
+.vv-offset-top { margin-top: var(--vvt, 0px); }
 
 
 /* --- Block landscape on touch devices only (exclude desktop) --- */
