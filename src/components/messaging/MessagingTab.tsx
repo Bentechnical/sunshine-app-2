@@ -95,7 +95,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         
         const isOpen = method1 || method2 || method3 || method4;
         
-        document.body.classList.toggle('keyboard-open', Boolean(isOpen));
+        // Only update if state actually changed to avoid jitter
+        const currentlyOpen = document.body.classList.contains('keyboard-open');
+        if (isOpen !== currentlyOpen) {
+          document.body.classList.toggle('keyboard-open', Boolean(isOpen));
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Visual viewport keyboard state changed:', isOpen ? 'opened' : 'closed');
+          }
+        }
         
         // Always use visual viewport height when available
         const vh = vv.height * 0.01;
@@ -164,6 +171,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       const target = e.target as HTMLElement;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
         clearTimeout(keyboardTimer);
+        // Much shorter delay for immediate response
         keyboardTimer = setTimeout(() => {
           // Check if no other input is focused
           const activeElement = document.activeElement;
@@ -173,17 +181,38 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               console.log('Keyboard closed via input blur');
             }
           }
-        }, 100);
+        }, 50); // Reduced from 100ms to 50ms for faster response
       }
     };
     
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', handleFocusOut);
     
+    // Additional method: detect when user scrolls down to close keyboard
+    const handleTouchStart = () => {
+      // If keyboard is open and user starts scrolling, prepare to close it
+      if (document.body.classList.contains('keyboard-open')) {
+        clearTimeout(keyboardTimer);
+        keyboardTimer = setTimeout(() => {
+          // Check if no input is focused after scroll
+          const activeElement = document.activeElement;
+          if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
+            document.body.classList.remove('keyboard-open');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Keyboard closed via scroll gesture');
+            }
+          }
+        }, 150);
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    
     return () => {
       clearTimeout(keyboardTimer);
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleFocusOut);
+      document.removeEventListener('touchstart', handleTouchStart);
     };
   }, [isMobile]);
 

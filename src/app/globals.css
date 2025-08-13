@@ -254,6 +254,15 @@
   
   /* iOS-specific adjustments using modern dvh units */
   @supports (-webkit-touch-callout: none) {
+    /* Smooth transitions for keyboard open/close */
+    .chat-mobile-input {
+      transition: all 0.2s ease-out !important;
+    }
+    
+    .chat-vv {
+      transition: height 0.2s ease-out, padding 0.2s ease-out !important;
+    }
+    
     /* When keyboard is open, fix the input to the bottom of the visible viewport */
     .keyboard-open .chat-mobile-input {
       position: fixed !important;
