@@ -253,6 +253,8 @@
     .keyboard-open .str-chat__input-flat,
     .keyboard-open .str-chat__input-ui,
     .keyboard-open .str-chat__textarea-container { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+    /* Prevent outer page from adding any extra bottom padding during keyboard */
+    .keyboard-open .relative.flex-1 { padding-bottom: 0 !important; }
   }
   
   /* Mobile thread */

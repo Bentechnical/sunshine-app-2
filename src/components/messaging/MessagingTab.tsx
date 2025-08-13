@@ -143,10 +143,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     // Window and orientation changes
     window.addEventListener('resize', schedule);
     window.addEventListener('orientationchange', schedule as any);
-    // Visual viewport changes on mobile (resize only; scroll events can be noisy during pan)
+    // Visual viewport changes on mobile (resize + geometrychange for iOS 17+)
     const vv: any = (window as any).visualViewport;
     if (vv && typeof vv.addEventListener === 'function') {
       vv.addEventListener('resize', schedule);
+      if (typeof (vv as any).addEventListener === 'function') {
+        try { (vv as any).addEventListener('geometrychange', schedule); } catch {}
+      }
     }
 
     return () => {
@@ -157,6 +160,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       if (ro) ro.disconnect();
       if (vv && typeof vv.removeEventListener === 'function') {
         vv.removeEventListener('resize', schedule);
+        try { (vv as any).removeEventListener('geometrychange', schedule); } catch {}
       }
       if (rootRef.current) {
         rootRef.current.style.height = '';

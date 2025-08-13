@@ -16,8 +16,8 @@ export default function ViewportVH(): null {
         const vh = height * 0.01;
         document.documentElement.style.setProperty("--vh", `${vh}px`);
 
-        // Heuristic keyboard detection: if visualViewport height shrinks notably vs innerHeight
-        const isKeyboardOpen = vv ? (vv.height < window.innerHeight - 100) : false;
+        // Heuristic keyboard detection (more robust): consider offsetTop as well
+        const isKeyboardOpen = vv ? (vv.offsetTop > 40 || (window.innerHeight - vv.height) > 80) : false;
         document.body.classList.toggle("keyboard-open", Boolean(isKeyboardOpen));
       } catch {
         // best-effort only
