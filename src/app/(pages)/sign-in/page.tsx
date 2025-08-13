@@ -66,7 +66,7 @@ export default function CustomSignIn() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#e3f0f1] px-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-[#e3f0f1] px-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-md p-8">
         <div className="w-full mb-6 text-center">
           <img

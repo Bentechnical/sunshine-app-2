@@ -325,14 +325,14 @@ export default function ProfileCompleteForm() {
 
   if (!isLoaded || !user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-[100dvh] bg-gray-100">
         <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white p-4 overflow-y-auto flex justify-center">
+    <div className="min-h-[100dvh] bg-white p-4 overflow-y-auto flex justify-center">
       <div className={`w-full max-w-lg p-6 bg-white rounded-lg shadow-md transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
         <h2 className="text-2xl font-semibold text-center mb-4">
           Hi {user.firstName}, welcome to Sunshine!

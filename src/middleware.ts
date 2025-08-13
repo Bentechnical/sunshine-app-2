@@ -19,7 +19,7 @@ const isAdminApiRoute = (path: string) =>
   path.startsWith('/api/admin/');
 
 // General API routes that should be accessible to authenticated users
-const isApiRoute = (path: string) =>
+const isApiRoute = (path:string) =>
   path.startsWith('/api/');
 
 // Admin dashboard routes that should be accessible to authenticated admin users
@@ -42,10 +42,44 @@ const isBypassablePath = (path: string) =>
   path.startsWith('/fonts') ||             // ✅ Fonts if used
   path.startsWith('/assets');              // ✅ Any other custom static paths
 
+// Check if request is coming from ngrok (for testing purposes)
+const isNgrokRequest = (req: NextRequest) => {
+  const host = req.headers.get('host') || '';
+  const referer = req.headers.get('referer') || '';
+  const origin = req.headers.get('origin') || '';
+  
+  return host.includes('ngrok') || 
+         referer.includes('ngrok') || 
+         origin.includes('ngrok') ||
+         host.includes('ngrok-free.app');
+};
+
 export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   const { pathname } = req.nextUrl;
   const isDev = process.env.NODE_ENV === 'development';
   if (isDev) console.log('[Middleware] Path:', pathname);
+
+  // Check for ngrok requests and environment variable bypass FIRST (before any other checks)
+  if (isDev) {
+    if (isNgrokRequest(req)) {
+      console.log('[Middleware] Ngrok request detected, bypassing all checks for testing');
+      
+      // If ngrok request is trying to access /unlock, redirect to main app
+      if (pathname === '/unlock') {
+        console.log('[Middleware] Redirecting ngrok request from /unlock to main app');
+        const url = req.nextUrl.clone();
+        url.pathname = '/';
+        return NextResponse.redirect(url);
+      }
+      
+      return NextResponse.next();
+    }
+    
+    if (process.env.BYPASS_UNLOCK_GATE === 'true') {
+      console.log('[Middleware] Unlock gate bypassed via environment variable');
+      return NextResponse.next();
+    }
+  }
 
   if (isBypassablePath(pathname)) {
     return NextResponse.next();

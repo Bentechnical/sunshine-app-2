@@ -50,6 +50,26 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const headerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLDivElement | null>(null);
   const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
+  
+  // Detect keyboard open/close (iOS Safari-compatible via visualViewport)
+  useEffect(() => {
+    const vv: any = (window as any).visualViewport;
+    if (!vv || typeof vv.addEventListener !== 'function') return;
+    const updateKb = () => {
+      try {
+        const isOpen = vv.height < window.innerHeight - 100; // heuristic
+        document.body.classList.toggle('keyboard-open', Boolean(isOpen));
+      } catch {}
+    };
+    updateKb();
+    vv.addEventListener('resize', updateKb);
+    vv.addEventListener('scroll', updateKb);
+    return () => {
+      vv.removeEventListener('resize', updateKb);
+      vv.removeEventListener('scroll', updateKb);
+      document.body.classList.remove('keyboard-open');
+    };
+  }, []);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -68,9 +88,10 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
     const TOP_BAR_PX = 48; // matches the spacer we add in activeChat mode
     const recompute = () => {
-      // Prefer visualViewport to account for soft keyboard and browser UI chrome
+      // Use 100dvh for consistent mobile viewport handling, fallback to visualViewport for keyboard changes
       const vv: any = (window as any).visualViewport;
-      const viewportHeight = vv?.height ?? window.innerHeight;
+      const baseHeight = window.innerHeight; // This will be 100dvh equivalent
+      const viewportHeight = vv?.height ?? baseHeight;
       const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
       const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
       const headerH = headerMeasured > 24 ? headerMeasured : 44; // sensible fallback
@@ -85,6 +106,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     requestAnimationFrame(recompute);
     const t1 = setTimeout(recompute, 150);
     const t2 = setTimeout(recompute, 400);
+    const t3 = setTimeout(recompute, 1000); // Additional delay for reconnection scenarios
 
     // Observe header/input size changes
     let ro: ResizeObserver | null = null;
@@ -107,6 +129,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
       window.removeEventListener('resize', recompute);
       window.removeEventListener('orientationchange', recompute as any);
       if (ro) ro.disconnect();
@@ -116,6 +139,35 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       }
     };
   }, [isMobile, viewMode]);
+
+  // Force height recalculation when connection status changes (helps with reconnection layout issues)
+  useEffect(() => {
+    if (!isMobile || !messagesHeight) return;
+    
+    // Force recalculation after connection state changes
+    const forceRecalc = () => {
+      const recompute = () => {
+        const vv: any = (window as any).visualViewport;
+        const baseHeight = window.innerHeight; // This will be 100dvh equivalent
+        const viewportHeight = vv?.height ?? baseHeight;
+        const TOP_BAR_PX = 48;
+        const headerMeasured = headerRef.current?.getBoundingClientRect().height ?? 0;
+        const inputMeasured = inputRef.current?.getBoundingClientRect().height ?? 0;
+        const headerH = headerMeasured > 24 ? headerMeasured : 44;
+        const inputH = inputMeasured > 24 ? inputMeasured : 56;
+        const available = Math.max(100, viewportHeight - TOP_BAR_PX - headerH - inputH);
+        setMessagesHeight(available);
+      };
+      
+      // Immediate + delayed recalculation
+      recompute();
+      requestAnimationFrame(recompute);
+      setTimeout(recompute, 100);
+      setTimeout(recompute, 500);
+    };
+    
+    forceRecalc();
+  }, [connectionStatus, isMobile, messagesHeight]);
 
   // No dynamic padding needed with grid layout
 
@@ -611,7 +663,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
+    <div className="flex flex-col vh-screen md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
       {/* Connection Status Bar (hidden on mobile) */}
       <div className="hidden md:flex bg-gray-50 border-b px-4 py-2 items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">
@@ -658,7 +710,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       </div>
 
       {/* Chat Interface */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {connectionStatus === 'connected' && client?.userID ? (
           <Chat key={client.userID} client={client} theme="messaging light">
             {isMobile ? (
@@ -666,7 +718,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <div className="h-full">
                 {viewMode === 'channelList' ? (
                   // Channel List View
-                  <div className="h-full flex flex-col">
+                  <div className="h-full flex flex-col str-chat__channel-list">
                     <div className="p-4 border-b shrink-0">
                       <h3 className="font-semibold text-gray-900">Messages</h3>
                       <p className="text-sm text-gray-500 mt-1">
@@ -753,10 +805,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         <div ref={headerRef} className="bg-white">
                           <MobileChannelHeader />
                         </div>
-                        <div
-                          className="overflow-y-auto md:pt-0 px-3"
-                          style={isMobile && messagesHeight ? { height: messagesHeight } : undefined}
-                        >
+                        <div className="flex-1 min-h-0 overflow-y-auto md:pt-0 px-3">
                           <MessageList />
                         </div>
                         <div ref={inputRef} className="bg-white chat-mobile-input">

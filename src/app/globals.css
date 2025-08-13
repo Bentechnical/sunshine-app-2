@@ -185,7 +185,7 @@
   .availability-scroll-port { height: calc(100dvh - 176px - env(safe-area-inset-bottom)); overflow-y: auto; background: #fff; }
   @media (min-width: 768px) {
     /* On desktop, let the port fill the available area without blocking page scroll */
-    .availability-scroll-port { height: auto; max-height: calc(100vh - 220px); }
+    .availability-scroll-port { height: auto; max-height: calc(100dvh - 220px); }
   }
   .availability-scroll-port .fc-header-toolbar { position: sticky; top: 0; background: white; z-index: 5; margin: 0 !important; padding: 6px 8px !important; border-top: 0 !important; }
   /* Use FullCalendar's built-in stickyHeaderDates for the day header */
@@ -245,6 +245,9 @@
     box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
     padding-top: 8px !important;
   }
+
+  /* When keyboard is open, remove bottom safe-area padding to avoid extra whitespace */
+  .keyboard-open .chat-mobile-input { padding-bottom: 0 !important; }
   
   /* Mobile thread */
   .str-chat__thread {
@@ -428,6 +431,11 @@
   }
 }
 
+/* JS-managed viewport height helper: height = 100 * var(--vh) */
+.vh-screen { height: calc(var(--vh, 1vh) * 100); }
+.min-vh-screen { min-height: calc(var(--vh, 1vh) * 100); }
+
+
 /* --- Block landscape on touch devices only (exclude desktop) --- */
 @media (orientation: landscape) and (hover: none) and (pointer: coarse) {
   html, body { height: 100%; overflow: hidden; }
@@ -446,5 +454,28 @@
     font-size: 16px;
     line-height: 1.4;
     font-weight: 600;
+  }
+}
+
+/* iOS Safari viewport height fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific fixes */
+  html, body {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+  
+  /* Force proper height for chat containers on iOS */
+  .str-chat__container,
+  .str-chat__channel-list,
+  .str-chat__message-list {
+    height: -webkit-fill-available !important;
+    min-height: -webkit-fill-available !important;
+  }
+  
+  /* Prevent iOS Safari from adding extra padding */
+  .str-chat__input-flat {
+    position: static !important;
+    bottom: auto !important;
   }
 }
