@@ -12,6 +12,7 @@ import {
   Thread,
   Window,
 } from 'stream-chat-react';
+import IOSKeyboardInput from './IOSKeyboardInput';
 // Check if web version has keyboard context
 // import { useKeyboardContext } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
@@ -1064,7 +1065,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                 ) : (
                   // Chat View (mobile grid layout)
                   activeChannel && activeChannelId ? (
-                    <Channel key={activeChannelId} channel={activeChannel}>
+                    <Channel key={activeChannelId} channel={activeChannel} Input={IOSKeyboardInput}>
               <div className="h-full w-full flex flex-col">
                 {/* Spacer for fixed mobile top bar - hidden when keyboard is open */}
                 <div className="md:hidden keyboard-open:hidden" style={{ height: 48 }} />
@@ -1176,7 +1177,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                 {/* Chat Window */}
                 <div className="flex-1 flex flex-col">
                   {activeChannel && activeChannelId ? (
-                    <Channel key={activeChannelId} channel={activeChannel}>
+                    <Channel key={activeChannelId} channel={activeChannel} Input={IOSKeyboardInput}>
                       <Window>
                         <ChannelHeader />
                         <MessageList />
