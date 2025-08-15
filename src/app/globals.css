@@ -252,37 +252,39 @@
     margin-bottom: 0 !important;
   }
   
-  /* iOS-specific adjustments - use dynamic viewport height */
+  /* iOS-specific keyboard handling - counter document translation */
   @supports (-webkit-touch-callout: none) {
+    /* When keyboard opens, fix the entire page viewport */
+    body.keyboard-open {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      height: 100vh !important;
+      overflow: hidden !important;
+    }
+    
+    /* Force chat container to use visual viewport height when keyboard is open */
     .keyboard-open .chat-vv {
-      height: 100dvh !important;
-      max-height: 100dvh !important;
+      height: var(--vvh, 100vh) !important;
+      max-height: var(--vvh, 100vh) !important;
+      overflow: hidden !important;
     }
     
-    /* Custom iOS keyboard input styling */
-    .ios-keyboard-input {
-      /* Prevent extra spacing on iOS */
-      margin-bottom: 0 !important;
-      padding-bottom: env(safe-area-inset-bottom) !important;
-    }
-    
-    /* Style the custom TextareaComposer */
-    .ios-textarea-composer {
-      min-height: 36px !important;
-      max-height: 120px !important;
-      resize: none !important;
-      border-radius: 18px !important;
-      border: 1px solid #e5e7eb !important;
-      padding: 8px 12px !important;
-      font-size: 16px !important; /* Prevent zoom on iOS */
-      line-height: 1.4 !important;
-    }
-    
-    /* Fix iOS Safari input positioning */
-    .keyboard-open .ios-keyboard-input {
-      position: sticky !important;
+    /* Ensure input stays at bottom of visual viewport */
+    .keyboard-open .chat-mobile-input {
+      position: absolute !important;
       bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
       z-index: 10 !important;
+    }
+    
+    /* Prevent textarea zoom on iOS */
+    .str-chat__message-textarea,
+    .str-chat__textarea,
+    textarea {
+      font-size: 16px !important;
     }
   }
   

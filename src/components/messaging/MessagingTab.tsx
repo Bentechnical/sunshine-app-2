@@ -12,7 +12,6 @@ import {
   Thread,
   Window,
 } from 'stream-chat-react';
-import IOSKeyboardInput from './IOSKeyboardInput';
 // Check if web version has keyboard context
 // import { useKeyboardContext } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
@@ -123,6 +122,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         // Always use visual viewport height when available
         const vh = vv.height * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
+        document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
         
         // Debug logging for development
         if (process.env.NODE_ENV === 'development') {
@@ -1065,7 +1065,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                 ) : (
                   // Chat View (mobile grid layout)
                   activeChannel && activeChannelId ? (
-                    <Channel key={activeChannelId} channel={activeChannel} Input={IOSKeyboardInput}>
+                    <Channel key={activeChannelId} channel={activeChannel}>
               <div className="h-full w-full flex flex-col">
                 {/* Spacer for fixed mobile top bar - hidden when keyboard is open */}
                 <div className="md:hidden keyboard-open:hidden" style={{ height: 48 }} />
@@ -1177,7 +1177,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                 {/* Chat Window */}
                 <div className="flex-1 flex flex-col">
                   {activeChannel && activeChannelId ? (
-                    <Channel key={activeChannelId} channel={activeChannel} Input={IOSKeyboardInput}>
+                    <Channel key={activeChannelId} channel={activeChannel}>
                       <Window>
                         <ChannelHeader />
                         <MessageList />
