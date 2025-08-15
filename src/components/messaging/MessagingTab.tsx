@@ -332,16 +332,42 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           }
         });
       };
-      (window as any).__checkStreamChatHooks = () => {
-        try {
-          // Try to access Stream Chat web contexts
-          console.log('Checking available Stream Chat hooks...');
-          // This will help us see what's available in the web version
-          const streamChatReact = require('stream-chat-react');
-          console.log('Stream Chat React exports:', Object.keys(streamChatReact));
-        } catch (e) {
-          console.log('Cannot inspect stream-chat-react exports:', e);
-        }
+      (window as any).__debugViewport = () => {
+        const vv = (window as any).visualViewport;
+        const bodyRect = document.body.getBoundingClientRect();
+        const htmlRect = document.documentElement.getBoundingClientRect();
+        
+        console.log('Viewport Debug:', {
+          window: {
+            innerHeight: window.innerHeight,
+            outerHeight: window.outerHeight,
+            screenHeight: window.screen.height
+          },
+          visualViewport: vv ? {
+            height: vv.height,
+            width: vv.width,
+            offsetTop: vv.offsetTop,
+            offsetLeft: vv.offsetLeft,
+            scale: vv.scale
+          } : 'not available',
+          elements: {
+            body: {
+              height: bodyRect.height,
+              top: bodyRect.top,
+              bottom: bodyRect.bottom
+            },
+            html: {
+              height: htmlRect.height,
+              top: htmlRect.top,
+              bottom: htmlRect.bottom
+            }
+          },
+          documentElement: {
+            clientHeight: document.documentElement.clientHeight,
+            scrollHeight: document.documentElement.scrollHeight,
+            offsetHeight: document.documentElement.offsetHeight
+          }
+        });
       };
     } catch {}
   }, []);

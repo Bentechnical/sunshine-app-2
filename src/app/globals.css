@@ -254,10 +254,21 @@
   
   /* iOS-specific adjustments - simplified approach */
   @supports (-webkit-touch-callout: none) {
-    /* When keyboard is open, constrain chat height to visual viewport */
-    .keyboard-open .chat-vv {
+    /* Fix root layout when keyboard is open */
+    .keyboard-open .flex.h-screen {
+      height: calc(var(--vh, 1vh) * 100) !important;
+    }
+    
+    /* Fix main container when keyboard is open */
+    .keyboard-open main.relative.z-10.flex-1.flex.flex-col {
       height: calc(var(--vh, 1vh) * 100) !important;
       max-height: calc(var(--vh, 1vh) * 100) !important;
+    }
+    
+    /* When keyboard is open, constrain chat height to visual viewport */
+    .keyboard-open .chat-vv {
+      height: calc(var(--vh, 1vh) * 100 - 48px) !important; /* Account for mobile header */
+      max-height: calc(var(--vh, 1vh) * 100 - 48px) !important;
       overflow: hidden !important;
     }
     
@@ -274,6 +285,15 @@
       max-height: 100% !important;
       padding-bottom: 0 !important;
       margin-bottom: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    
+    /* Ensure message list fills available space when keyboard is open */
+    .keyboard-open .str-chat__message-list-scroll {
+      flex: 1 !important;
+      min-height: 0 !important;
+      padding-bottom: 0 !important;
     }
     
     /* Remove extra bottom space from input elements */
