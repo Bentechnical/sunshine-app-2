@@ -381,6 +381,61 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           }
         });
       };
+      
+      (window as any).__debugBodyStyles = () => {
+        const bodyStyles = getComputedStyle(document.body);
+        const htmlStyles = getComputedStyle(document.documentElement);
+        const hasKeyboardClass = document.body.classList.contains('keyboard-open');
+        
+        console.log('Body Styles Debug:', {
+          keyboardClass: hasKeyboardClass,
+          body: {
+            position: bodyStyles.position,
+            top: bodyStyles.top,
+            left: bodyStyles.left,
+            right: bodyStyles.right,
+            height: bodyStyles.height,
+            overflow: bodyStyles.overflow,
+            transform: bodyStyles.transform
+          },
+          html: {
+            height: htmlStyles.height,
+            overflow: htmlStyles.overflow,
+            transform: htmlStyles.transform
+          }
+        });
+      };
+      
+      (window as any).__debugChatContainers = () => {
+        const chatVv = document.querySelector('.chat-vv');
+        const streamContainer = document.querySelector('.str-chat__container');
+        const mainPanel = document.querySelector('.str-chat__main-panel-inner');
+        const layoutContainer = document.querySelector('.flex.h-screen');
+        
+        console.log('Chat Containers Debug:', {
+          chatVv: chatVv ? {
+            height: getComputedStyle(chatVv).height,
+            maxHeight: getComputedStyle(chatVv).maxHeight,
+            overflow: getComputedStyle(chatVv).overflow,
+            position: getComputedStyle(chatVv).position,
+            top: getComputedStyle(chatVv).top,
+            bottom: getComputedStyle(chatVv).bottom,
+            rect: chatVv.getBoundingClientRect()
+          } : 'not found',
+          streamContainer: streamContainer ? {
+            height: getComputedStyle(streamContainer).height,
+            rect: streamContainer.getBoundingClientRect()
+          } : 'not found',
+          mainPanel: mainPanel ? {
+            height: getComputedStyle(mainPanel).height,
+            rect: mainPanel.getBoundingClientRect()
+          } : 'not found',
+          layoutContainer: layoutContainer ? {
+            height: getComputedStyle(layoutContainer).height,
+            rect: layoutContainer.getBoundingClientRect()
+          } : 'not found'
+        });
+      };
     } catch {}
   }, []);
 
