@@ -261,10 +261,24 @@
       overflow: hidden !important;
     }
     
-    /* Remove extra bottom space from any elements that might create it */
+    /* Force Stream Chat container to fit within constrained height */
+    .keyboard-open .str-chat__container {
+      height: 100% !important;
+      max-height: 100% !important;
+      overflow: hidden !important;
+    }
+    
+    /* Force main panel to not add extra height */
+    .keyboard-open .str-chat__main-panel-inner {
+      height: 100% !important;
+      max-height: 100% !important;
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    
+    /* Remove extra bottom space from input elements */
     .keyboard-open .chat-mobile-input,
-    .keyboard-open [class*="input"],
-    .keyboard-open [class*="str-chat"] {
+    .keyboard-open .str-chat__message-input {
       margin-bottom: 0 !important;
       padding-bottom: 0 !important;
     }

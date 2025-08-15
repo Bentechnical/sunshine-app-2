@@ -12,6 +12,8 @@ import {
   Thread,
   Window,
 } from 'stream-chat-react';
+// Check if web version has keyboard context
+// import { useKeyboardContext } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import { streamChatManager } from '@/utils/stream-chat-client';
 import { StreamChat } from 'stream-chat';
@@ -302,6 +304,43 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           console.log('Focused input programmatically');
         } else {
           console.log('Input not found');
+        }
+      };
+      (window as any).__debugSpacing = () => {
+        const elements = [
+          '.chat-vv',
+          '.chat-mobile-input',
+          '.str-chat__message-input',
+          '.str-chat__container',
+          '.str-chat__main-panel-inner'
+        ];
+        
+        elements.forEach(selector => {
+          const el = document.querySelector(selector);
+          if (el) {
+            const styles = getComputedStyle(el);
+            console.log(`${selector}:`, {
+              height: styles.height,
+              marginTop: styles.marginTop,
+              marginBottom: styles.marginBottom,
+              paddingTop: styles.paddingTop,
+              paddingBottom: styles.paddingBottom,
+              position: styles.position,
+              bottom: styles.bottom,
+              transform: styles.transform
+            });
+          }
+        });
+      };
+      (window as any).__checkStreamChatHooks = () => {
+        try {
+          // Try to access Stream Chat web contexts
+          console.log('Checking available Stream Chat hooks...');
+          // This will help us see what's available in the web version
+          const streamChatReact = require('stream-chat-react');
+          console.log('Stream Chat React exports:', Object.keys(streamChatReact));
+        } catch (e) {
+          console.log('Cannot inspect stream-chat-react exports:', e);
         }
       };
     } catch {}
