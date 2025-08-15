@@ -114,6 +114,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         if (isOpen !== currentlyOpen) {
           document.body.classList.toggle('keyboard-open', Boolean(isOpen));
           document.documentElement.classList.toggle('keyboard-open', Boolean(isOpen));
+          
+          // When keyboard closes, reset any fixed positioning
+          if (!isOpen) {
+            document.body.style.removeProperty('position');
+            document.body.style.removeProperty('top');
+            document.body.style.removeProperty('height');
+          }
+          
           if (process.env.NODE_ENV === 'development') {
             console.log('Visual viewport keyboard state changed:', isOpen ? 'opened' : 'closed');
           }
@@ -123,6 +131,22 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         const vh = vv.height * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
         document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
+        
+        // Directly set the problematic div height when keyboard is open
+        if (isOpen) {
+          const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
+          if (problemDiv) {
+            (problemDiv as HTMLElement).style.height = `${vv.height}px`;
+            (problemDiv as HTMLElement).style.maxHeight = `${vv.height}px`;
+          }
+        } else {
+          // Reset when keyboard closes
+          const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
+          if (problemDiv) {
+            (problemDiv as HTMLElement).style.removeProperty('height');
+            (problemDiv as HTMLElement).style.removeProperty('max-height');
+          }
+        }
         
         // Debug logging for development
         if (process.env.NODE_ENV === 'development') {

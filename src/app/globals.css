@@ -271,6 +271,19 @@
       overflow: hidden !important;
     }
     
+    /* Ensure main content area doesn't add extra padding */
+    body.keyboard-open .relative.flex-1.overflow-hidden {
+      padding-top: 0 !important;
+      overflow: hidden !important;
+    }
+    
+    /* Also target the main element inside */
+    body.keyboard-open .relative.flex-1.overflow-hidden main {
+      height: 100% !important;
+      max-height: 100% !important;
+      overflow: hidden !important;
+    }
+    
     /* Ensure input stays at bottom of visual viewport */
     .keyboard-open .chat-mobile-input {
       position: absolute !important;
