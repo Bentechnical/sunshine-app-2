@@ -97,6 +97,18 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         
         const isOpen = method1 || method2 || method3 || method4;
         
+        // More aggressive close detection: if viewport returns to near full size, force close
+        if (viewportH >= windowH - 20 && offsetTop < 20) {
+          const currentlyOpen = document.body.classList.contains('keyboard-open');
+          if (currentlyOpen) {
+            document.body.classList.remove('keyboard-open');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Forced keyboard close - viewport returned to full size');
+            }
+            return;
+          }
+        }
+        
         // Only update if state actually changed to avoid jitter
         const currentlyOpen = document.body.classList.contains('keyboard-open');
         if (isOpen !== currentlyOpen) {
@@ -549,6 +561,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     return () => {
       // Reset active channel when component unmounts
       setActiveChannel(null);
+      // Clean up keyboard state and body styles when component unmounts
+      document.body.classList.remove('keyboard-open');
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.height = '';
+      document.body.style.overflow = '';
     };
   }, []);
 
@@ -668,6 +686,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     setActiveChannel(null);
     // Clean up keyboard state when leaving chat
     document.body.classList.remove('keyboard-open');
+    // Force reset body styles that might persist
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.height = '';
+    document.body.style.overflow = '';
     if (isMobile && onActiveChatChange) {
       onActiveChatChange(false);
     }

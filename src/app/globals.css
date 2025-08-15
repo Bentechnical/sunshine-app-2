@@ -252,17 +252,22 @@
     margin-bottom: 0 !important;
   }
   
-  /* iOS-specific adjustments - simplified approach */
+  /* iOS-specific adjustments - handle viewport translation */
   @supports (-webkit-touch-callout: none) {
+    /* When keyboard opens, iOS pushes the entire document up - counteract this */
+    .keyboard-open body {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      height: calc(var(--vh, 1vh) * 100) !important;
+      overflow: hidden !important;
+    }
+    
     /* Fix root layout when keyboard is open */
     .keyboard-open .flex.h-screen {
       height: calc(var(--vh, 1vh) * 100) !important;
-    }
-    
-    /* Fix main container when keyboard is open */
-    .keyboard-open main.relative.z-10.flex-1.flex.flex-col {
-      height: calc(var(--vh, 1vh) * 100) !important;
-      max-height: calc(var(--vh, 1vh) * 100) !important;
+      position: relative !important;
     }
     
     /* When keyboard is open, constrain chat height to visual viewport */
