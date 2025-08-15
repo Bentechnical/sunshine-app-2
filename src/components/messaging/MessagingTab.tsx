@@ -113,6 +113,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         const currentlyOpen = document.body.classList.contains('keyboard-open');
         if (isOpen !== currentlyOpen) {
           document.body.classList.toggle('keyboard-open', Boolean(isOpen));
+          document.documentElement.classList.toggle('keyboard-open', Boolean(isOpen));
           if (process.env.NODE_ENV === 'development') {
             console.log('Visual viewport keyboard state changed:', isOpen ? 'opened' : 'closed');
           }

@@ -254,6 +254,7 @@
   
   /* iOS-specific adjustments - handle viewport translation */
   /* When keyboard opens, iOS pushes the entire document up - counteract this */
+  html.keyboard-open,
   body.keyboard-open {
     position: fixed !important;
     top: 0 !important;
