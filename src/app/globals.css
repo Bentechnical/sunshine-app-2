@@ -246,22 +246,14 @@
     padding-top: 8px !important;
   }
 
-  /* When keyboard is open, handle iOS keyboard height */
-  .keyboard-open .chat-mobile-input { 
-    padding-bottom: env(safe-area-inset-bottom) !important;
-    margin-bottom: 0 !important;
+  /* Mobile chat layout: embrace iOS translation with fixed header */
+  .mobile-chat-container {
+    /* Add extra bottom padding to account for iOS Safari pushing document up ~268px */
+    padding-bottom: 280px !important;
   }
   
-  /* iOS-specific keyboard handling - back to JS-driven approach */
+  /* Prevent textarea zoom on iOS */
   @supports (-webkit-touch-callout: none) {
-    /* Simple: when keyboard detected, constrain to visual viewport */
-    body.ios-keyboard-open .chat-vv {
-      height: var(--visual-viewport-height) !important;
-      max-height: var(--visual-viewport-height) !important;
-      overflow: hidden !important;
-    }
-    
-    /* Prevent textarea zoom on iOS */
     .str-chat__message-textarea,
     .str-chat__textarea,
     textarea {
@@ -309,23 +301,6 @@
     min-height: 40px !important;
   }
   
-  /* When keyboard is open, position subheader below main header */
-  .keyboard-open .chat-mobile-subheader {
-    position: fixed !important;
-    top: 48px !important; /* Position below main header */
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 30 !important; /* Lower than main header */
-    background: white !important;
-    border-bottom: 1px solid #e5e7eb !important;
-  }
-  
-  /* Reset positioning when keyboard is closed */
-  body:not(.keyboard-open) .chat-mobile-subheader {
-    position: static !important;
-    top: auto !important;
-    z-index: auto !important;
-  }
   .chat-mobile-input {
     min-height: auto !important;
     padding: 2px 0 env(safe-area-inset-bottom) 0 !important;

@@ -210,188 +210,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     setConnectionStatus('disconnected');
   }, []);
 
-  // Expose minimal debug helpers for testing (safe in dev tools)
+  // Minimal debug helpers for development
   useEffect(() => {
-    try {
-      (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
-      (window as any).__openChat = (id: string) => setActiveChannelId(id);
-      // Add debug helpers for keyboard issues
-      (window as any).__checkKeyboard = () => {
-        const hasClass = document.body.classList.contains('keyboard-open');
-        const activeEl = document.activeElement;
-        const vv = (window as any).visualViewport;
-        console.log('Keyboard Debug:', {
-          hasKeyboardClass: hasClass,
-          activeElement: activeEl?.tagName,
-          windowHeight: window.innerHeight,
-          viewportHeight: vv?.height,
-          offsetTop: vv?.offsetTop,
-          screenHeight: window.screen.height
-        });
-        return { hasClass, activeElement: activeEl?.tagName };
-      };
-      (window as any).__forceKeyboardClose = () => {
-        document.body.classList.remove('keyboard-open');
-        console.log('Forced keyboard class removal');
-      };
-      (window as any).__forceKeyboardOpen = () => {
-        document.body.classList.add('keyboard-open');
-        console.log('Forced keyboard class addition');
-      };
-      (window as any).__inspectChatLayout = () => {
-        // Find all possible selectors
-        const chatContainer = document.querySelector('.chat-vv');
-        const input = document.querySelector('.chat-mobile-input');
-        const allInputs = document.querySelectorAll('[class*="input"]');
-        const allMessageLists = document.querySelectorAll('[class*="message"]');
-        const allStreamElements = document.querySelectorAll('[class*="str-chat"]');
-        
-        console.log('Chat Layout Inspection:', {
-          chatContainer: chatContainer ? {
-            height: getComputedStyle(chatContainer).height,
-            maxHeight: getComputedStyle(chatContainer).maxHeight,
-            overflow: getComputedStyle(chatContainer).overflow,
-            paddingBottom: getComputedStyle(chatContainer).paddingBottom
-          } : null,
-          input: input ? {
-            position: getComputedStyle(input).position,
-            bottom: getComputedStyle(input).bottom,
-            marginBottom: getComputedStyle(input).marginBottom,
-            paddingBottom: getComputedStyle(input).paddingBottom
-          } : null,
-          foundInputs: Array.from(allInputs).map(el => el.className),
-          foundMessageLists: Array.from(allMessageLists).map(el => el.className),
-          foundStreamElements: Array.from(allStreamElements).slice(0, 5).map(el => el.className)
-        });
-      };
-      (window as any).__testInputFocus = () => {
-        const input = document.querySelector('.str-chat__textarea');
-        if (input) {
-          (input as HTMLElement).focus();
-          console.log('Focused input programmatically');
-        } else {
-          console.log('Input not found');
-        }
-      };
-      (window as any).__debugSpacing = () => {
-        const elements = [
-          '.chat-vv',
-          '.chat-mobile-input',
-          '.str-chat__message-input',
-          '.str-chat__container',
-          '.str-chat__main-panel-inner'
-        ];
-        
-        elements.forEach(selector => {
-          const el = document.querySelector(selector);
-          if (el) {
-            const styles = getComputedStyle(el);
-            console.log(`${selector}:`, {
-              height: styles.height,
-              marginTop: styles.marginTop,
-              marginBottom: styles.marginBottom,
-              paddingTop: styles.paddingTop,
-              paddingBottom: styles.paddingBottom,
-              position: styles.position,
-              bottom: styles.bottom,
-              transform: styles.transform
-            });
-          }
-        });
-      };
-      (window as any).__debugViewport = () => {
-        const vv = (window as any).visualViewport;
-        const bodyRect = document.body.getBoundingClientRect();
-        const htmlRect = document.documentElement.getBoundingClientRect();
-        
-        console.log('Viewport Debug:', {
-          window: {
-            innerHeight: window.innerHeight,
-            outerHeight: window.outerHeight,
-            screenHeight: window.screen.height
-          },
-          visualViewport: vv ? {
-            height: vv.height,
-            width: vv.width,
-            offsetTop: vv.offsetTop,
-            offsetLeft: vv.offsetLeft,
-            scale: vv.scale
-          } : 'not available',
-          elements: {
-            body: {
-              height: bodyRect.height,
-              top: bodyRect.top,
-              bottom: bodyRect.bottom
-            },
-            html: {
-              height: htmlRect.height,
-              top: htmlRect.top,
-              bottom: htmlRect.bottom
-            }
-          },
-          documentElement: {
-            clientHeight: document.documentElement.clientHeight,
-            scrollHeight: document.documentElement.scrollHeight,
-            offsetHeight: document.documentElement.offsetHeight
-          }
-        });
-      };
-      
-      (window as any).__debugBodyStyles = () => {
-        const bodyStyles = getComputedStyle(document.body);
-        const htmlStyles = getComputedStyle(document.documentElement);
-        const hasKeyboardClass = document.body.classList.contains('keyboard-open');
-        
-        console.log('Body Styles Debug:', {
-          keyboardClass: hasKeyboardClass,
-          body: {
-            position: bodyStyles.position,
-            top: bodyStyles.top,
-            left: bodyStyles.left,
-            right: bodyStyles.right,
-            height: bodyStyles.height,
-            overflow: bodyStyles.overflow,
-            transform: bodyStyles.transform
-          },
-          html: {
-            height: htmlStyles.height,
-            overflow: htmlStyles.overflow,
-            transform: htmlStyles.transform
-          }
-        });
-      };
-      
-      (window as any).__debugChatContainers = () => {
-        const chatVv = document.querySelector('.chat-vv');
-        const streamContainer = document.querySelector('.str-chat__container');
-        const mainPanel = document.querySelector('.str-chat__main-panel-inner');
-        const layoutContainer = document.querySelector('.flex.h-screen');
-        
-        console.log('Chat Containers Debug:', {
-          chatVv: chatVv ? {
-            height: getComputedStyle(chatVv).height,
-            maxHeight: getComputedStyle(chatVv).maxHeight,
-            overflow: getComputedStyle(chatVv).overflow,
-            position: getComputedStyle(chatVv).position,
-            top: getComputedStyle(chatVv).top,
-            bottom: getComputedStyle(chatVv).bottom,
-            rect: chatVv.getBoundingClientRect()
-          } : 'not found',
-          streamContainer: streamContainer ? {
-            height: getComputedStyle(streamContainer).height,
-            rect: streamContainer.getBoundingClientRect()
-          } : 'not found',
-          mainPanel: mainPanel ? {
-            height: getComputedStyle(mainPanel).height,
-            rect: mainPanel.getBoundingClientRect()
-          } : 'not found',
-          layoutContainer: layoutContainer ? {
-            height: getComputedStyle(layoutContainer).height,
-            rect: layoutContainer.getBoundingClientRect()
-          } : 'not found'
-        });
-      };
-    } catch {}
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
+        (window as any).__openChat = (id: string) => setActiveChannelId(id);
+      } catch {}
+    }
   }, []);
 
   // Reconnection function
@@ -1019,19 +845,16 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                   // Chat View (mobile grid layout)
                   activeChannel && activeChannelId ? (
                     <Channel key={activeChannelId} channel={activeChannel}>
-              <div className="h-full w-full flex flex-col">
-                {/* Spacer for fixed mobile top bar - hidden when keyboard is open */}
-                <div className="md:hidden keyboard-open:hidden" style={{ height: 48 }} />
-                        <div ref={headerRef} className="bg-white">
+              <div className="h-full w-full flex flex-col mobile-chat-container">
+                        <div className="bg-white mobile-chat-header">
                           <MobileChannelHeader />
                         </div>
-                        <div className="flex-1 min-h-0 overflow-y-auto md:pt-0 px-3">
+                        <div className="flex-1 min-h-0 overflow-y-auto px-3 mobile-chat-messages">
                           <MessageList />
                         </div>
-                        <div ref={inputRef} className="bg-white chat-mobile-input">
+                        <div className="bg-white mobile-chat-input">
                           <MessageInput />
                         </div>
-                        <div className="h-0" />
                       </div>
                       <Thread />
                     </Channel>
