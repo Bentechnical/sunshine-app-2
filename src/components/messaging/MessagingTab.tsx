@@ -95,7 +95,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         const method3 = (screenH - windowH) > 100; // window shrank from screen
         const method4 = viewportH < (windowH * 0.75); // viewport less than 75% of window
         
-        const isOpen = method1 || method2 || method3 || method4;
+        // More conservative detection - require at least 2 methods to agree
+        const isOpen = (method1 && method2) || (method2 && method3) || (method1 && method4);
         
         // More aggressive close detection: if viewport returns to near full size, force close
         if (viewportH >= windowH - 20 && offsetTop < 20) {
@@ -168,6 +169,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             offsetTop,
             methods: { method1, method2, method3, method4 },
             isOpen,
+            currentKeyboardClass: document.body.classList.contains('keyboard-open'),
             vh: vh + 'px'
           });
         }
