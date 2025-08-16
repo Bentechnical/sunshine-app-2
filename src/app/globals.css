@@ -254,7 +254,7 @@
   
   /* iOS-specific keyboard handling - counter document translation */
   @supports (-webkit-touch-callout: none) {
-    /* When keyboard opens, fix the entire page viewport */
+    /* When keyboard opens, fix the entire page viewport and translate down */
     body.keyboard-open {
       position: fixed !important;
       top: 0 !important;
@@ -262,6 +262,7 @@
       right: 0 !important;
       height: 100vh !important;
       overflow: hidden !important;
+      transform: translateY(var(--keyboard-offset, 0px)) !important;
     }
     
     /* Force chat container to use visual viewport height when keyboard is open */

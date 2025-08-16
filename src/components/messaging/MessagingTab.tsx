@@ -133,6 +133,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         document.documentElement.style.setProperty('--vh', `${vh}px`);
         document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
         
+        // Set keyboard offset to translate content back into view
+        if (isOpen) {
+          document.documentElement.style.setProperty('--keyboard-offset', `${offsetTop}px`);
+        } else {
+          document.documentElement.style.removeProperty('--keyboard-offset');
+        }
+        
         // Directly set the problematic elements height when keyboard is open
         if (isOpen) {
           const mainElement = document.querySelector('main.relative.z-10.flex-1.flex.flex-col.overflow-y-auto');
