@@ -284,6 +284,22 @@
       overflow: hidden !important;
     }
     
+    /* Force Stream Chat internal components to fill height when keyboard open */
+    body.keyboard-open .str-chat__container,
+    body.keyboard-open .str-chat__main-panel,
+    body.keyboard-open .str-chat__main-panel-inner {
+      height: 100% !important;
+      max-height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    
+    /* Ensure message list takes available space */
+    body.keyboard-open .str-chat__message-list-scroll {
+      flex: 1 !important;
+      min-height: 0 !important;
+    }
+    
     /* Ensure input stays at bottom of visual viewport */
     .keyboard-open .chat-mobile-input {
       position: absolute !important;
