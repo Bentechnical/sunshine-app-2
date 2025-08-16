@@ -53,18 +53,34 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const headerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLDivElement | null>(null);
   
-  // Simple viewport height tracking for development
+  // Simple but fast keyboard detection for iOS
   useEffect(() => {
-    const updateViewport = () => {
-      const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    if (!window.visualViewport) return;
+    
+    const vv = window.visualViewport;
+    
+    const handleViewport = () => {
+      // Set visual viewport height
+      document.documentElement.style.setProperty('--visual-viewport-height', `${vv.height}px`);
+      
+      // Simple detection: if viewport height is significantly smaller than window, keyboard is open
+      const isKeyboardOpen = vv.height < window.innerHeight - 100;
+      
+      // Apply class immediately
+      document.body.classList.toggle('ios-keyboard-open', isKeyboardOpen);
     };
     
-    window.addEventListener('resize', updateViewport);
-    updateViewport();
+    // Listen to both resize and scroll for immediate detection
+    vv.addEventListener('resize', handleViewport);
+    vv.addEventListener('scroll', handleViewport);
+    
+    // Initial check
+    handleViewport();
     
     return () => {
-      window.removeEventListener('resize', updateViewport);
+      vv.removeEventListener('resize', handleViewport);
+      vv.removeEventListener('scroll', handleViewport);
+      document.body.classList.remove('ios-keyboard-open');
     };
   }, []);
 

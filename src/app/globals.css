@@ -252,30 +252,13 @@
     margin-bottom: 0 !important;
   }
   
-  /* iOS-specific keyboard handling - simplified approach */
+  /* iOS-specific keyboard handling - back to JS-driven approach */
   @supports (-webkit-touch-callout: none) {
-    /* Only constrain the actual chat container, not parent layout elements */
-    .chat-vv {
-      height: 100dvh !important;
-      max-height: 100dvh !important;
-      display: flex !important;
-      flex-direction: column !important;
-      margin-top: -48px !important; /* Pull up to account for mobile header */
-      padding-top: 48px !important; /* Add padding back for content */
-    }
-    
-    /* Ensure chat messages fill available space above input */
-    .chat-vv .str-chat__container {
-      flex: 1 !important;
-      min-height: 0 !important;
-      display: flex !important;
-      flex-direction: column !important;
-    }
-    
-    /* Input stays at bottom, chat content flows above it */
-    .chat-mobile-input {
-      flex-shrink: 0 !important;
-      padding-bottom: env(safe-area-inset-bottom) !important;
+    /* Simple: when keyboard detected, constrain to visual viewport */
+    body.ios-keyboard-open .chat-vv {
+      height: var(--visual-viewport-height) !important;
+      max-height: var(--visual-viewport-height) !important;
+      overflow: hidden !important;
     }
     
     /* Prevent textarea zoom on iOS */
