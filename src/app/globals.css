@@ -252,30 +252,16 @@
     margin-bottom: 0 !important;
   }
   
-  /* iOS-specific keyboard handling - use dynamic viewport units */
+  /* iOS-specific keyboard handling - simplified approach */
   @supports (-webkit-touch-callout: none) {
-    /* Constrain the problematic parent div but allow space for input */
-    .relative.flex-1.overflow-hidden {
-      height: calc(100dvh - 48px) !important;
-      max-height: calc(100dvh - 48px) !important;
-      overflow: visible !important;
-      display: flex !important;
-      flex-direction: column !important;
-    }
-    
-    /* Ensure main content fills available space */
-    .relative.flex-1.overflow-hidden main {
-      flex: 1 !important;
-      min-height: 0 !important;
-      overflow: hidden !important;
-    }
-    
-    /* Use dynamic viewport height minus mobile header (48px) */
+    /* Only constrain the actual chat container, not parent layout elements */
     .chat-vv {
-      height: 100% !important;
-      max-height: 100% !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
       display: flex !important;
       flex-direction: column !important;
+      margin-top: -48px !important; /* Pull up to account for mobile header */
+      padding-top: 48px !important; /* Add padding back for content */
     }
     
     /* Ensure chat messages fill available space above input */
@@ -289,16 +275,7 @@
     /* Input stays at bottom, chat content flows above it */
     .chat-mobile-input {
       flex-shrink: 0 !important;
-      margin-top: auto !important;
-      padding-bottom: 0 !important;
-      margin-bottom: 0 !important;
-    }
-    
-    /* Remove any bottom padding from chat components */
-    .str-chat__message-list,
-    .str-chat__message-list-scroll {
-      padding-bottom: 0 !important;
-      margin-bottom: 0 !important;
+      padding-bottom: env(safe-area-inset-bottom) !important;
     }
     
     /* Prevent textarea zoom on iOS */
