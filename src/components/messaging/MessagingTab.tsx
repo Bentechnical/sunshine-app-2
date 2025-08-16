@@ -68,6 +68,38 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       
       // Apply class immediately
       document.body.classList.toggle('ios-keyboard-open', isKeyboardOpen);
+      
+      // Direct DOM manipulation - force the problematic elements to correct heights
+      const parentDiv = document.querySelector('.relative.flex-1.overflow-hidden');
+      const mainElement = document.querySelector('main.flex-grow');
+      const chatContainer = document.querySelector('.chat-vv');
+      
+      if (isKeyboardOpen && parentDiv && mainElement && chatContainer) {
+        // When keyboard is open, constrain everything to visual viewport height
+        const targetHeight = `${vv.height}px`;
+        (parentDiv as HTMLElement).style.height = targetHeight;
+        (parentDiv as HTMLElement).style.maxHeight = targetHeight;
+        (parentDiv as HTMLElement).style.overflow = 'hidden';
+        
+        (mainElement as HTMLElement).style.height = targetHeight;
+        (mainElement as HTMLElement).style.maxHeight = targetHeight;
+        (mainElement as HTMLElement).style.overflow = 'hidden';
+        
+        (chatContainer as HTMLElement).style.height = '100%';
+        (chatContainer as HTMLElement).style.maxHeight = '100%';
+      } else if (!isKeyboardOpen && parentDiv && mainElement && chatContainer) {
+        // When keyboard is closed, reset to natural heights
+        (parentDiv as HTMLElement).style.removeProperty('height');
+        (parentDiv as HTMLElement).style.removeProperty('max-height');
+        (parentDiv as HTMLElement).style.removeProperty('overflow');
+        
+        (mainElement as HTMLElement).style.removeProperty('height');
+        (mainElement as HTMLElement).style.removeProperty('max-height');
+        (mainElement as HTMLElement).style.removeProperty('overflow');
+        
+        (chatContainer as HTMLElement).style.removeProperty('height');
+        (chatContainer as HTMLElement).style.removeProperty('max-height');
+      }
     };
     
     // Listen to both resize and scroll for immediate detection
