@@ -135,16 +135,26 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         // Directly set the problematic div height when keyboard is open
         if (isOpen) {
           const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
+          const chatContainer = document.querySelector('.chat-vv');
           if (problemDiv) {
             (problemDiv as HTMLElement).style.height = `${vv.height}px`;
             (problemDiv as HTMLElement).style.maxHeight = `${vv.height}px`;
           }
+          if (chatContainer) {
+            (chatContainer as HTMLElement).style.height = `${vv.height}px`;
+            (chatContainer as HTMLElement).style.maxHeight = `${vv.height}px`;
+          }
         } else {
           // Reset when keyboard closes
           const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
+          const chatContainer = document.querySelector('.chat-vv');
           if (problemDiv) {
             (problemDiv as HTMLElement).style.removeProperty('height');
             (problemDiv as HTMLElement).style.removeProperty('max-height');
+          }
+          if (chatContainer) {
+            (chatContainer as HTMLElement).style.removeProperty('height');
+            (chatContainer as HTMLElement).style.removeProperty('max-height');
           }
         }
         
