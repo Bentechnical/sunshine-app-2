@@ -53,170 +53,18 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const headerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLDivElement | null>(null);
   
-  // Detect keyboard open/close (iOS Safari-compatible via visualViewport)
+  // Simple viewport height tracking for development
   useEffect(() => {
-    const vv: any = (window as any).visualViewport;
-    if (!vv || typeof vv.addEventListener !== 'function') {
-      // Fallback for devices without visual viewport API
-      const fallbackKeyboardDetection = () => {
-        const windowH = window.innerHeight;
-        const screenH = window.screen.height;
-        const isOpen = (screenH - windowH) > 150; // Significant height difference
-        document.body.classList.toggle('keyboard-open', isOpen);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Fallback keyboard detection:', { windowH, screenH, isOpen });
-        }
-      };
-      
-      window.addEventListener('resize', fallbackKeyboardDetection);
-      fallbackKeyboardDetection();
-      
-      return () => {
-        window.removeEventListener('resize', fallbackKeyboardDetection);
-        document.body.classList.remove('keyboard-open');
-      };
-    }
-    
-    const updateKb = () => {
-      try {
-        // Multiple detection methods for iOS keyboard
-        const windowH = window.innerHeight;
-        const viewportH = vv.height;
-        const screenH = window.screen.height;
-        const heightDiff = windowH - viewportH;
-        const offsetTop = vv.offsetTop || 0;
-        
-        // Use multiple heuristics for iOS keyboard detection:
-        // 1. Visual viewport height significantly smaller than window height
-        // 2. Visual viewport has positive offsetTop (keyboard pushes viewport up)
-        // 3. Window height is much smaller than screen height (keyboard present)
-        const method1 = heightDiff > 50; // viewport shrank
-        const method2 = offsetTop > 20; // viewport pushed up
-        const method3 = (screenH - windowH) > 100; // window shrank from screen
-        const method4 = viewportH < (windowH * 0.75); // viewport less than 75% of window
-        
-        // More conservative detection - require at least 2 methods to agree
-        const isOpen = (method1 && method2) || (method2 && method3) || (method1 && method4);
-        
-        // More aggressive close detection: if viewport returns to near full size, force close
-        if (viewportH >= windowH - 20 && offsetTop < 20) {
-          const currentlyOpen = document.body.classList.contains('keyboard-open');
-          if (currentlyOpen) {
-            document.body.classList.remove('keyboard-open');
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Forced keyboard close - viewport returned to full size');
-            }
-            return;
-          }
-        }
-        
-        // Only update if state actually changed to avoid jitter
-        const currentlyOpen = document.body.classList.contains('keyboard-open');
-        if (isOpen !== currentlyOpen) {
-          document.body.classList.toggle('keyboard-open', Boolean(isOpen));
-          document.documentElement.classList.toggle('keyboard-open', Boolean(isOpen));
-          
-          // When keyboard closes, reset any fixed positioning
-          if (!isOpen) {
-            document.body.style.removeProperty('position');
-            document.body.style.removeProperty('top');
-            document.body.style.removeProperty('height');
-          }
-          
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Visual viewport keyboard state changed:', isOpen ? 'opened' : 'closed');
-          }
-        }
-        
-        // Always use visual viewport height when available
-        const vh = vv.height * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
-        document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
-        
-        // Set keyboard offset to translate content back into view
-        if (isOpen) {
-          document.documentElement.style.setProperty('--keyboard-offset', `${offsetTop}px`);
-        } else {
-          document.documentElement.style.removeProperty('--keyboard-offset');
-        }
-        
-        // Directly set the problematic elements height when keyboard is open
-        if (isOpen) {
-          const mainElement = document.querySelector('main.relative.z-10.flex-1.flex.flex-col.overflow-y-auto');
-          const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
-          const chatContainer = document.querySelector('.chat-vv');
-          
-          if (mainElement) {
-            (mainElement as HTMLElement).style.height = `${vv.height}px`;
-            (mainElement as HTMLElement).style.maxHeight = `${vv.height}px`;
-            (mainElement as HTMLElement).style.overflow = 'hidden';
-          }
-          if (problemDiv) {
-            (problemDiv as HTMLElement).style.height = `${vv.height}px`;
-            (problemDiv as HTMLElement).style.maxHeight = `${vv.height}px`;
-          }
-          if (chatContainer) {
-            (chatContainer as HTMLElement).style.height = `${vv.height}px`;
-            (chatContainer as HTMLElement).style.maxHeight = `${vv.height}px`;
-          }
-        } else {
-          // Reset when keyboard closes
-          const mainElement = document.querySelector('main.relative.z-10.flex-1.flex.flex-col.overflow-y-auto');
-          const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
-          const chatContainer = document.querySelector('.chat-vv');
-          
-          if (mainElement) {
-            (mainElement as HTMLElement).style.removeProperty('height');
-            (mainElement as HTMLElement).style.removeProperty('max-height');
-            (mainElement as HTMLElement).style.removeProperty('overflow');
-          }
-          if (problemDiv) {
-            (problemDiv as HTMLElement).style.removeProperty('height');
-            (problemDiv as HTMLElement).style.removeProperty('max-height');
-          }
-          if (chatContainer) {
-            (chatContainer as HTMLElement).style.removeProperty('height');
-            (chatContainer as HTMLElement).style.removeProperty('max-height');
-          }
-        }
-        
-        // Debug logging for development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Keyboard detection:', {
-            windowHeight: windowH,
-            viewportHeight: viewportH,
-            screenHeight: screenH,
-            heightDiff,
-            offsetTop,
-            methods: { method1, method2, method3, method4 },
-            isOpen,
-            currentKeyboardClass: document.body.classList.contains('keyboard-open'),
-            vh: vh + 'px'
-          });
-        }
-        
-        // Store keyboard height for reference
-        if (isOpen) {
-          document.documentElement.style.setProperty('--keyboard-height', `${Math.max(heightDiff, offsetTop)}px`);
-        } else {
-          document.documentElement.style.removeProperty('--keyboard-height');
-        }
-      } catch (e) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Keyboard detection failed:', e);
-        }
-      }
+    const updateViewport = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
     };
     
-    updateKb();
-    vv.addEventListener('resize', updateKb);
-    vv.addEventListener('scroll', updateKb);
+    window.addEventListener('resize', updateViewport);
+    updateViewport();
     
     return () => {
-      vv.removeEventListener('resize', updateKb);
-      vv.removeEventListener('scroll', updateKb);
-      document.body.classList.remove('keyboard-open');
-      document.documentElement.style.removeProperty('--keyboard-height');
+      window.removeEventListener('resize', updateViewport);
     };
   }, []);
 

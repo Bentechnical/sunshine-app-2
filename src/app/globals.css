@@ -252,47 +252,28 @@
     margin-bottom: 0 !important;
   }
   
-  /* iOS-specific keyboard handling - counter document translation */
+  /* iOS-specific keyboard handling - use dynamic viewport units */
   @supports (-webkit-touch-callout: none) {
-    /* When keyboard opens, fix the entire page viewport and translate down */
-    body.keyboard-open {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      height: 100vh !important;
-      overflow: hidden !important;
-      transform: translateY(var(--keyboard-offset, 0px)) !important;
+    /* Use dynamic viewport height that automatically adjusts to keyboard */
+    .chat-vv {
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      display: flex !important;
+      flex-direction: column !important;
     }
     
-    /* Force chat container to use visual viewport height when keyboard is open */
-    .keyboard-open .chat-vv {
-      height: var(--vvh, 100vh) !important;
-      max-height: var(--vvh, 100vh) !important;
-      overflow: hidden !important;
+    /* Ensure chat messages fill available space above input */
+    .chat-vv .str-chat__container {
+      flex: 1 !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
     }
     
-    /* Ensure main content area doesn't add extra padding */
-    body.keyboard-open .relative.flex-1.overflow-hidden {
-      padding-top: 0 !important;
-      overflow: hidden !important;
-    }
-    
-    /* Also target the main element inside */
-    body.keyboard-open .relative.flex-1.overflow-hidden main {
-      height: 100% !important;
-      max-height: 100% !important;
-      overflow: hidden !important;
-    }
-    
-    
-    /* Ensure input stays at bottom of visual viewport */
-    .keyboard-open .chat-mobile-input {
-      position: absolute !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      z-index: 10 !important;
+    /* Input stays at bottom, chat content flows above it */
+    .chat-mobile-input {
+      flex-shrink: 0 !important;
+      margin-top: auto !important;
     }
     
     /* Prevent textarea zoom on iOS */
