@@ -254,10 +254,17 @@
   
   /* iOS-specific keyboard handling - use dynamic viewport units */
   @supports (-webkit-touch-callout: none) {
-    /* Use dynamic viewport height that automatically adjusts to keyboard */
+    /* Constrain the problematic parent div to exact height */
+    .relative.flex-1.overflow-hidden {
+      height: calc(100dvh - 48px) !important;
+      max-height: calc(100dvh - 48px) !important;
+      overflow: hidden !important;
+    }
+    
+    /* Use dynamic viewport height minus mobile header (48px) */
     .chat-vv {
-      height: 100dvh !important;
-      max-height: 100dvh !important;
+      height: 100% !important;
+      max-height: 100% !important;
       display: flex !important;
       flex-direction: column !important;
     }
@@ -274,6 +281,15 @@
     .chat-mobile-input {
       flex-shrink: 0 !important;
       margin-top: auto !important;
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    
+    /* Remove any bottom padding from chat components */
+    .str-chat__message-list,
+    .str-chat__message-list-scroll {
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
     }
     
     /* Prevent textarea zoom on iOS */
