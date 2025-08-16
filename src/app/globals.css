@@ -246,14 +246,29 @@
     padding-top: 8px !important;
   }
 
-  /* Mobile chat layout: embrace iOS translation with fixed header */
+  /* Mobile chat layout: clean and simple */
   .mobile-chat-container {
-    /* Add extra bottom padding to account for iOS Safari pushing document up ~268px */
-    padding-bottom: 280px !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
   
-  /* Prevent textarea zoom on iOS */
+  .mobile-chat-messages {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+  }
+  
+  .mobile-chat-input {
+    flex-shrink: 0 !important;
+    background: white !important;
+    border-top: 1px solid #e5e7eb !important;
+    padding: 8px 0 env(safe-area-inset-bottom) 0 !important;
+  }
+  
+  /* iOS-specific optimizations */
   @supports (-webkit-touch-callout: none) {
+    /* Prevent textarea zoom on iOS */
     .str-chat__message-textarea,
     .str-chat__textarea,
     textarea {
@@ -261,14 +276,14 @@
     }
   }
   
-  /* Mobile thread */
+  /* Mobile thread - use proper z-index hierarchy */
   .str-chat__thread {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    z-index: 1000 !important;
+    z-index: 60 !important; /* Above mobile nav (z-50) but below modals */
     background: white !important;
   }
   
@@ -444,12 +459,6 @@
   }
 }
 
-/* JS-managed viewport height helper: height = 100 * var(--vh) */
-.vh-screen { height: calc(var(--vh, 1vh) * 100); }
-.min-vh-screen { min-height: calc(var(--vh, 1vh) * 100); }
-/* Raw pixel helpers (set by ViewportVH) */
-.vv-screen { height: var(--vvh, 100vh); }
-.vv-offset-top { margin-top: var(--vvt, 0px); }
 
 
 /* --- Block landscape on touch devices only (exclude desktop) --- */

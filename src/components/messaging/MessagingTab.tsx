@@ -49,141 +49,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [viewMode, setViewMode] = useState<'channelList' | 'activeChat'>('channelList');
   const [isMobile, setIsMobile] = useState(false);
-  const [messagesHeight, setMessagesHeight] = useState<number | null>(null);
-  const headerRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLDivElement | null>(null);
-  
-  // Simple but fast keyboard detection for iOS
-  useEffect(() => {
-    if (!window.visualViewport) return;
-    
-    const vv = window.visualViewport;
-    
-    const handleViewport = () => {
-      // Set visual viewport height
-      document.documentElement.style.setProperty('--visual-viewport-height', `${vv.height}px`);
-      
-      // Simple detection: if viewport height is significantly smaller than window, keyboard is open
-      const isKeyboardOpen = vv.height < window.innerHeight - 100;
-      
-      // Apply class immediately
-      document.body.classList.toggle('ios-keyboard-open', isKeyboardOpen);
-      
-      // Direct DOM manipulation - force the problematic elements to correct heights
-      const parentDiv = document.querySelector('.relative.flex-1.overflow-hidden');
-      const mainElement = document.querySelector('main.flex-grow');
-      const chatContainer = document.querySelector('.chat-vv');
-      
-      if (isKeyboardOpen && parentDiv && mainElement && chatContainer) {
-        // When keyboard is open, constrain everything to visual viewport height
-        const targetHeight = `${vv.height}px`;
-        (parentDiv as HTMLElement).style.height = targetHeight;
-        (parentDiv as HTMLElement).style.maxHeight = targetHeight;
-        (parentDiv as HTMLElement).style.overflow = 'hidden';
-        
-        (mainElement as HTMLElement).style.height = targetHeight;
-        (mainElement as HTMLElement).style.maxHeight = targetHeight;
-        (mainElement as HTMLElement).style.overflow = 'hidden';
-        
-        (chatContainer as HTMLElement).style.height = '100%';
-        (chatContainer as HTMLElement).style.maxHeight = '100%';
-      } else if (!isKeyboardOpen && parentDiv && mainElement && chatContainer) {
-        // When keyboard is closed, reset to natural heights
-        (parentDiv as HTMLElement).style.removeProperty('height');
-        (parentDiv as HTMLElement).style.removeProperty('max-height');
-        (parentDiv as HTMLElement).style.removeProperty('overflow');
-        
-        (mainElement as HTMLElement).style.removeProperty('height');
-        (mainElement as HTMLElement).style.removeProperty('max-height');
-        (mainElement as HTMLElement).style.removeProperty('overflow');
-        
-        (chatContainer as HTMLElement).style.removeProperty('height');
-        (chatContainer as HTMLElement).style.removeProperty('max-height');
-      }
-    };
-    
-    // Listen to both resize and scroll for immediate detection
-    vv.addEventListener('resize', handleViewport);
-    vv.addEventListener('scroll', handleViewport);
-    
-    // Initial check
-    handleViewport();
-    
-    return () => {
-      vv.removeEventListener('resize', handleViewport);
-      vv.removeEventListener('scroll', handleViewport);
-      document.body.classList.remove('ios-keyboard-open');
-    };
-  }, []);
 
-  // Additional iOS keyboard detection via input focus (more reliable)
-  useEffect(() => {
-    if (!isMobile) return;
-    
-    let keyboardTimer: NodeJS.Timeout;
-    
-    const handleFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-        // Small delay to allow keyboard to appear
-        clearTimeout(keyboardTimer);
-        keyboardTimer = setTimeout(() => {
-          document.body.classList.add('keyboard-open');
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Keyboard opened via input focus');
-          }
-        }, 300);
-      }
-    };
-    
-    const handleFocusOut = (e: FocusEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-        clearTimeout(keyboardTimer);
-        // Much shorter delay for immediate response
-        keyboardTimer = setTimeout(() => {
-          // Check if no other input is focused
-          const activeElement = document.activeElement;
-          if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
-            document.body.classList.remove('keyboard-open');
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Keyboard closed via input blur');
-            }
-          }
-        }, 50); // Reduced from 100ms to 50ms for faster response
-      }
-    };
-    
-    document.addEventListener('focusin', handleFocusIn);
-    document.addEventListener('focusout', handleFocusOut);
-    
-    // Additional method: detect when user scrolls down to close keyboard
-    const handleTouchStart = () => {
-      // If keyboard is open and user starts scrolling, prepare to close it
-      if (document.body.classList.contains('keyboard-open')) {
-        clearTimeout(keyboardTimer);
-        keyboardTimer = setTimeout(() => {
-          // Check if no input is focused after scroll
-          const activeElement = document.activeElement;
-          if (!activeElement || (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA')) {
-            document.body.classList.remove('keyboard-open');
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Keyboard closed via scroll gesture');
-            }
-          }
-        }, 150);
-      }
-    };
-    
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    
-    return () => {
-      clearTimeout(keyboardTimer);
-      document.removeEventListener('focusin', handleFocusIn);
-      document.removeEventListener('focusout', handleFocusOut);
-      document.removeEventListener('touchstart', handleTouchStart);
-    };
-  }, [isMobile]);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -397,12 +263,35 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     return () => {
       // Reset active channel when component unmounts
       setActiveChannel(null);
-      // Clean up keyboard state and body styles when component unmounts
-      document.body.classList.remove('keyboard-open');
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.height = '';
-      document.body.style.overflow = '';
+      
+      // Comprehensive mobile layout cleanup
+      const elementsToClean = [
+        '.relative.flex-1.overflow-hidden',
+        'main.flex-grow', 
+        'main.flex-1',
+        '.chat-vv'
+      ];
+      
+      elementsToClean.forEach(selector => {
+        const element = document.querySelector(selector);
+        if (element) {
+          const el = element as HTMLElement;
+          el.style.removeProperty('height');
+          el.style.removeProperty('max-height');
+          el.style.removeProperty('overflow');
+          el.style.removeProperty('position');
+          el.style.removeProperty('top');
+          el.style.removeProperty('transform');
+        }
+      });
+      
+      // Clean up body and document styles
+      document.body.classList.remove('keyboard-open', 'ios-keyboard-open');
+      document.body.style.removeProperty('position');
+      document.body.style.removeProperty('top');
+      document.body.style.removeProperty('height');
+      document.body.style.removeProperty('overflow');
+      document.documentElement.style.removeProperty('--visual-viewport-height');
     };
   }, []);
 
@@ -516,19 +405,49 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     return () => { cancelled = true; };
   }, [client, activeChannelId]);
 
+  // Comprehensive mobile layout cleanup function
+  const cleanupMobileLayout = () => {
+    // Reset any persistent styles that might have been applied by previous keyboard detection
+    const elementsToClean = [
+      '.relative.flex-1.overflow-hidden',
+      'main.flex-grow', 
+      'main.flex-1',
+      '.chat-vv'
+    ];
+    
+    elementsToClean.forEach(selector => {
+      const element = document.querySelector(selector);
+      if (element) {
+        const el = element as HTMLElement;
+        el.style.removeProperty('height');
+        el.style.removeProperty('max-height');
+        el.style.removeProperty('overflow');
+        el.style.removeProperty('position');
+        el.style.removeProperty('top');
+        el.style.removeProperty('transform');
+      }
+    });
+    
+    // Clean up body and document styles
+    document.body.classList.remove('keyboard-open', 'ios-keyboard-open');
+    document.body.style.removeProperty('position');
+    document.body.style.removeProperty('top');
+    document.body.style.removeProperty('height');
+    document.body.style.removeProperty('overflow');
+    document.documentElement.style.removeProperty('--visual-viewport-height');
+  };
+
   // Handle going back to channel list on mobile
   const handleBackToChannelList = () => {
     setViewMode('channelList');
     setActiveChannel(null);
-    // Clean up keyboard state when leaving chat
-    document.body.classList.remove('keyboard-open');
-    // Force reset body styles that might persist
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.height = '';
-    document.body.style.overflow = '';
-    if (isMobile && onActiveChatChange) {
-      onActiveChatChange(false);
+    
+    // Comprehensive cleanup for mobile
+    if (isMobile) {
+      cleanupMobileLayout();
+      if (onActiveChatChange) {
+        onActiveChatChange(false);
+      }
     }
   };
 
@@ -709,7 +628,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   }
 
   return (
-    <div className="chat-vv flex flex-col vh-screen md:h-[90vh] md:max-h-[90vh] w-full bg-white md:bg-card md:rounded-xl md:shadow">
+    <div className="chat-vv flex flex-col h-full w-full bg-white md:bg-card md:rounded-xl md:shadow md:h-[90vh] md:max-h-[90vh]">
       {/* Connection Status Bar (hidden on mobile) */}
       <div className="hidden md:flex bg-gray-50 border-b px-4 py-2 items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">

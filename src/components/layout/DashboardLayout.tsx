@@ -20,6 +20,26 @@ interface DashboardLayoutProps {
   noMobileTopPadding?: boolean;
 }
 
+// Helper function to generate main content classes
+function getMainContentClasses(activeTab: ActiveTab, noMobileTopPadding: boolean): string {
+  const baseClasses = 'relative flex-1';
+  
+  // Overflow behavior: messaging and therapy-dog need special handling
+  const overflowClasses = (activeTab === 'messaging' || activeTab === 'my-therapy-dog') 
+    ? 'overflow-hidden md:overflow-y-auto' 
+    : 'overflow-y-auto';
+  
+  // Mobile top padding
+  const paddingTopClasses = noMobileTopPadding ? 'pt-0 md:pt-0' : 'pt-12 md:pt-0';
+  
+  // Horizontal padding and background
+  const spacingClasses = (activeTab === 'messaging' || activeTab === 'my-therapy-dog')
+    ? 'px-0 md:px-8 bg-white md:bg-transparent'
+    : 'pb-4 px-2 md:px-8';
+  
+  return `${baseClasses} ${overflowClasses} ${paddingTopClasses} ${spacingClasses}`;
+}
+
 export default function DashboardLayout({
   profileImage,
   role,
@@ -87,23 +107,7 @@ export default function DashboardLayout({
 
         {/* Page content (offset for top + bottom bars on mobile) */}
         <div
-          className={
-            `relative flex-1 ` +
-            (activeTab === 'messaging'
-              ? 'overflow-hidden'
-              : activeTab === 'my-therapy-dog'
-                ? 'overflow-hidden md:overflow-y-auto'
-                : 'overflow-y-auto') +
-            ' ' +
-            (noMobileTopPadding ? 'pt-0 ' : 'pt-12 ') +
-            `md:pt-0 ` +
-            (activeTab === 'messaging'
-              ? 'px-0 md:px-8 bg-white md:bg-transparent'
-              : activeTab === 'my-therapy-dog'
-                ? 'px-0 md:px-8 bg-white md:bg-transparent'
-                : 'pb-4 px-2 md:px-8')
-          }
-          style={{ paddingBottom: activeTab === 'messaging' ? 0 : undefined }}
+          className={getMainContentClasses(activeTab, noMobileTopPadding)}
         >
           {children}
         </div>
