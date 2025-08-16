@@ -133,10 +133,17 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         document.documentElement.style.setProperty('--vh', `${vh}px`);
         document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
         
-        // Directly set the problematic div height when keyboard is open
+        // Directly set the problematic elements height when keyboard is open
         if (isOpen) {
+          const mainElement = document.querySelector('main.relative.z-10.flex-1.flex.flex-col.overflow-y-auto');
           const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
           const chatContainer = document.querySelector('.chat-vv');
+          
+          if (mainElement) {
+            (mainElement as HTMLElement).style.height = `${vv.height}px`;
+            (mainElement as HTMLElement).style.maxHeight = `${vv.height}px`;
+            (mainElement as HTMLElement).style.overflow = 'hidden';
+          }
           if (problemDiv) {
             (problemDiv as HTMLElement).style.height = `${vv.height}px`;
             (problemDiv as HTMLElement).style.maxHeight = `${vv.height}px`;
@@ -147,8 +154,15 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           }
         } else {
           // Reset when keyboard closes
+          const mainElement = document.querySelector('main.relative.z-10.flex-1.flex.flex-col.overflow-y-auto');
           const problemDiv = document.querySelector('.relative.flex-1.overflow-hidden');
           const chatContainer = document.querySelector('.chat-vv');
+          
+          if (mainElement) {
+            (mainElement as HTMLElement).style.removeProperty('height');
+            (mainElement as HTMLElement).style.removeProperty('max-height');
+            (mainElement as HTMLElement).style.removeProperty('overflow');
+          }
           if (problemDiv) {
             (problemDiv as HTMLElement).style.removeProperty('height');
             (problemDiv as HTMLElement).style.removeProperty('max-height');
