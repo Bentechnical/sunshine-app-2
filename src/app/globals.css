@@ -248,9 +248,15 @@
 
   /* Mobile chat layout: account for header and nav */
   .mobile-chat-container {
-    height: calc(100vh - 112px) !important; /* Account for header (48px) + nav (64px) */
+    height: calc(100vh - 100px) !important; /* Account for header + nav */
     display: flex !important;
     flex-direction: column !important;
+  }
+  
+  /* Force Stream Chat container to not add extra space */
+  .str-chat__container {
+    height: 100% !important;
+    max-height: 100% !important;
   }
   
   .mobile-chat-messages {

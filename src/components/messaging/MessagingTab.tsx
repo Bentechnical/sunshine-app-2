@@ -412,7 +412,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       '.relative.flex-1.overflow-hidden',
       'main.flex-grow', 
       'main.flex-1',
-      '.chat-vv'
+      '.chat-vv',
+      '.str-chat__container' // Add Stream Chat container cleanup
     ];
     
     elementsToClean.forEach(selector => {
@@ -425,6 +426,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         el.style.removeProperty('position');
         el.style.removeProperty('top');
         el.style.removeProperty('transform');
+        el.style.removeProperty('padding-bottom');
+        el.style.removeProperty('margin-bottom');
       }
     });
     
@@ -435,6 +438,15 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     document.body.style.removeProperty('height');
     document.body.style.removeProperty('overflow');
     document.documentElement.style.removeProperty('--visual-viewport-height');
+    
+    // Force Stream Chat to recalculate layout
+    setTimeout(() => {
+      const streamContainer = document.querySelector('.str-chat__container');
+      if (streamContainer) {
+        (streamContainer as HTMLElement).style.removeProperty('height');
+        (streamContainer as HTMLElement).style.removeProperty('max-height');
+      }
+    }, 50);
   };
 
   // Handle going back to channel list on mobile
