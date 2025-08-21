@@ -76,48 +76,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     setConnectionStatus('disconnected');
   }, []);
 
-  // Debug helpers for development and testing
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
-        (window as any).__openChat = (id: string) => setActiveChannelId(id);
-        
-        // Connection testing helpers
-        (window as any).__forceDisconnect = () => {
-          console.log('🔌 Forcing disconnect...');
-          if (client) {
-            client.disconnectUser();
-          }
-          cleanupDisconnectedState();
-        };
-        
-        (window as any).__forceReconnect = () => {
-          console.log('🔄 Forcing reconnect...');
-          handleReconnect();
-        };
-        
-        // Stream Chat manager helpers
-        (window as any).__forceRefresh = async () => {
-          console.log('♻️ Forcing connection refresh...');
-          try {
-            await streamChatManager.forceRefreshConnection();
-            await handleReconnect();
-          } catch (error) {
-            console.error('Force refresh failed:', error);
-          }
-        };
-        
-        // Layout cleanup helper
-        (window as any).__cleanupLayout = () => {
-          console.log('🧹 Cleaning up mobile layout...');
-          cleanupMobileLayout();
-        };
-        
-      } catch {}
-    }
-  }, [client, handleReconnect, cleanupMobileLayout]);
-
   // Reconnection function
   const handleReconnect = useCallback(async () => {
     if (!user || isReconnecting) return;
@@ -180,6 +138,92 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       setIsReconnecting(false);
     }
   }, [user, isReconnecting]);
+
+  // Comprehensive mobile layout cleanup function
+  const cleanupMobileLayout = () => {
+    // Reset any persistent styles that might have been applied by previous keyboard detection
+    const elementsToClean = [
+      '.relative.flex-1.overflow-hidden',
+      'main.flex-grow', 
+      'main.flex-1',
+      '.chat-vv',
+      '.str-chat__container' // Add Stream Chat container cleanup
+    ];
+    
+    elementsToClean.forEach(selector => {
+      const element = document.querySelector(selector);
+      if (element) {
+        const el = element as HTMLElement;
+        el.style.removeProperty('height');
+        el.style.removeProperty('max-height');
+        el.style.removeProperty('overflow');
+        el.style.removeProperty('position');
+        el.style.removeProperty('top');
+        el.style.removeProperty('transform');
+        el.style.removeProperty('padding-bottom');
+        el.style.removeProperty('margin-bottom');
+      }
+    });
+    
+    // Clean up body and document styles
+    document.body.classList.remove('keyboard-open', 'ios-keyboard-open');
+    document.body.style.removeProperty('position');
+    document.body.style.removeProperty('top');
+    document.body.style.removeProperty('height');
+    document.body.style.removeProperty('overflow');
+    document.documentElement.style.removeProperty('--visual-viewport-height');
+    
+    // Force Stream Chat to recalculate layout
+    setTimeout(() => {
+      const streamContainer = document.querySelector('.str-chat__container');
+      if (streamContainer) {
+        (streamContainer as HTMLElement).style.removeProperty('height');
+        (streamContainer as HTMLElement).style.removeProperty('max-height');
+      }
+    }, 50);
+  };
+
+  // Debug helpers for development and testing
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
+        (window as any).__openChat = (id: string) => setActiveChannelId(id);
+        
+        // Connection testing helpers
+        (window as any).__forceDisconnect = () => {
+          console.log('🔌 Forcing disconnect...');
+          if (client) {
+            client.disconnectUser();
+          }
+          cleanupDisconnectedState();
+        };
+        
+        (window as any).__forceReconnect = () => {
+          console.log('🔄 Forcing reconnect...');
+          handleReconnect();
+        };
+        
+        // Stream Chat manager helpers
+        (window as any).__forceRefresh = async () => {
+          console.log('♻️ Forcing connection refresh...');
+          try {
+            await streamChatManager.forceRefreshConnection();
+            await handleReconnect();
+          } catch (error) {
+            console.error('Force refresh failed:', error);
+          }
+        };
+        
+        // Layout cleanup helper
+        (window as any).__cleanupLayout = () => {
+          console.log('🧹 Cleaning up mobile layout...');
+          cleanupMobileLayout();
+        };
+        
+      } catch {}
+    }
+  }, [client, handleReconnect, cleanupMobileLayout]);
 
   useEffect(() => {
     let isMounted = true;
@@ -436,50 +480,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     rebind();
     return () => { cancelled = true; };
   }, [client, activeChannelId]);
-
-  // Comprehensive mobile layout cleanup function
-  const cleanupMobileLayout = () => {
-    // Reset any persistent styles that might have been applied by previous keyboard detection
-    const elementsToClean = [
-      '.relative.flex-1.overflow-hidden',
-      'main.flex-grow', 
-      'main.flex-1',
-      '.chat-vv',
-      '.str-chat__container' // Add Stream Chat container cleanup
-    ];
-    
-    elementsToClean.forEach(selector => {
-      const element = document.querySelector(selector);
-      if (element) {
-        const el = element as HTMLElement;
-        el.style.removeProperty('height');
-        el.style.removeProperty('max-height');
-        el.style.removeProperty('overflow');
-        el.style.removeProperty('position');
-        el.style.removeProperty('top');
-        el.style.removeProperty('transform');
-        el.style.removeProperty('padding-bottom');
-        el.style.removeProperty('margin-bottom');
-      }
-    });
-    
-    // Clean up body and document styles
-    document.body.classList.remove('keyboard-open', 'ios-keyboard-open');
-    document.body.style.removeProperty('position');
-    document.body.style.removeProperty('top');
-    document.body.style.removeProperty('height');
-    document.body.style.removeProperty('overflow');
-    document.documentElement.style.removeProperty('--visual-viewport-height');
-    
-    // Force Stream Chat to recalculate layout
-    setTimeout(() => {
-      const streamContainer = document.querySelector('.str-chat__container');
-      if (streamContainer) {
-        (streamContainer as HTMLElement).style.removeProperty('height');
-        (streamContainer as HTMLElement).style.removeProperty('max-height');
-      }
-    }, 50);
-  };
 
   // Handle going back to channel list on mobile
   const handleBackToChannelList = () => {

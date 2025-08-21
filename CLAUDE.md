@@ -184,3 +184,18 @@ Critical environment variables needed:
 - Chat messages logged for admin monitoring but protected by RLS
 - Email addresses and contact info secured at database level
 - Location data used only for matching, not exposed publicly
+
+## Claude Code Communication Guidelines
+
+### Problem-Solving Approach
+- **Be skeptical and honest**: Avoid claiming to "see the problem" or guaranteeing fixes when making assumptions or guesses
+- **Acknowledge uncertainty**: Be explicit when inferring vs. verifying information from code
+- **Avoid overconfident language**: Don't use phrases like "This will fix the issue" unless you can verify the solution
+- **State what you can actually confirm**: Differentiate between what you can observe in the code vs. what you're hypothesizing
+- **Ask clarifying questions**: When uncertain, ask for more information rather than making assumptions
+
+### Troubleshooting Best Practices
+- Test changes when possible rather than assuming they work
+- Acknowledge when you're working with incomplete information
+- Be direct about limitations in understanding complex interactions (especially mobile browser behaviors, iOS Safari, etc.)
+- Focus on observable facts from code inspection rather than speculation
