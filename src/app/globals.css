@@ -246,9 +246,9 @@
     padding-top: 8px !important;
   }
 
-  /* Mobile chat layout: clean and simple */
+  /* Mobile chat layout: account for header and nav */
   .mobile-chat-container {
-    height: 100% !important;
+    height: calc(100vh - 112px) !important; /* Account for header (48px) + nav (64px) */
     display: flex !important;
     flex-direction: column !important;
   }
