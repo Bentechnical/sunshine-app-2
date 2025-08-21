@@ -76,15 +76,47 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     setConnectionStatus('disconnected');
   }, []);
 
-  // Minimal debug helpers for development
+  // Debug helpers for development and testing
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       try {
         (window as any).__setChats = (arr: any[]) => setChannels(Array.isArray(arr) ? arr : []);
         (window as any).__openChat = (id: string) => setActiveChannelId(id);
+        
+        // Connection testing helpers
+        (window as any).__forceDisconnect = () => {
+          console.log('🔌 Forcing disconnect...');
+          if (client) {
+            client.disconnectUser();
+          }
+          cleanupDisconnectedState();
+        };
+        
+        (window as any).__forceReconnect = () => {
+          console.log('🔄 Forcing reconnect...');
+          handleReconnect();
+        };
+        
+        // Stream Chat manager helpers
+        (window as any).__forceRefresh = async () => {
+          console.log('♻️ Forcing connection refresh...');
+          try {
+            await streamChatManager.forceRefreshConnection();
+            await handleReconnect();
+          } catch (error) {
+            console.error('Force refresh failed:', error);
+          }
+        };
+        
+        // Layout cleanup helper
+        (window as any).__cleanupLayout = () => {
+          console.log('🧹 Cleaning up mobile layout...');
+          cleanupMobileLayout();
+        };
+        
       } catch {}
     }
-  }, []);
+  }, [client, handleReconnect, cleanupMobileLayout]);
 
   // Reconnection function
   const handleReconnect = useCallback(async () => {

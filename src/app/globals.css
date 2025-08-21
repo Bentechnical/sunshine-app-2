@@ -279,8 +279,20 @@
     height: 100% !important;
     max-height: 100% !important;
     overflow: hidden !important;
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    position: static !important;
+  }
+  
+  /* Force remove any keyboard-related styles that might persist */
+  @supports (-webkit-touch-callout: none) {
+    .mobile-chat-container .str-chat__container {
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
+      bottom: auto !important;
+      transform: translateY(0) !important;
+    }
   }
   
   .mobile-chat-messages {
