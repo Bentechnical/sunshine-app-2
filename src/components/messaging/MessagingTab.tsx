@@ -520,9 +520,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       chat.channelId.replace('messaging:', '') === activeChannel.id
     );
     
-    const headerBase = 'z-40 bg-white border-b md:relative';
+    const headerBase = 'z-60 bg-white border-b md:relative'; // Higher z-index than main header (z-50)
     const headerClass = isMobile
-      ? `chat-mobile-subheader ${headerBase}`
+      ? `chat-mobile-subheader ${headerBase} fixed top-12 left-0 right-0` // Fixed positioning below main header
       : `sticky top-0 px-3 py-2 ${headerBase}`;
     return (
       <div className={headerClass}> 
@@ -776,7 +776,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                   // Chat View (mobile grid layout)
                   activeChannel && activeChannelId ? (
                     <Channel key={activeChannelId} channel={activeChannel}>
-              <div className="h-full w-full flex flex-col mobile-chat-container">
+              <div className={`h-full w-full flex flex-col mobile-chat-container ${viewMode === 'activeChat' ? 'nav-hidden' : ''}`}>
                         <div className="bg-white mobile-chat-header">
                           <MobileChannelHeader />
                         </div>

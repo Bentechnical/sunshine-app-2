@@ -246,17 +246,41 @@
     padding-top: 8px !important;
   }
 
-  /* Mobile chat layout: account for header and nav */
+  /* Mobile chat layout: different heights based on nav visibility */
+  
+  /* When mobile nav is visible (channel list view) */
   .mobile-chat-container {
-    height: calc(100vh - 100px) !important; /* Account for header + nav */
+    height: calc(100vh - 100px) !important; /* Account for header (48px) + nav (52px) */
     display: flex !important;
     flex-direction: column !important;
+  }
+  
+  /* When mobile nav is hidden (active chat view) */
+  .mobile-chat-container.nav-hidden {
+    height: calc(100vh - 96px) !important; /* Account for main header (48px) + subheader (48px) */
+  }
+  
+  /* Adjust messages area when subheader is fixed */
+  .mobile-chat-container.nav-hidden .mobile-chat-messages {
+    padding-top: 48px !important; /* Space for fixed subheader */
   }
   
   /* Force Stream Chat container to not add extra space */
   .str-chat__container {
     height: 100% !important;
     max-height: 100% !important;
+    overflow: hidden !important;
+  }
+  
+  /* Additional Stream Chat layout fixes for mobile */
+  .mobile-chat-container .str-chat__container,
+  .mobile-chat-container .str-chat__main-panel,
+  .mobile-chat-container .str-chat__main-panel-inner {
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
   }
   
   .mobile-chat-messages {
