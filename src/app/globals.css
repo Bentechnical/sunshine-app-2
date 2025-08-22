@@ -257,7 +257,7 @@
   
   /* When mobile nav is hidden (active chat view) */
   .mobile-chat-container.nav-hidden {
-    height: calc(100vh - 96px) !important; /* Account for main header (48px) + subheader (48px) */
+    height: calc(100vh - 90px) !important; /* Account for main header + subheader */
   }
   
   /* Adjust messages area when subheader is fixed */
@@ -265,24 +265,22 @@
     padding-top: 48px !important; /* Space for fixed subheader */
   }
   
-  /* Force Stream Chat container to not add extra space */
-  .str-chat__container {
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-  }
-  
-  /* Additional Stream Chat layout fixes for mobile */
+  /* Force Stream Chat container to not add extra space - aggressive targeting */
   .mobile-chat-container .str-chat__container,
+  .mobile-chat-container.nav-hidden .str-chat__container,
+  div.mobile-chat-container .str-chat__container,
   .mobile-chat-container .str-chat__main-panel,
   .mobile-chat-container .str-chat__main-panel-inner {
     height: 100% !important;
     max-height: 100% !important;
     overflow: hidden !important;
+    min-height: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
     transform: none !important;
     position: static !important;
+    bottom: auto !important;
+    top: auto !important;
   }
   
   /* Force remove any keyboard-related styles that might persist */
@@ -530,6 +528,11 @@
   html, body {
     height: -webkit-fill-available;
     min-height: -webkit-fill-available;
+  }
+  
+  /* Fix root layout container height on iOS - prevents 100vh getting stuck */
+  .h-screen {
+    height: -webkit-fill-available !important;
   }
   
   /* Force proper height for chat containers on iOS */

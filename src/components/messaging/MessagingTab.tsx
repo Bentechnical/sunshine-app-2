@@ -147,22 +147,27 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       'main.flex-grow', 
       'main.flex-1',
       '.chat-vv',
-      '.str-chat__container' // Add Stream Chat container cleanup
+      '.str-chat__container',
+      '.str-chat__main-panel',
+      '.str-chat__main-panel-inner'
     ];
     
     elementsToClean.forEach(selector => {
-      const element = document.querySelector(selector);
-      if (element) {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(element => {
         const el = element as HTMLElement;
         el.style.removeProperty('height');
         el.style.removeProperty('max-height');
         el.style.removeProperty('overflow');
         el.style.removeProperty('position');
         el.style.removeProperty('top');
+        el.style.removeProperty('bottom');
         el.style.removeProperty('transform');
         el.style.removeProperty('padding-bottom');
         el.style.removeProperty('margin-bottom');
-      }
+        el.style.removeProperty('padding-top');
+        el.style.removeProperty('margin-top');
+      });
     });
     
     // Clean up body and document styles
@@ -173,14 +178,29 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     document.body.style.removeProperty('overflow');
     document.documentElement.style.removeProperty('--visual-viewport-height');
     
-    // Force Stream Chat to recalculate layout
-    setTimeout(() => {
-      const streamContainer = document.querySelector('.str-chat__container');
-      if (streamContainer) {
-        (streamContainer as HTMLElement).style.removeProperty('height');
-        (streamContainer as HTMLElement).style.removeProperty('max-height');
-      }
-    }, 50);
+    // Aggressive Stream Chat cleanup with multiple attempts
+    const forceStreamChatReset = () => {
+      const streamContainers = document.querySelectorAll('.str-chat__container, .str-chat__main-panel, .str-chat__main-panel-inner');
+      streamContainers.forEach(container => {
+        const el = container as HTMLElement;
+        // Force reset inline styles
+        el.style.height = '';
+        el.style.maxHeight = '';
+        el.style.minHeight = '';
+        el.style.transform = '';
+        el.style.position = '';
+        el.style.top = '';
+        el.style.bottom = '';
+        el.style.paddingBottom = '';
+        el.style.marginBottom = '';
+      });
+    };
+    
+    // Run cleanup immediately and with delays to catch any late-applied styles
+    forceStreamChatReset();
+    setTimeout(forceStreamChatReset, 50);
+    setTimeout(forceStreamChatReset, 200);
+    setTimeout(forceStreamChatReset, 500);
   };
 
   // Debug helpers for development and testing
