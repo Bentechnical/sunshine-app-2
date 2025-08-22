@@ -522,9 +522,9 @@
   }
 }
 
-/* iOS Safari viewport height fixes */
-@supports (-webkit-touch-callout: none) {
-  /* iOS Safari specific fixes */
+/* iOS Safari viewport height fixes - more specific targeting */
+@supports (-webkit-touch-callout: none) and (not (hover: hover)) {
+  /* iOS Safari specific fixes (excludes iPadOS and desktop Safari) */
   html, body {
     height: -webkit-fill-available;
     min-height: -webkit-fill-available;
