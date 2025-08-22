@@ -255,9 +255,9 @@
     flex-direction: column !important;
   }
   
-  /* When mobile nav is hidden (active chat view) */
+  /* When mobile nav is hidden (active chat view) - default for Android */
   .mobile-chat-container.nav-hidden {
-    height: calc(100vh - 90px) !important; /* Account for main header + subheader */
+    height: calc(100vh - 10px) !important; /* Account for Android spacing */
   }
   
   /* Adjust messages area when subheader is fixed */
@@ -547,5 +547,10 @@
   .str-chat__input-flat {
     position: static !important;
     bottom: auto !important;
+  }
+  
+  /* iOS-specific height calculation for chat container */
+  .mobile-chat-container.nav-hidden {
+    height: calc(100vh - 90px) !important; /* iOS needs more offset */
   }
 }
