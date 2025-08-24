@@ -260,6 +260,12 @@
     .mobile-chat-container.nav-hidden {
       height: calc(100dvh - 20px) !important; /* Android - dynamic viewport */
     }
+    
+    .mobile-chat-container.nav-hidden .mobile-chat-messages {
+      height: 0 !important; /* Force flex-1 to work properly */
+      min-height: 0 !important; /* Allow shrinking */
+      flex-grow: 1 !important; /* Ensure it grows to fill */
+    }
   }
   
   /* Adjust messages area when subheader is fixed */
