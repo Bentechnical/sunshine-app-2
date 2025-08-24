@@ -255,10 +255,21 @@
     flex-direction: column !important;
   }
   
-  /* When mobile nav is hidden (active chat view) - Android specific */
+  /* Android: Fix viewport cascade conflicts that cause dynamic spacing */
   @supports not (-webkit-touch-callout: none) {
-    .mobile-chat-container.nav-hidden {
-      height: calc(100dvh - 20px) !important; /* Android - dynamic viewport */
+    /* Remove rigid 100vh constraints that conflict during keyboard transitions */
+    body.min-h-screen {
+      min-height: auto !important;
+    }
+    
+    .h-screen {
+      height: auto !important;
+      min-height: 100vh !important; /* Keep minimum height */
+    }
+    
+    /* Add proper bottom padding for input box now that rigid constraints are removed */
+    .mobile-chat-input {
+      padding-bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
     }
   }
   
