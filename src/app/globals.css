@@ -258,8 +258,7 @@
   /* When mobile nav is hidden (active chat view) - Android specific */
   @supports not (-webkit-touch-callout: none) {
     .mobile-chat-container.nav-hidden {
-      height: 100% !important; /* Fill parent instead of fixed dvh calculation */
-      max-height: 100% !important;
+      height: calc(100dvh - 20px) !important; /* Android - dynamic viewport */
     }
     
     .mobile-chat-container.nav-hidden .mobile-chat-messages {
