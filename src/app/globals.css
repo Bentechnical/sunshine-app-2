@@ -255,19 +255,10 @@
     flex-direction: column !important;
   }
   
-  /* Android: Prevent height cascade conflicts during keyboard transitions */
+  /* When mobile nav is hidden (active chat view) - Android specific */
   @supports not (-webkit-touch-callout: none) {
-    body.min-h-screen {
-      min-height: auto !important; /* Let flexbox handle it instead of 100vh */
-    }
-    
-    .h-screen {
-      height: auto !important; /* Let flexbox handle it instead of 100vh */
-      min-height: 100vh !important; /* Maintain minimum size */
-    }
-    
     .mobile-chat-container.nav-hidden {
-      height: calc(100vh - 96px) !important; /* Account for main header (48px) + subheader (48px) */
+      height: calc(100dvh - 20px) !important; /* Android - dynamic viewport */
     }
   }
   
