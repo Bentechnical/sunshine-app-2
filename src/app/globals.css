@@ -255,9 +255,11 @@
     flex-direction: column !important;
   }
   
-  /* When mobile nav is hidden (active chat view) - default for Android */
-  .mobile-chat-container.nav-hidden {
-    height: calc(100vh - 10px) !important; /* Account for Android spacing */
+  /* When mobile nav is hidden (active chat view) - Android specific */
+  @supports not (-webkit-touch-callout: none) {
+    .mobile-chat-container.nav-hidden {
+      height: calc(100dvh - 20px) !important; /* Android - dynamic viewport */
+    }
   }
   
   /* Adjust messages area when subheader is fixed */
