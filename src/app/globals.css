@@ -255,22 +255,24 @@
     flex-direction: column !important;
   }
   
-  /* Android: Fix viewport cascade conflicts for messaging screens only */
-  @media (max-width: 767px) {
-    /* Target messaging tab specifically to avoid breaking other screens */
-    [data-active-tab="messaging"] body.min-h-screen {
-      min-height: auto !important;
-    }
-    
-    [data-active-tab="messaging"].h-screen,
-    [data-active-tab="messaging"] .h-screen {
-      height: auto !important;
-      min-height: 100vh !important;
-    }
-    
-    /* Add proper bottom padding for input box */
-    .mobile-chat-input {
-      padding-bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
+  /* Android only: Fix viewport cascade conflicts for messaging screens only */
+  @supports not (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+      /* Target messaging tab specifically to avoid breaking other screens */
+      [data-active-tab="messaging"] body.min-h-screen {
+        min-height: auto !important;
+      }
+      
+      [data-active-tab="messaging"].h-screen,
+      [data-active-tab="messaging"] .h-screen {
+        height: auto !important;
+        min-height: 100vh !important;
+      }
+      
+      /* Add proper bottom padding for input box */
+      .mobile-chat-input {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
+      }
     }
   }
   
