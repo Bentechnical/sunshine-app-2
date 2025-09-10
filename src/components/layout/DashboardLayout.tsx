@@ -51,7 +51,7 @@ export default function DashboardLayout({
   noMobileTopPadding = false,
 }: DashboardLayoutProps) {
   return (
-    <div className="flex h-screen relative">
+    <div className="flex h-screen relative" data-active-tab={activeTab}>
       {/* ------------ Desktop sidebar ------------ */}
       <aside className="hidden md:flex flex-col h-screen w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] p-6 shadow-lg font-sans z-20">
         <div className="mb-8 flex justify-center relative w-full h-16">

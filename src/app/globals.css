@@ -255,19 +255,20 @@
     flex-direction: column !important;
   }
   
-  /* Android: Fix viewport cascade conflicts that cause dynamic spacing */
-  @supports not (-webkit-touch-callout: none) {
-    /* Remove rigid 100vh constraints that conflict during keyboard transitions */
-    body.min-h-screen {
+  /* Android: Fix viewport cascade conflicts for messaging screens only */
+  @media (max-width: 767px) {
+    /* Target messaging tab specifically to avoid breaking other screens */
+    [data-active-tab="messaging"] body.min-h-screen {
       min-height: auto !important;
     }
     
-    .h-screen {
+    [data-active-tab="messaging"].h-screen,
+    [data-active-tab="messaging"] .h-screen {
       height: auto !important;
-      min-height: 100vh !important; /* Keep minimum height */
+      min-height: 100vh !important;
     }
     
-    /* Add proper bottom padding for input box now that rigid constraints are removed */
+    /* Add proper bottom padding for input box */
     .mobile-chat-input {
       padding-bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
     }
@@ -546,6 +547,11 @@
   /* Fix root layout container height on iOS - prevents 100vh getting stuck */
   .h-screen {
     height: -webkit-fill-available !important;
+  }
+  
+  /* Restore iOS body min-height behavior */
+  body.min-h-screen {
+    min-height: -webkit-fill-available !important;
   }
   
   /* Force proper height for chat containers on iOS */
