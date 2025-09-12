@@ -106,8 +106,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       const response = await fetch('/api/chat/channels');
       if (!response.ok) throw new Error('Failed to fetch channels');
       
-      const channelData = await response.json();
-      setChannels(channelData);
+      const data = await response.json();
+      
+      // The API returns { chats: [...], total: number }
+      const channelsArray = Array.isArray(data.chats) ? data.chats : [];
+      setChannels(channelsArray);
       
       // Restore active channel if it exists
       if (activeChannelId && client) {
@@ -118,6 +121,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     } catch (err) {
       console.error('Failed to load channels:', err);
       setError('Failed to load conversations');
+      setChannels([]); // Ensure channels is always an array
     }
   }, [activeChannelId, client]);
 
@@ -258,11 +262,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <div className={styles.mobileChannelList}>
                 <div className={styles.channelListHeader}>
                   <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
-                  <p className="text-sm text-gray-600">{channels.length} active conversation{channels.length !== 1 ? 's' : ''}</p>
+                  <p className="text-sm text-gray-600">{(channels || []).length} active conversation{(channels || []).length !== 1 ? 's' : ''}</p>
                 </div>
                 
                 <div className={styles.channelListContent}>
-                  {channels.map((chat) => (
+                  {(channels || []).map((chat) => (
                     <div
                       key={chat.channelId}
                       onClick={() => handleChannelSelect(chat.channelId)}
@@ -368,11 +372,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             <div className={styles.desktopChannelList}>
               <div className={styles.channelListHeader}>
                 <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
-                <p className="text-sm text-gray-600">{channels.length} active conversation{channels.length !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-gray-600">{(channels || []).length} active conversation{(channels || []).length !== 1 ? 's' : ''}</p>
               </div>
               
               <div className={styles.channelListContent}>
-                {channels.map((chat) => (
+                {(channels || []).map((chat) => (
                   <div
                     key={chat.channelId}
                     onClick={() => handleChannelSelect(chat.channelId)}
