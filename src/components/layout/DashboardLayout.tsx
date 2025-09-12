@@ -26,7 +26,7 @@ function getMainContentClasses(activeTab: ActiveTab, noMobileTopPadding: boolean
   
   // Overflow behavior: messaging and therapy-dog need special handling
   const overflowClasses = (activeTab === 'messaging' || activeTab === 'my-therapy-dog') 
-    ? 'overflow-hidden md:overflow-y-auto' 
+    ? 'overflow-hidden' 
     : 'overflow-y-auto';
   
   // Mobile top padding
@@ -89,7 +89,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* ------------ Main / Mobile ------------ */}
-      <main className="relative z-10 flex-1 flex flex-col overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col h-full overflow-y-auto">
         {/* Mobile top bar */}
         <div
           className="md:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 py-2 shadow-sm"

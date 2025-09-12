@@ -2,7 +2,7 @@
 
 /* Root container */
 .messagingContainer {
-  height: calc(100vh - 64px - 1rem); /* Reduced bottom space */
+  height: calc(100vh - 64px); /* Remove the extra 1rem space */
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -93,8 +93,9 @@
 }
 
 .desktopChannelList {
-  width: 320px;
-  min-width: 320px;
+  flex: 0 1 320px; /* Can shrink from 320px base */
+  min-width: 240px; /* Minimum width before it gets too cramped */
+  max-width: 400px; /* Maximum width */
   display: flex;
   flex-direction: column;
   border-right: 1px solid #e5e7eb;
@@ -106,9 +107,16 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-width: 300px; /* Ensure chat area doesn't get too narrow */
   overflow: hidden;
-  padding: 1rem; /* Consistent padding all around */
+  padding: 1rem 1rem 0 1rem; /* Top, right, bottom, left - zero bottom padding */
+  border-top: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 0; /* No bottom border */
+  border-left: none; /* Remove left border to avoid double border with channel list */
+  border-radius: 0 0.5rem 0 0; /* Rounded corners on top-right only */
+  background: white;
+  height: 100%; /* Ensure full height */
 }
 
 .desktopChatContent {
@@ -117,6 +125,7 @@
   height: 100%;
   width: 100%;
   overflow: hidden;
+  flex: 1; /* Take up remaining space */
 }
 
 .desktopChatHeader {
@@ -177,6 +186,8 @@
 /* Stream Chat message layout refinements */
 .messagingContainer .str-chat__message-list {
   padding: 1rem; /* Consistent padding around all messages */
+  overflow-x: hidden; /* Prevent horizontal overflow */
+  word-wrap: break-word; /* Ensure long messages wrap properly */
 }
 
 /* Remove extra space from notifications */
@@ -186,22 +197,25 @@
 
 /* Tighten up message spacing */
 .messagingContainer .str-chat__message {
-  margin-bottom: 0.25rem; /* Reduced space between messages */
+  margin-bottom: 0.0625rem; /* Minimal space between messages */
 }
 
 /* Group messages from same user closer together */
 .messagingContainer .str-chat__message.str-chat__message--group {
-  margin-top: 0.125rem; /* Even less space for grouped messages */
+  margin-top: 0.03125rem; /* Almost no space for grouped messages from same user */
+  margin-bottom: 0.03125rem; /* Almost no bottom margin for grouped messages */
 }
 
 /* Ensure messages don't overflow */
 .messagingContainer .str-chat__message-inner {
   margin: 0 0.5rem; /* Give space for the message bubble to breathe */
+  max-width: 100%; /* Prevent overflow */
+  overflow-wrap: break-word; /* Break long words if needed */
 }
 
 /* Add space around user avatars */
 .messagingContainer .str-chat__avatar {
-  margin: 0 0.5rem; /* Consistent spacing around avatars */
+  margin: 0 0.75rem; /* Increased spacing around avatars for better edge spacing */
 }
 
 .messaging-container .str-chat__input-flat {
@@ -217,4 +231,32 @@
 .messaging-container .str-chat__send-button {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Desktop: Show only first name in chat messages */
+@media (min-width: 768px) {
+  .messagingContainer .str-chat__message-simple .str-chat__message-sender-name {
+    /* Hide full name and show only first name */
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+  
+  .messagingContainer .str-chat__message-simple .str-chat__message-sender-name::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, transparent 0%, transparent 60%, white 80%);
+  }
+  
+  /* Alternative approach: limit width to show approximately first name only */
+  .messagingContainer .str-chat__message-sender-name {
+    max-width: 4rem; /* Approximately first name length */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
