@@ -55,8 +55,8 @@
   background: white;
   border-bottom: 1px solid #e5e7eb;
   z-index: 10;
-  padding-top: env(safe-area-inset-top);
-  min-height: 56px; /* Reduced from default */
+  min-height: unset;
+  padding-top: max(env(safe-area-inset-top), 8px);
 }
 
 .mobileChatMessages {

@@ -330,22 +330,35 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                   <div className={styles.mobileChatView}>
                     {/* Chat Header */}
                     <div className={styles.mobileChatHeader}>
-                      <div className="flex items-center space-x-3 p-4 bg-white border-b border-gray-200">
+                      <div className="flex items-center space-x-2 py-2 px-3 bg-white border-b border-gray-200">
                         <button
                           onClick={handleBackToChannelList}
-                          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                         >
-                          <ArrowLeft size={20} className="text-gray-600" />
+                          <ArrowLeft size={18} className="text-gray-600" />
                         </button>
                         
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                              <span className="text-gray-600">🐕</span>
-                            </div>
+                          <div className="flex items-center space-x-2">
+                            {/* Use actual dog image from channel data */}
+                            {channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage ? (
+                              <img 
+                                src={channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage} 
+                                alt="Dog"
+                                className="w-7 h-7 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center">
+                                <span className="text-gray-400 text-sm">🐕</span>
+                              </div>
+                            )}
                             <div>
-                              <h3 className="font-semibold text-gray-900">Dog Bio</h3>
-                              <p className="text-sm text-gray-500">with Volunteer</p>
+                              <h3 className="font-medium text-gray-900 text-sm leading-tight">
+                                {channels.find(chat => chat.channelId === activeChannel?.id)?.dogName || 'Dog Bio'}
+                              </h3>
+                              <p className="text-xs text-gray-500 leading-tight">
+                                with {channels.find(chat => chat.channelId === activeChannel?.id)?.otherUserName || 'Volunteer'}
+                              </p>
                             </div>
                           </div>
                         </div>
