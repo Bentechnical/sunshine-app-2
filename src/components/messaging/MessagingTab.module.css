@@ -2,12 +2,13 @@
 
 /* Root container */
 .messagingContainer {
-  height: calc(100vh - 64px); /* Adjust 64px based on your header height */
+  height: calc(100vh - 64px - 1rem); /* Reduced bottom space */
   width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden; /* Prevent container from growing */
   position: relative;
+  margin-bottom: 0; /* Remove any margin */
 }
 
 /* Mobile Layout */
@@ -54,6 +55,7 @@
   border-bottom: 1px solid #e5e7eb;
   z-index: 10;
   padding-top: env(safe-area-inset-top);
+  min-height: 56px; /* Reduced from default */
 }
 
 .mobileChatMessages {
@@ -61,7 +63,9 @@
   overflow-y: auto;
   background: white;
   padding: 0 0.75rem;
+  padding-bottom: 1rem; /* Add space at bottom to prevent messages being hidden */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  margin-bottom: env(safe-area-inset-bottom); /* Account for iOS safe area */
 }
 
 .mobileChatInput {
@@ -69,9 +73,11 @@
   background: white;
   border-top: 1px solid #e5e7eb;
   padding: 0.5rem 0;
-  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); /* iOS safe area */
+  padding-bottom: env(safe-area-inset-bottom); /* iOS safe area */
+  margin-top: auto; /* Push to bottom */
   position: sticky;
   bottom: 0;
+  z-index: 10; /* Ensure input stays above messages */
 }
 
 /* Desktop Layout - Side by side */
