@@ -222,8 +222,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     );
   }
 
-  // Render chat interface
-  return (
+  // If we don't have a client yet, don't render anything
+  if (!client) {
+    return null;
+  }
+
+  const chatContent = (
     <div className={styles.messagingContainer}>
       {isMobile ? (
         // Mobile Layout
@@ -393,5 +397,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         </div>
       )}
     </div>
+  );
+
+  // Return the chat interface wrapped in the Chat component
+  return (
+    <Chat client={client}>
+      {chatContent}
+    </Chat>
   );
 }
