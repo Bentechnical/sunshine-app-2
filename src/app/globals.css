@@ -6,35 +6,36 @@
 
 /* Stream Chat component overrides */
 .str-chat {
-  height: 100%;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
 }
 
 .str-chat__list {
   height: 100% !important;
+  max-height: 100% !important;
   overflow-y: auto !important;
+  padding-bottom: 16px !important;
 }
 
 .str-chat__input-flat {
   min-height: unset !important;
-  padding: 10px !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  border-top: 1px solid #e5e7eb !important;
+  background: white !important;
 }
 
 .str-chat-channel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 
-/* Ensure messages don't get cut off */
-.str-chat__message-list {
+.str-chat__message-list-scroll {
   padding-bottom: 16px !important;
-}
-
-/* Make input more compact */
-.str-chat__input-flat {
-  border-top: 1px solid #e5e7eb;
-  background: white;
-  padding: 8px !important;
 }
 
 

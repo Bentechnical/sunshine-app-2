@@ -39,14 +39,15 @@
 /* Mobile Chat View Layout - CSS Grid for clean structure */
 .mobileChatView {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  height: 100vh;
+  grid-template-rows: min-content 1fr auto;
+  height: 100dvh; /* Use dynamic viewport height */
   width: 100%;
   position: fixed;
   top: 0;
   left: 0;
   z-index: 50;
   background: white;
+  overflow: hidden; /* Prevent body scroll */
 }
 
 .mobileChatHeader {
@@ -63,21 +64,24 @@
   overflow-y: auto;
   background: white;
   padding: 0 0.75rem;
-  padding-bottom: 1rem; /* Add space at bottom to prevent messages being hidden */
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom)); /* Add space for messages + safe area */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-  margin-bottom: env(safe-area-inset-bottom); /* Account for iOS safe area */
+  max-height: 100%; /* Ensure container doesn't overflow */
+  display: flex;
+  flex-direction: column;
 }
 
 .mobileChatInput {
   grid-row: 3;
   background: white;
   border-top: 1px solid #e5e7eb;
-  padding: 0.5rem 0;
+  padding: 0;
   padding-bottom: env(safe-area-inset-bottom); /* iOS safe area */
-  margin-top: auto; /* Push to bottom */
   position: sticky;
   bottom: 0;
+  width: 100%;
   z-index: 10; /* Ensure input stays above messages */
+  min-height: fit-content; /* Prevent expansion */
 }
 
 /* Desktop Layout - Side by side */
