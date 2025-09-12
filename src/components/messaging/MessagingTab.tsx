@@ -181,11 +181,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     if (!client) return;
 
     try {
-      const channel = client.channel('messaging', channelId);
+      // Remove 'messaging:' prefix if present
+      const cleanChannelId = channelId.replace('messaging:', '');
+      
+      const channel = client.channel('messaging', cleanChannelId);
       await channel.watch();
       
       setActiveChannel(channel);
-      setActiveChannelId(channelId);
+      setActiveChannelId(cleanChannelId);
       
       // Mobile: switch to chat view and hide nav
       if (isMobile) {
