@@ -4,6 +4,27 @@
 @import "tw-animate-css";
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
 
+/* Stream Chat component overrides */
+.str-chat {
+  height: 100%;
+}
+
+.str-chat__list {
+  height: 100% !important;
+  overflow-y: auto !important;
+}
+
+.str-chat__input-flat {
+  min-height: unset !important;
+  padding: 10px !important;
+}
+
+.str-chat-channel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 
 @custom-variant dark (&:is(.dark *));
 

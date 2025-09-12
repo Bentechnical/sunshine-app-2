@@ -1,26 +1,5 @@
 /* Clean messaging interface styles - no conflicts with global CSS */
 
-/* Stream Chat overrides */
-:global(.str-chat) {
-  height: 100%;
-}
-
-:global(.str-chat__list) {
-  height: 100% !important;
-  overflow-y: auto !important;
-}
-
-:global(.str-chat__input-flat) {
-  min-height: unset !important;
-  padding: 10px !important;
-}
-
-:global(.str-chat-channel) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 /* Root container */
 .messagingContainer {
   height: calc(100vh - 64px); /* Adjust 64px based on your header height */
