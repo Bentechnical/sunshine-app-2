@@ -1,0 +1,168 @@
+/* Clean messaging interface styles - no conflicts with global CSS */
+
+/* Root container */
+.messagingContainer {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile Layout */
+.mobileChannelList,
+.mobileChatView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.channelListHeader {
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.channelListContent {
+  flex: 1;
+  overflow-y: auto;
+  background: white;
+}
+
+.channelItem.active {
+  background-color: #f3f4f6;
+}
+
+/* Mobile Chat View Layout - CSS Grid for clean structure */
+.mobileChatView {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  width: 100%;
+}
+
+.mobileChatHeader {
+  grid-row: 1;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  z-index: 10;
+}
+
+.mobileChatMessages {
+  grid-row: 2;
+  overflow-y: auto;
+  background: white;
+  padding: 0 0.75rem;
+}
+
+.mobileChatInput {
+  grid-row: 3;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 0.5rem 0;
+}
+
+/* Desktop Layout - Side by side */
+.desktopChatLayout {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.desktopChannelList {
+  width: 320px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #e5e7eb;
+  background: white;
+}
+
+.desktopChatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.desktopChatContent {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  width: 100%;
+}
+
+.desktopChatHeader {
+  grid-row: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.desktopChatMessages {
+  grid-row: 2;
+  overflow-y: auto;
+}
+
+.desktopChatInput {
+  grid-row: 3;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 767px) {
+  .desktop-chat-layout {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-channel-list,
+  .mobile-chat-view {
+    display: none;
+  }
+}
+
+/* Modern viewport handling - single source of truth */
+@supports (height: 100dvh) {
+  .messaging-container {
+    height: 100dvh;
+  }
+}
+
+@supports not (height: 100dvh) {
+  .messaging-container {
+    height: 100vh;
+  }
+}
+
+/* iOS specific handling for viewport issues */
+@supports (-webkit-touch-callout: none) {
+  .messaging-container {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Ensure proper height inheritance */
+.messaging-container .str-chat,
+.messaging-container .str-chat__container {
+  height: 100%;
+}
+
+/* Clean Stream Chat integration - minimal overrides */
+.messaging-container .str-chat__message-list {
+  padding: 0.75rem;
+}
+
+.messaging-container .str-chat__input-flat {
+  border: none;
+  padding: 0.5rem 1rem;
+}
+
+/* Touch-friendly sizing */
+.messaging-container .str-chat__message-input {
+  min-height: 44px;
+}
+
+.messaging-container .str-chat__send-button {
+  min-height: 44px;
+  min-width: 44px;
+}
