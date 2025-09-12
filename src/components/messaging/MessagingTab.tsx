@@ -139,14 +139,10 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     }
   }, [user, isReconnecting]);
 
-  // Comprehensive mobile layout cleanup function
+  // Selective mobile layout cleanup function - only remove problematic keyboard styles
   const cleanupMobileLayout = () => {
-    // Reset any persistent styles that might have been applied by previous keyboard detection
+    // Only reset Stream Chat specific styles that can cause keyboard issues
     const elementsToClean = [
-      '.relative.flex-1.overflow-hidden',
-      'main.flex-grow', 
-      'main.flex-1',
-      '.chat-vv',
       '.str-chat__container',
       '.str-chat__main-panel',
       '.str-chat__main-panel-inner'
@@ -156,17 +152,10 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       const elements = document.querySelectorAll(selector);
       elements.forEach(element => {
         const el = element as HTMLElement;
-        el.style.removeProperty('height');
-        el.style.removeProperty('max-height');
-        el.style.removeProperty('overflow');
-        el.style.removeProperty('position');
-        el.style.removeProperty('top');
-        el.style.removeProperty('bottom');
+        // Only remove keyboard-related transform/position issues, not essential layout properties
         el.style.removeProperty('transform');
         el.style.removeProperty('padding-bottom');
         el.style.removeProperty('margin-bottom');
-        el.style.removeProperty('padding-top');
-        el.style.removeProperty('margin-top');
       });
     });
     
