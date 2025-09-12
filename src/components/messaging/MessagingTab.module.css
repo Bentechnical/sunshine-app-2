@@ -1,11 +1,34 @@
 /* Clean messaging interface styles - no conflicts with global CSS */
 
+/* Stream Chat overrides */
+:global(.str-chat) {
+  height: 100%;
+}
+
+:global(.str-chat__list) {
+  height: 100% !important;
+  overflow-y: auto !important;
+}
+
+:global(.str-chat__input-flat) {
+  min-height: unset !important;
+  padding: 10px !important;
+}
+
+:global(.str-chat-channel) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Root container */
 .messagingContainer {
-  height: 100%;
+  height: calc(100vh - 64px); /* Adjust 64px based on your header height */
   width: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Prevent container from growing */
+  position: relative;
 }
 
 /* Mobile Layout */
@@ -36,9 +59,14 @@
 /* Mobile Chat View Layout - CSS Grid for clean structure */
 .mobileChatView {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100vh;
   width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  background: white;
 }
 
 .mobileChatHeader {
@@ -46,6 +74,7 @@
   background: white;
   border-bottom: 1px solid #e5e7eb;
   z-index: 10;
+  padding-top: env(safe-area-inset-top);
 }
 
 .mobileChatMessages {
@@ -53,6 +82,7 @@
   overflow-y: auto;
   background: white;
   padding: 0 0.75rem;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .mobileChatInput {
@@ -60,6 +90,9 @@
   background: white;
   border-top: 1px solid #e5e7eb;
   padding: 0.5rem 0;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); /* iOS safe area */
+  position: sticky;
+  bottom: 0;
 }
 
 /* Desktop Layout - Side by side */
@@ -83,13 +116,15 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden; /* Prevent overflow */
 }
 
 .desktopChatContent {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   width: 100%;
+  overflow: hidden; /* Contain overflow */
 }
 
 .desktopChatHeader {
