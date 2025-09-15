@@ -2,14 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 
 export async function POST(request: NextRequest) {
+  console.log('[Stream Chat Webhook] 🔗 Webhook request received:', {
+    method: request.method,
+    url: request.url,
+    headers: {
+      'content-type': request.headers.get('content-type'),
+      'user-agent': request.headers.get('user-agent'),
+      host: request.headers.get('host'),
+      origin: request.headers.get('origin')
+    }
+  });
+
   try {
     const payload = await request.json();
-    
+
     // TODO: Add Stream Chat webhook signature verification
     // For now, we'll process the webhook without verification
     // In production, you should verify the webhook signature
-    
-    console.log('[Stream Chat Webhook] Received event:', payload.type);
+
+    console.log('[Stream Chat Webhook] ✅ Received event:', payload.type);
     
     // Only process message.new events for appointment chats
     if (payload.type === 'message.new') {

@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { streamChatManager } from '@/utils/stream-chat-client';
 import { StreamChat } from 'stream-chat';
 
+// Rate limiting to prevent too many API calls
+let lastChannelQuery = 0;
+const QUERY_COOLDOWN = 5000; // 5 seconds between queries
+
 export function useUserChatNotifications(activeTab?: string) {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -24,6 +28,14 @@ export function useUserChatNotifications(activeTab?: string) {
       setLoading(false);
       return;
     }
+
+    // Rate limiting to prevent too many API calls
+    const now = Date.now();
+    if (now - lastChannelQuery < QUERY_COOLDOWN) {
+      console.log('[useUserChatNotifications] Rate limited, skipping query. Time remaining:', QUERY_COOLDOWN - (now - lastChannelQuery), 'ms');
+      return;
+    }
+    lastChannelQuery = now;
 
     try {
       // Get all channels for the current user
@@ -89,8 +101,8 @@ export function useUserChatNotifications(activeTab?: string) {
         messageText: event.message?.text?.substring(0, 50) + '...'
       });
 
-      // Always check unread state when new messages arrive
-      setTimeout(() => checkUnreadMessages(client), 100);
+      // Debounce unread checks to prevent rate limiting
+      setTimeout(() => checkUnreadMessages(client), 2000);
     };
 
     // Listen for message read events
@@ -99,7 +111,7 @@ export function useUserChatNotifications(activeTab?: string) {
         channelId: event.channel?.id,
         user: event.user?.id
       });
-      setTimeout(() => checkUnreadMessages(client), 100);
+      setTimeout(() => checkUnreadMessages(client), 2000);
     };
 
     // Listen for channel updates (includes unread count changes)
@@ -108,13 +120,13 @@ export function useUserChatNotifications(activeTab?: string) {
         channelId: event.channel?.id,
         type: event.type
       });
-      setTimeout(() => checkUnreadMessages(client), 100);
+      setTimeout(() => checkUnreadMessages(client), 2000);
     };
 
     // Listen for notifications
     const handleNotificationMarkRead = (event: any) => {
       console.log('[useUserChatNotifications] 🔔 Notification mark read event:', event);
-      setTimeout(() => checkUnreadMessages(client), 100);
+      setTimeout(() => checkUnreadMessages(client), 2000);
     };
 
     // Set up event listeners

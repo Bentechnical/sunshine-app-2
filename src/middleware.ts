@@ -56,6 +56,19 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   const isDev = process.env.NODE_ENV === 'development';
   if (isDev) console.log('[Middleware] Path:', pathname);
 
+  // Special logging for webhook debugging
+  if (pathname.startsWith('/api/chat/webhook')) {
+    console.log('[Middleware] 🔗 WEBHOOK REQUEST DETECTED:', {
+      pathname,
+      host: req.headers.get('host'),
+      userAgent: req.headers.get('user-agent'),
+      origin: req.headers.get('origin'),
+      referer: req.headers.get('referer'),
+      isNgrok: isNgrokRequest(req),
+      isBypassable: isBypassablePath(pathname)
+    });
+  }
+
   // Check for ngrok requests (for testing purposes)
   if (isDev && isNgrokRequest(req)) {
     console.log('[Middleware] Ngrok request detected, bypassing all checks for testing');
@@ -63,6 +76,9 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   if (isBypassablePath(pathname)) {
+    if (pathname.startsWith('/api/chat/webhook')) {
+      console.log('[Middleware] ✅ Webhook bypassed successfully');
+    }
     return NextResponse.next();
   }
 
