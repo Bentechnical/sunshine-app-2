@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 
 export async function POST(request: NextRequest) {
-  console.log('[Stream Chat Webhook] 🔗 Webhook request received:', {
+  const timestamp = new Date().toISOString();
+  console.log(`[Stream Chat Webhook] 🔗 ${timestamp} - Webhook request received:`, {
     method: request.method,
     url: request.url,
+    timestamp,
     headers: {
       'content-type': request.headers.get('content-type'),
       'user-agent': request.headers.get('user-agent'),
       host: request.headers.get('host'),
-      origin: request.headers.get('origin')
+      origin: request.headers.get('origin'),
+      'x-forwarded-for': request.headers.get('x-forwarded-for'),
+      'x-vercel-id': request.headers.get('x-vercel-id')
     }
   });
 
@@ -20,7 +24,14 @@ export async function POST(request: NextRequest) {
     // For now, we'll process the webhook without verification
     // In production, you should verify the webhook signature
 
-    console.log('[Stream Chat Webhook] ✅ Received event:', payload.type);
+    console.log(`[Stream Chat Webhook] ✅ ${timestamp} - Received event:`, {
+      type: payload.type,
+      hasMessage: !!payload.message,
+      hasChannel: !!payload.channel,
+      messageId: payload.message?.id,
+      channelId: payload.channel?.id,
+      channelCustom: payload.channel?.custom
+    });
     
     // Only process message.new events for appointment chats
     if (payload.type === 'message.new') {
@@ -40,16 +51,20 @@ export async function POST(request: NextRequest) {
         const content = message.text || '';
         const messageId = message.id;
         
-        console.log('[Stream Chat Webhook] Appointment chat detected:', {
+        console.log(`[Stream Chat Webhook] 🎯 ${timestamp} - Appointment chat detected:`, {
           appointmentId,
           senderId,
           content: content.substring(0, 50) + '...',
-          messageId
+          messageId,
+          channelType: channel?.custom?.type,
+          allCustomFields: channel?.custom
         });
-        
+
         if (appointmentId && senderId && content) {
+          console.log(`[Stream Chat Webhook] 💾 ${timestamp} - Attempting database insert...`);
+
           const supabase = createSupabaseAdminClient();
-          
+
           // Log the message to our database
           const { data, error } = await supabase
             .from('chat_logs')
@@ -62,19 +77,22 @@ export async function POST(request: NextRequest) {
               is_system_message: false
             })
             .select();
-          
+
           if (error) {
-            console.error('[Stream Chat Webhook] Database error:', error);
-            console.error('[Stream Chat Webhook] Error details:', {
+            console.error(`[Stream Chat Webhook] ❌ ${timestamp} - Database error:`, error);
+            console.error(`[Stream Chat Webhook] ❌ ${timestamp} - Error details:`, {
               code: error.code,
               message: error.message,
               details: error.details,
-              hint: error.hint
+              hint: error.hint,
+              appointmentId,
+              senderId,
+              messageId
             });
             return NextResponse.json({ error: 'Failed to log message', details: error.message }, { status: 500 });
           }
-          
-          console.log(`[Stream Chat Webhook] Successfully logged message ${messageId} for appointment ${appointmentId}:`, data);
+
+          console.log(`[Stream Chat Webhook] ✅ ${timestamp} - Successfully logged message ${messageId} for appointment ${appointmentId}:`, data);
         } else {
           console.warn('[Stream Chat Webhook] Missing required fields:', {
             appointmentId: !!appointmentId,
