@@ -54,7 +54,9 @@ export default function MobileNav({
             <div className="relative">
               {icon}
               {showAlert && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  !
+                </span>
               )}
             </div>
             <span className="text-xs font-medium">{label}</span>

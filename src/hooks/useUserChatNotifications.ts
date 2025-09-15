@@ -97,11 +97,13 @@ export function useUserChatNotifications(activeTab?: string) {
   // Monitor Stream Chat client connection
   useEffect(() => {
     let cleanup: (() => void) | undefined;
+    let connectionCheckInterval: NodeJS.Timeout;
 
     const checkConnection = () => {
       const client = streamChatManager.getClient();
+      const isReady = streamChatManager.isClientReady();
 
-      if (client && client.userID && client !== clientRef.current) {
+      if (client && client.userID && isReady && client !== clientRef.current) {
         console.log('[useUserChatNotifications] Stream Chat client connected, setting up listeners');
         clientRef.current = client;
 
@@ -113,14 +115,16 @@ export function useUserChatNotifications(activeTab?: string) {
 
         // Initial unread check
         checkUnreadMessages(client);
-      } else if (!client || !client.userID) {
-        console.log('[useUserChatNotifications] Stream Chat client disconnected');
-        clientRef.current = null;
-        setHasUnreadMessages(false);
-        setLoading(false);
-        if (cleanup) {
-          cleanup();
-          cleanup = undefined;
+      } else if (!client || !client.userID || !isReady) {
+        if (clientRef.current) {
+          console.log('[useUserChatNotifications] Stream Chat client disconnected');
+          clientRef.current = null;
+          setHasUnreadMessages(false);
+          setLoading(false);
+          if (cleanup) {
+            cleanup();
+            cleanup = undefined;
+          }
         }
       }
     };
@@ -128,8 +132,8 @@ export function useUserChatNotifications(activeTab?: string) {
     // Initial check
     checkConnection();
 
-    // Set up a timer to periodically check connection status
-    const connectionCheckInterval = setInterval(checkConnection, 1000);
+    // Set up a timer to periodically check connection status (more frequent for faster detection)
+    connectionCheckInterval = setInterval(checkConnection, 500);
 
     // Register disconnect callback with stream chat manager
     const handleDisconnect = () => {

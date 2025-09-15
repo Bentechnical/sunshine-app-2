@@ -65,11 +65,37 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     try {
       const response = await fetch('/api/chat/channels');
       if (!response.ok) throw new Error('Failed to fetch channels');
-      
+
       const data = await response.json();
       const channelsArray = Array.isArray(data.chats) ? data.chats : [];
-      setChannels(channelsArray);
-      
+
+      // If we have a Stream Chat client, get real-time unread counts
+      let enrichedChannels = channelsArray;
+      if (client && client.userID) {
+        try {
+          // Get channels from Stream Chat client with unread counts
+          const filter = {
+            members: { $in: [client.userID!] },
+            type: 'messaging'
+          };
+          const streamChannels = await client.queryChannels(filter, {}, { limit: 20 });
+
+          // Update unread counts with real Stream Chat data
+          enrichedChannels = channelsArray.map((chat: any) => {
+            const streamChannel = streamChannels.find(sc => sc.id === chat.channelId);
+            return {
+              ...chat,
+              unreadCount: streamChannel?.state?.unreadCount || 0
+            };
+          });
+        } catch (streamError) {
+          console.warn('Failed to get Stream Chat unread counts:', streamError);
+          // Fall back to API data if Stream Chat query fails
+        }
+      }
+
+      setChannels(enrichedChannels);
+
       // Restore active channel if it exists
       if (activeChannelId && client) {
         const channel = client.channel('messaging', activeChannelId);
@@ -105,6 +131,37 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           setClient(newClient);
           setConnectionStatus('connected');
           await loadChannels();
+
+          // Set up event listeners for real-time unread count updates
+          const updateUnreadCounts = async () => {
+            try {
+              const filter = {
+                members: { $in: [newClient.userID!] },
+                type: 'messaging'
+              };
+              const streamChannels = await newClient.queryChannels(filter, {}, { limit: 20 });
+
+              setChannels(prev => {
+                // Only update if we have channels loaded
+                if (prev.length === 0) return prev;
+
+                return prev.map((chat: any) => {
+                  const streamChannel = streamChannels.find(sc => sc.id === chat.channelId);
+                  return {
+                    ...chat,
+                    unreadCount: streamChannel?.state?.unreadCount || 0
+                  };
+                });
+              });
+            } catch (err) {
+              console.warn('Failed to update unread counts:', err);
+            }
+          };
+
+          // Listen for message events to update unread counts
+          newClient.on('message.new', updateUnreadCounts as any);
+          newClient.on('message.read', updateUnreadCounts as any);
+          newClient.on('notification.mark_read', updateUnreadCounts as any);
         } else {
           throw new Error('Failed to initialize chat client');
         }
@@ -130,6 +187,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     // Cleanup: unregister disconnect handler
     return () => {
       streamChatManager.offDisconnect(handleDisconnect);
+      // Note: Event listeners are cleaned up when the client disconnects
     };
   }, [user, loadChannels, cleanupChatState]);
 
