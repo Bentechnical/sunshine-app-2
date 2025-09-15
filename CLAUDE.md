@@ -45,7 +45,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Authentication & Authorization
 - **Clerk Integration**: Handles user authentication and session management
 - **Middleware Protection**: Custom middleware (`src/middleware.ts`) handles route protection
-- **Access Gate**: Password-protected unlock system for beta access
 - **User Roles**: `individual`, `volunteer`, `admin` with different permissions
 
 ### Database Architecture
@@ -177,7 +176,6 @@ Critical environment variables needed:
 - Clerk handles secure authentication flow
 - JWT tokens used for Supabase integration
 - Stream Chat tokens server-generated with user validation
-- Password-protected beta access gate
 
 ### Data Protection
 - Personal information visible only to authorized users

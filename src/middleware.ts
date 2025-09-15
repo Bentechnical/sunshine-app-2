@@ -3,9 +3,6 @@ import { clerkMiddleware } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PASSWORD_COOKIE = 'access_granted';
-const PASSWORD_COOKIE_VALUE = 'true';
-
 // Clerk public routes
 const isClerkPublicRoute = (path: string) =>
   path.startsWith('/sign-in') ||
@@ -59,26 +56,10 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
   const isDev = process.env.NODE_ENV === 'development';
   if (isDev) console.log('[Middleware] Path:', pathname);
 
-  // Check for ngrok requests and environment variable bypass FIRST (before any other checks)
-  if (isDev) {
-    if (isNgrokRequest(req)) {
-      console.log('[Middleware] Ngrok request detected, bypassing all checks for testing');
-      
-      // If ngrok request is trying to access /unlock, redirect to main app
-      if (pathname === '/unlock') {
-        console.log('[Middleware] Redirecting ngrok request from /unlock to main app');
-        const url = req.nextUrl.clone();
-        url.pathname = '/';
-        return NextResponse.redirect(url);
-      }
-      
-      return NextResponse.next();
-    }
-    
-    if (process.env.BYPASS_UNLOCK_GATE === 'true') {
-      console.log('[Middleware] Unlock gate bypassed via environment variable');
-      return NextResponse.next();
-    }
+  // Check for ngrok requests (for testing purposes)
+  if (isDev && isNgrokRequest(req)) {
+    console.log('[Middleware] Ngrok request detected, bypassing all checks for testing');
+    return NextResponse.next();
   }
 
   if (isBypassablePath(pathname)) {
@@ -121,19 +102,6 @@ export const middleware = clerkMiddleware(async (auth, req: NextRequest) => {
       url.pathname = '/sign-in';
       return NextResponse.redirect(url);
     }
-  }
-
-  // Check cookie for access gating (for non-admin routes)
-  const cookie = req.cookies.get(PASSWORD_COOKIE);
-  if (!cookie || cookie.value !== PASSWORD_COOKIE_VALUE) {
-    if (isDev) {
-      const host = req.headers.get('host');
-      const ua = req.headers.get('user-agent');
-      console.log('[Middleware] Missing/invalid cookie. host:', host, 'ua:', ua, 'cookieValue:', cookie?.value);
-    }
-    const url = req.nextUrl.clone();
-    url.pathname = '/unlock';
-    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();

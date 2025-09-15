@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
         appointmentTime: appointment.start_time,
         dogName: dogName,
         dogImage: dogImage,
-        otherUserName: `${otherUser?.first_name} ${otherUser?.last_name}`,
+        otherUserName: otherUser?.first_name || 'User',
         otherUserImage: otherUser?.profile_image,
         unreadCount: 0, // Always return 0 for non-admin users
         isActive: appointment.chat?.[0]?.status === 'active'
