@@ -94,6 +94,17 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         }
       }
 
+      console.log('[MessagingTab] 📋 Final channels data:', {
+        originalCount: channelsArray.length,
+        enrichedCount: enrichedChannels.length,
+        hasClient: !!client,
+        channelSample: enrichedChannels.slice(0, 2).map((ch: any) => ({
+          channelId: ch.channelId,
+          unreadCount: ch.unreadCount,
+          dogName: ch.dogName
+        }))
+      });
+
       setChannels(enrichedChannels);
 
       // Restore active channel if it exists

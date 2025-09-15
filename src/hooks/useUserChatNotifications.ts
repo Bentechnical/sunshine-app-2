@@ -12,7 +12,14 @@ export function useUserChatNotifications(activeTab?: string) {
   const checkUnreadMessages = useCallback(async (client: StreamChat | null = null) => {
     const chatClient = client || streamChatManager.getClient();
 
+    console.log('[useUserChatNotifications] checkUnreadMessages called:', {
+      hasClient: !!chatClient,
+      userID: chatClient?.userID,
+      timestamp: new Date().toISOString()
+    });
+
     if (!chatClient || !chatClient.userID) {
+      console.log('[useUserChatNotifications] No client or userID, setting hasUnreadMessages to false');
       setHasUnreadMessages(false);
       setLoading(false);
       return;
@@ -25,70 +32,107 @@ export function useUserChatNotifications(activeTab?: string) {
         type: 'messaging'
       };
 
+      console.log('[useUserChatNotifications] Querying channels with filter:', filter);
       const channels = await chatClient.queryChannels(filter, {}, { limit: 20 });
 
       // Check if any channel has unread messages
+      const channelDetails = channels.map(channel => ({
+        id: channel.id,
+        cid: channel.cid,
+        unread: channel.state.unreadCount || 0,
+        totalMessages: channel.state.messages?.length || 0,
+        lastMessage: channel.state.messages?.[channel.state.messages.length - 1]
+      }));
+
       const hasUnread = channels.some(channel => {
         return (channel.state.unreadCount || 0) > 0;
       });
 
-      console.log('[useUserChatNotifications] Unread check:', {
+      console.log('[useUserChatNotifications] ✅ Unread check complete:', {
         channelCount: channels.length,
         hasUnread,
-        unreadCounts: channels.map(c => ({ id: c.id, unread: c.state.unreadCount }))
+        currentState: hasUnreadMessages,
+        willUpdate: hasUnread !== hasUnreadMessages,
+        channelDetails
       });
 
       setHasUnreadMessages(hasUnread);
       setError(null);
     } catch (err) {
-      console.error('[useUserChatNotifications] Error checking unread messages:', err);
+      console.error('[useUserChatNotifications] ❌ Error checking unread messages:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       setHasUnreadMessages(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasUnreadMessages]);
 
   const setupEventListeners = useCallback((client: StreamChat) => {
-    if (eventListenersSetup.current || !client) return;
+    if (eventListenersSetup.current || !client) {
+      console.log('[useUserChatNotifications] Skipping event listener setup:', {
+        alreadySetup: eventListenersSetup.current,
+        hasClient: !!client
+      });
+      return;
+    }
 
-    console.log('[useUserChatNotifications] Setting up Stream Chat event listeners');
+    console.log('[useUserChatNotifications] 🎧 Setting up Stream Chat event listeners for user:', client.userID);
 
     // Listen for new messages
     const handleNewMessage = (event: any) => {
-      // Only update if this is not the current user's message
-      if (event.user?.id !== client.userID) {
-        console.log('[useUserChatNotifications] New message received, checking unread state');
-        checkUnreadMessages(client);
-      }
+      console.log('[useUserChatNotifications] 📩 New message event:', {
+        channelId: event.channel?.id,
+        messageId: event.message?.id,
+        fromUser: event.user?.id,
+        currentUser: client.userID,
+        isOwnMessage: event.user?.id === client.userID,
+        messageText: event.message?.text?.substring(0, 50) + '...'
+      });
+
+      // Always check unread state when new messages arrive
+      setTimeout(() => checkUnreadMessages(client), 100);
     };
 
     // Listen for message read events
     const handleMessageRead = (event: any) => {
-      console.log('[useUserChatNotifications] Message read event, checking unread state');
-      checkUnreadMessages(client);
+      console.log('[useUserChatNotifications] 👁️ Message read event:', {
+        channelId: event.channel?.id,
+        user: event.user?.id
+      });
+      setTimeout(() => checkUnreadMessages(client), 100);
     };
 
     // Listen for channel updates (includes unread count changes)
     const handleChannelUpdated = (event: any) => {
-      console.log('[useUserChatNotifications] Channel updated, checking unread state');
-      checkUnreadMessages(client);
+      console.log('[useUserChatNotifications] 🔄 Channel updated event:', {
+        channelId: event.channel?.id,
+        type: event.type
+      });
+      setTimeout(() => checkUnreadMessages(client), 100);
+    };
+
+    // Listen for notifications
+    const handleNotificationMarkRead = (event: any) => {
+      console.log('[useUserChatNotifications] 🔔 Notification mark read event:', event);
+      setTimeout(() => checkUnreadMessages(client), 100);
     };
 
     // Set up event listeners
     client.on('message.new', handleNewMessage);
     client.on('message.read', handleMessageRead);
-    client.on('notification.mark_read', handleMessageRead);
+    client.on('notification.mark_read', handleNotificationMarkRead);
     client.on('channel.updated', handleChannelUpdated);
 
     eventListenersSetup.current = true;
 
+    console.log('[useUserChatNotifications] ✅ Event listeners set up successfully');
+
     // Return cleanup function
     return () => {
-      console.log('[useUserChatNotifications] Cleaning up Stream Chat event listeners');
+      console.log('[useUserChatNotifications] 🧹 Cleaning up Stream Chat event listeners');
       client.off('message.new', handleNewMessage);
       client.off('message.read', handleMessageRead);
-      client.off('notification.mark_read', handleMessageRead);
+      client.off('notification.mark_read', handleNotificationMarkRead);
       client.off('channel.updated', handleChannelUpdated);
       eventListenersSetup.current = false;
     };

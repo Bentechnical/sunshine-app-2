@@ -12,6 +12,14 @@
   export function DesktopNav({ role, activeTab, setActiveTab }: DesktopNavProps) {
     const { hasUnreadMessages } = useUserChatNotifications(activeTab);
 
+    // Debug logging for navigation notifications
+    console.log('[DesktopNav] Notification state:', {
+      role,
+      activeTab,
+      hasUnreadMessages,
+      timestamp: new Date().toISOString()
+    });
+
     const tabs: { label: string; key: ActiveTab; showAlert?: boolean }[] =
     role === 'individual'
       ? [
