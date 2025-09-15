@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
           memberCount: channel.data?.member_count || 0,
           messageCount: channel.state?.messages?.length || 0,
           lastMessage: channel.state?.messages?.[channel.state.messages.length - 1],
-          custom: channel.data?.custom || {}
+          custom: (channel.data as any)?.custom || {}
         });
       } catch (err) {
         console.warn(`Failed to query channel ${chat.stream_channel_id}:`, err);
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         streamChannelCount: streamChannelDetails.length
       },
       data: {
-        userChats: userChats.map(chat => ({
+        userChats: userChats.map((chat: any) => ({
           appointmentId: chat.appointment_id,
           channelId: chat.stream_channel_id,
           status: chat.status,
