@@ -1,6 +1,7 @@
   // src/components/layout/DesktopNav.tsx
   import { Dispatch, SetStateAction } from 'react';
   import { ActiveTab } from '@/types/navigation';
+  import { useUserChatNotifications } from '@/hooks/useUserChatNotifications';
 
   export interface DesktopNavProps {
     role: 'individual' | 'volunteer' | 'admin';
@@ -9,20 +10,22 @@
   }
 
   export function DesktopNav({ role, activeTab, setActiveTab }: DesktopNavProps) {
+    const { hasUnreadMessages } = useUserChatNotifications(activeTab);
+
     const tabs: { label: string; key: ActiveTab; showAlert?: boolean }[] =
     role === 'individual'
       ? [
           { key: 'dashboard-home', label: 'Home' },
           { key: 'meet-with-dog', label: 'Meet With Dog' },
           { key: 'my-visits', label: 'My Visits' },
-          { key: 'messaging', label: 'Messages' },
+          { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : role === 'volunteer'
       ? [
           { key: 'dashboard-home', label: 'Home' },
           { key: 'my-therapy-dog', label: 'Set Availability' },
           { key: 'my-visits', label: 'My Visits' },
-          { key: 'messaging', label: 'Messages' },
+          { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : [];
 
