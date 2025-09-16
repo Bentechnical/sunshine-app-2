@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { streamChatManager } from '@/utils/stream-chat-client';
 import { StreamChat } from 'stream-chat';
@@ -10,7 +10,7 @@ interface UnreadCountContextType {
   loading: boolean;
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   client: StreamChat | null;
-  refreshUnreadCount: () => Promise<void>;
+  updateUnreadFromChannels: (channels: any[]) => void;
 }
 
 const UnreadCountContext = createContext<UnreadCountContextType | null>(null);
@@ -34,10 +34,6 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
   const [client, setClient] = useState<StreamChat | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
 
-  // Use refs to prevent excessive API calls
-  const lastUnreadCheckRef = useRef<number>(0);
-  const isCheckingUnreadRef = useRef(false);
-
   const cleanupChatState = useCallback(() => {
     setClient(null);
     setConnectionStatus('disconnected');
@@ -45,72 +41,17 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     setLoading(false);
   }, []);
 
-  // Shared unread count loading with throttling
-  const loadUnreadCount = useCallback(async () => {
-    if (!client || !client.userID || isCheckingUnreadRef.current) {
-      console.log('[UnreadCountContext] Skipping unread check - no client or already checking');
-      setHasUnreadMessages(false);
-      setLoading(false);
-      return;
-    }
+  // ONLY function to update unread state - called by MessagingTab
+  const updateUnreadFromChannels = useCallback((channels: any[]) => {
+    const totalUnreadFromChannels = channels.reduce((total, channel) => {
+      return total + (channel.unreadCount || 0);
+    }, 0);
 
-    // Throttle API calls to prevent rate limiting (max once per 2 seconds)
-    const now = Date.now();
-    if (now - lastUnreadCheckRef.current < 2000) {
-      console.log('[UnreadCountContext] Throttling unread check - too soon since last call');
-      return;
-    }
+    const hasUnread = totalUnreadFromChannels > 0;
+    setHasUnreadMessages(hasUnread);
+  }, []);
 
-    isCheckingUnreadRef.current = true;
-    lastUnreadCheckRef.current = now;
-
-    try {
-
-      const unreadResponse = await client.getUnreadCount();
-
-      // Calculate unread count from individual channels instead of trusting API total
-      const actualUnreadCount = unreadResponse.channels?.reduce((total: number, channel: any) => {
-        return total + (channel.unread_count || 0);
-      }, 0) || 0;
-
-      const apiTotal = unreadResponse.total_unread_count || 0;
-
-      console.log('[UnreadCountContext] Unread count comparison:', {
-        apiTotal,
-        calculatedFromChannels: actualUnreadCount,
-        channelCount: unreadResponse.channels?.length
-      });
-
-      // Use calculated count instead of API total to avoid caching issues
-      const hasUnread = actualUnreadCount > 0;
-      setHasUnreadMessages(hasUnread);
-      setLoading(false);
-
-      if (apiTotal !== actualUnreadCount) {
-        console.warn('[UnreadCountContext] ⚠️ API total mismatch - using calculated:', {
-          apiSaid: apiTotal,
-          calculatedActual: actualUnreadCount,
-          using: actualUnreadCount
-        });
-      }
-
-    } catch (error) {
-      console.error('[UnreadCountContext] ❌ Error getting unread count:', error);
-      setHasUnreadMessages(false);
-      setLoading(false);
-    } finally {
-      isCheckingUnreadRef.current = false;
-    }
-  }, [client]);
-
-  // Public refresh function for components that need to force an update
-  const refreshUnreadCount = useCallback(async () => {
-    // Reset throttling for manual refresh
-    lastUnreadCheckRef.current = 0;
-    await loadUnreadCount();
-  }, [loadUnreadCount]);
-
-  // Initialize chat connection
+  // ONLY initialize chat connection - MessagingTab handles all unread logic
   useEffect(() => {
     if (!user) return;
 
@@ -119,7 +60,6 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
       setLoading(true);
 
       try {
-
         const newClient = await streamChatManager.connectUserWithProvider(
           user.id,
           {
@@ -132,21 +72,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
         if (newClient) {
           setClient(newClient);
           setConnectionStatus('connected');
-          await loadUnreadCount();
-
-          // Set up shared event listeners for real-time unread count updates
-          const updateUnreadCounts = async () => {
-            try {
-              await loadUnreadCount();
-            } catch (err) {
-              console.warn('[UnreadCountContext] Failed to update unread counts:', err);
-            }
-          };
-
-          // Listen for official unread notification events
-          newClient.on('notification.message_new', updateUnreadCounts as any);
-          newClient.on('notification.mark_read', updateUnreadCounts as any);
-          newClient.on('notification.mark_unread', updateUnreadCounts as any);
+          setLoading(false);
         } else {
           throw new Error('Failed to initialize chat client');
         }
@@ -159,7 +85,6 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
 
     // Handle disconnection from StreamChatManager
     const handleDisconnect = () => {
-      console.log('[UnreadCountContext] Received disconnect notification');
       setConnectionStatus('disconnected');
       cleanupChatState();
     };
@@ -172,14 +97,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     return () => {
       streamChatManager.offDisconnect(handleDisconnect);
     };
-  }, [user, loadUnreadCount, cleanupChatState]);
-
-  // Only log state changes, not every render
-  const prevHasUnread = React.useRef(hasUnreadMessages);
-  if (prevHasUnread.current !== hasUnreadMessages) {
-    console.log('[UnreadCountContext] State change:', { hasUnreadMessages, connectionStatus });
-    prevHasUnread.current = hasUnreadMessages;
-  }
+  }, [user, cleanupChatState]);
 
   return (
     <UnreadCountContext.Provider
@@ -188,7 +106,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
         loading,
         connectionStatus,
         client,
-        refreshUnreadCount
+        updateUnreadFromChannels
       }}
     >
       {children}

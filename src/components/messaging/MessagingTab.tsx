@@ -32,7 +32,7 @@ interface MessagingTabProps {
 }
 
 export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) {
-  const { client, connectionStatus, refreshUnreadCount } = useUnreadCount();
+  const { client, connectionStatus, updateUnreadFromChannels } = useUnreadCount();
 
   // Core state
   const [channels, setChannels] = useState<ChatData[]>([]);
@@ -111,6 +111,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
       setChannels(enrichedChannels);
 
+      // Update shared context with reliable MessagingTab data
+      updateUnreadFromChannels(enrichedChannels);
+
       // Restore active channel if it exists
       if (activeChannelId && client) {
         const channel = client.channel('messaging', activeChannelId);
@@ -122,7 +125,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       setError('Failed to load conversations');
       setChannels([]);
     }
-  }, [activeChannelId, client]);
+  }, [activeChannelId, client, updateUnreadFromChannels]);
 
   // Load channels when client is ready
   useEffect(() => {
@@ -132,9 +135,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       // Set up event listeners for real-time unread count updates
       const updateUnreadCounts = async () => {
         try {
-          // Trigger refresh of shared unread state
-          await refreshUnreadCount();
-          // Also reload channels to update individual chat unread counts
+          // Reload channels which will automatically update shared context
           await loadChannels();
         } catch (err) {
           console.warn('[MessagingTab] Failed to update unread counts:', err);
@@ -153,7 +154,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         client.off('notification.mark_unread', updateUnreadCounts as any);
       };
     }
-  }, [client, connectionStatus, loadChannels, refreshUnreadCount]);
+  }, [client, connectionStatus, loadChannels]);
 
   // Mobile detection
   useEffect(() => {
