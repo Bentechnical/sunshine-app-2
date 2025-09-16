@@ -69,27 +69,36 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       const data = await response.json();
       const channelsArray = Array.isArray(data.chats) ? data.chats : [];
 
-      // If we have a Stream Chat client, get real-time unread counts
+      // If we have a Stream Chat client, get real-time unread counts using official API
       let enrichedChannels = channelsArray;
       if (client && client.userID) {
         try {
-          // Get channels from Stream Chat client with unread counts
-          const filter = {
-            members: { $in: [client.userID!] },
-            type: 'messaging'
-          };
-          const streamChannels = await client.queryChannels(filter, {}, { limit: 20 });
+          // Use Stream Chat's official unread count API
+          const unreadResponse = await client.getUnreadCount();
 
-          // Update unread counts with real Stream Chat data
+          console.log('[MessagingTab] Got unread counts from Stream Chat API:', {
+            total_unread: unreadResponse.total_unread_count,
+            channels: unreadResponse.channels?.length,
+            channelDetails: unreadResponse.channels?.slice(0, 3)
+          });
+
+          // Update unread counts with official Stream Chat unread data
           enrichedChannels = channelsArray.map((chat: any) => {
-            const streamChannel = streamChannels.find(sc => sc.id === chat.channelId);
+            // Extract channel ID from the full channel ID (format: messaging:channel-id)
+            const channelId = chat.channelId?.split(':')[1] || chat.channelId;
+
+            // Find matching channel in unread response
+            const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+              uc.channel_id === channelId || uc.channel_id === chat.channelId
+            );
+
             return {
               ...chat,
-              unreadCount: streamChannel?.state?.unreadCount || 0
+              unreadCount: unreadChannel?.unread_count || 0
             };
           });
         } catch (streamError) {
-          console.warn('Failed to get Stream Chat unread counts:', streamError);
+          console.warn('[MessagingTab] Failed to get Stream Chat unread counts:', streamError);
           // Fall back to API data if Stream Chat query fails
         }
       }
@@ -146,33 +155,39 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           // Set up event listeners for real-time unread count updates
           const updateUnreadCounts = async () => {
             try {
-              const filter = {
-                members: { $in: [newClient.userID!] },
-                type: 'messaging'
-              };
-              const streamChannels = await newClient.queryChannels(filter, {}, { limit: 20 });
+              // Use official unread API instead of queryChannels
+              const unreadResponse = await newClient.getUnreadCount();
+
+              console.log('[MessagingTab] Real-time unread update:', {
+                total_unread: unreadResponse.total_unread_count,
+                channels_with_unread: unreadResponse.channels?.length
+              });
 
               setChannels(prev => {
                 // Only update if we have channels loaded
                 if (prev.length === 0) return prev;
 
                 return prev.map((chat: any) => {
-                  const streamChannel = streamChannels.find(sc => sc.id === chat.channelId);
+                  const channelId = chat.channelId?.split(':')[1] || chat.channelId;
+                  const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+                    uc.channel_id === channelId || uc.channel_id === chat.channelId
+                  );
+
                   return {
                     ...chat,
-                    unreadCount: streamChannel?.state?.unreadCount || 0
+                    unreadCount: unreadChannel?.unread_count || 0
                   };
                 });
               });
             } catch (err) {
-              console.warn('Failed to update unread counts:', err);
+              console.warn('[MessagingTab] Failed to update unread counts:', err);
             }
           };
 
-          // Listen for message events to update unread counts
-          newClient.on('message.new', updateUnreadCounts as any);
-          newClient.on('message.read', updateUnreadCounts as any);
+          // Listen for official unread notification events
+          newClient.on('notification.message_new', updateUnreadCounts as any);
           newClient.on('notification.mark_read', updateUnreadCounts as any);
+          newClient.on('notification.mark_unread', updateUnreadCounts as any);
         } else {
           throw new Error('Failed to initialize chat client');
         }
