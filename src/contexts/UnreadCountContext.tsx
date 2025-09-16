@@ -145,7 +145,11 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           // Set up global real-time event listeners for unread updates
           const updateUnreadFromRealtimeEvent = async () => {
             try {
-              console.log('[UnreadCountContext] 🔔 Real-time message event received, refreshing unread state...');
+              console.log('[UnreadCountContext] 🔔 Real-time message event received, refreshing unread state...', {
+                clientExists: !!newClient,
+                clientUserID: newClient?.userID,
+                timestamp: new Date().toISOString()
+              });
 
               // Fetch fresh channel data (same as initial load)
               const response = await fetch('/api/chat/channels');
@@ -200,6 +204,31 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           // Store cleanup function for later use
           (newClient as any).__unreadContextCleanup = cleanup;
 
+          // Periodic health check for event listeners
+          const healthCheck = setInterval(() => {
+            const currentClient = streamChatManager.getClient();
+            if (!currentClient || !currentClient.userID) {
+              console.warn('[UnreadCountContext] ⚠️ Client disconnected, event listeners may be lost');
+            } else if (currentClient !== newClient) {
+              console.warn('[UnreadCountContext] ⚠️ Client instance changed, re-setting up event listeners');
+
+              // Set up event listeners on new client
+              try {
+                currentClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
+                currentClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
+                currentClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
+                console.log('[UnreadCountContext] 🔄 Event listeners re-attached to new client');
+              } catch (err) {
+                console.error('[UnreadCountContext] Failed to re-attach event listeners:', err);
+              }
+            } else {
+              console.log('[UnreadCountContext] ✅ Event listeners health check passed');
+            }
+          }, 60000); // Check every minute
+
+          // Store health check for cleanup
+          (newClient as any).__unreadContextHealthCheck = healthCheck;
+
           setLoading(false);
         } else {
           throw new Error('Failed to initialize chat client');
@@ -227,8 +256,13 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
 
       // Clean up Stream Chat event listeners if client exists
       const currentClient = streamChatManager.getClient();
-      if (currentClient && (currentClient as any).__unreadContextCleanup) {
-        (currentClient as any).__unreadContextCleanup();
+      if (currentClient) {
+        if ((currentClient as any).__unreadContextCleanup) {
+          (currentClient as any).__unreadContextCleanup();
+        }
+        if ((currentClient as any).__unreadContextHealthCheck) {
+          clearInterval((currentClient as any).__unreadContextHealthCheck);
+        }
       }
     };
   }, [user, cleanupChatState]);
