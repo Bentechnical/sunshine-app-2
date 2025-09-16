@@ -46,21 +46,6 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('template');
   const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Detect if device is mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent.toLowerCase();
-      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      setIsMobile(isMobileDevice || (isTouchDevice && window.innerWidth < 768));
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Initialize availability structure
   useEffect(() => {
@@ -560,43 +545,21 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                       ) : (
                         dayAvail.timeRanges.map((range) => (
                           <div key={range.id} className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg">
-                            <div className="flex-1 flex items-center gap-2 min-w-0">
-                              <div className="relative flex-1">
-                                {isMobile ? (
-                                  <input
-                                    type="time"
-                                    step="900"
-                                    value={range.startTime}
-                                    onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', e.target.value)}
-                                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors"
-                                    onClick={(e) => e.currentTarget.showPicker?.()}
-                                  />
-                                ) : (
-                                  <CustomTimePicker
-                                    value={range.startTime}
-                                    onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', value)}
-                                    className="flex-1"
-                                  />
-                                )}
+                            <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
+                              <div className="relative flex-1 min-w-0">
+                                <CustomTimePicker
+                                  value={range.startTime}
+                                  onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', value)}
+                                  className="w-full"
+                                />
                               </div>
-                              <span className="text-gray-500 flex-shrink-0">to</span>
-                              <div className="relative flex-1">
-                                {isMobile ? (
-                                  <input
-                                    type="time"
-                                    step="900"
-                                    value={range.endTime}
-                                    onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', e.target.value)}
-                                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors"
-                                    onClick={(e) => e.currentTarget.showPicker?.()}
-                                  />
-                                ) : (
-                                  <CustomTimePicker
-                                    value={range.endTime}
-                                    onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', value)}
-                                    className="flex-1"
-                                  />
-                                )}
+                              <span className="text-gray-500 flex-shrink-0 text-sm">to</span>
+                              <div className="relative flex-1 min-w-0">
+                                <CustomTimePicker
+                                  value={range.endTime}
+                                  onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', value)}
+                                  className="w-full"
+                                />
                               </div>
                             </div>
 

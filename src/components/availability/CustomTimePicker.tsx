@@ -74,13 +74,15 @@ export default function CustomTimePicker({ value, onChange, className = '' }: Cu
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-colors bg-white flex items-center justify-between text-left"
+        className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-colors bg-white flex items-center justify-between text-left min-h-[40px]"
       >
-        <span className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-gray-400" />
-          {selectedOption ? selectedOption.display : 'Select time'}
+        <span className="flex items-center gap-1 min-w-0">
+          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+          <span className="text-sm truncate">
+            {selectedOption ? selectedOption.display : 'Select time'}
+          </span>
         </span>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown */}
@@ -92,7 +94,7 @@ export default function CustomTimePicker({ value, onChange, className = '' }: Cu
                 key={option.value}
                 type="button"
                 onClick={() => handleSelect(option.value)}
-                className={`w-full px-3 py-2 text-left hover:bg-blue-50 hover:text-blue-600 transition-colors ${
+                className={`w-full px-3 py-3 sm:py-2 text-left hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm ${
                   option.value === value ? 'bg-blue-100 text-blue-600' : 'text-gray-900'
                 }`}
               >
