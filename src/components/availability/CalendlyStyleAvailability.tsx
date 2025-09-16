@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { Plus, Trash2, Clock } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar } from 'lucide-react';
+import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
 import { RRule } from 'rrule';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -23,6 +24,8 @@ interface CalendlyStyleAvailabilityProps {
   userId: string;
 }
 
+type TabType = 'template' | 'slots';
+
 const RECURRING_WEEKS = 12; // Generate 12 weeks of recurring slots
 
 const DAYS = [
@@ -40,6 +43,8 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('template');
+  const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
 
   // Initialize availability structure
   useEffect(() => {
@@ -51,7 +56,28 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     }));
     setAvailability(initAvailability);
     loadExistingAvailability();
+    loadAllAvailabilitySlots();
   }, [userId]);
+
+  // Load all availability slots for the slots tab
+  const loadAllAvailabilitySlots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointment_availability')
+        .select('*')
+        .eq('volunteer_id', userId)
+        .order('start_time');
+
+      if (error) {
+        console.error('Error loading availability slots:', error);
+        return;
+      }
+
+      setAvailabilitySlots(data || []);
+    } catch (error) {
+      console.error('Error loading availability slots:', error);
+    }
+  };
 
   // Load existing availability from database (recurring slots)
   const loadExistingAvailability = async () => {
@@ -349,6 +375,9 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
       // Clear success message after 5 seconds
       setTimeout(() => setSaveMessage(null), 5000);
 
+      // Reload all slots for the slots tab
+      loadAllAvailabilitySlots();
+
     } catch (error) {
       console.error('Error saving availability:', error);
       setSaveMessage({ type: 'error', text: 'Error saving availability. Please try again.' });
@@ -357,25 +386,70 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     }
   };
 
+  // Delete individual slot
+  const deleteSlot = async (slotId: number) => {
+    if (!confirm('Are you sure you want to remove this time slot?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('appointment_availability')
+        .delete()
+        .eq('id', slotId);
+
+      if (error) throw error;
+
+      // Update local state immediately
+      setAvailabilitySlots(prev => prev.filter(slot => slot.id !== slotId));
+    } catch (error) {
+      console.error('Error deleting slot:', error);
+    }
+  };
+
   return (
-    <div className="flex flex-col bg-white h-full max-h-screen">
+    <div className="flex flex-col bg-white h-full min-h-0">
+      {/* Tab Navigation Header */}
       <div className="flex-shrink-0 px-4 py-3 border-b bg-white">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Set Your Weekly Availability</h2>
-          <button
-            onClick={saveAvailability}
-            disabled={isSaving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </button>
+          <div className="flex space-x-0">
+            <button
+              onClick={() => setActiveTab('template')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'template'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Set Weekly Template
+            </button>
+            <button
+              onClick={() => setActiveTab('slots')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'slots'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Modify Specific Dates
+            </button>
+          </div>
+
+          {/* Save Changes button - only show on template tab */}
+          {activeTab === 'template' && (
+            <button
+              onClick={saveAvailability}
+              disabled={isSaving}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </button>
+          )}
         </div>
 
         {saveMessage && (
@@ -387,10 +461,29 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      {/* Explanatory prompt - full width */}
+      <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
+        <p className="text-sm text-amber-800">
+          {activeTab === 'template' ? (
+            <>
+              <strong>Setting your availability:</strong> This will create appointment slots for the next 12 weeks.
+              Individuals will be able to request appointments during these times.
+            </>
+          ) : (
+            <>
+              <strong>Managing specific dates:</strong> Remove individual time slots for holidays, conflicts, or other exceptions.
+              Changes are applied immediately.
+            </>
+          )}
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 min-h-0">
         <div className="max-w-4xl mx-auto">
-          <div className="space-y-4">
-            {availability.map((dayAvail) => {
+          {activeTab === 'template' ? (
+            // Weekly Template Tab Content
+            <div className="space-y-4">
+              {availability.map((dayAvail) => {
               const dayInfo = DAYS.find(d => d.index === dayAvail.dayIndex);
 
               return (
@@ -472,26 +565,128 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                   )}
                 </div>
               );
-            })}
-          </div>
-
-          {/* Help Text */}
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2">How recurring availability works:</h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Toggle days on/off using the checkboxes</li>
-              <li>• Add multiple time ranges per day (e.g., 9AM-12PM, 2PM-5PM)</li>
-              <li>• When you save, the system creates {RECURRING_WEEKS} weeks of future slots</li>
-              <li>• Individuals can book appointments from your available time slots</li>
-              <li>• Updating your availability replaces all future slots with new ones</li>
-            </ul>
-            <div className="mt-3 text-xs text-blue-700 bg-blue-100 p-2 rounded">
-              <strong>Note:</strong> Each save creates approximately {RECURRING_WEEKS} slots per time range.
-              For example, "Tuesdays 1-5pm" creates {RECURRING_WEEKS} individual booking slots.
+              })}
             </div>
-          </div>
+          ) : (
+            // Individual Slots Tab Content
+            renderSlotsTab()
+          )}
+
+          {/* Bottom padding for mobile layout */}
+          <div className="h-24"></div>
         </div>
       </div>
     </div>
   );
+
+  // Render the slots management tab
+  function renderSlotsTab() {
+    // Helper functions for slots tab
+    const groupSlotsByWeek = () => {
+      const weeks: { [key: string]: any[] } = {};
+
+      availabilitySlots.forEach(slot => {
+        const date = new Date(slot.start_time);
+        const startOfWeek = new Date(date);
+        const day = startOfWeek.getDay();
+        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Monday as start of week
+        startOfWeek.setDate(diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const weekKey = startOfWeek.toISOString().split('T')[0];
+        if (!weeks[weekKey]) {
+          weeks[weekKey] = [];
+        }
+        weeks[weekKey].push(slot);
+      });
+
+      // Sort slots within each week
+      Object.keys(weeks).forEach(weekKey => {
+        weeks[weekKey].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      });
+
+      return weeks;
+    };
+
+    const formatSlotTime = (startTime: string, endTime: string) => {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      return `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
+    };
+
+    const formatSlotDate = (dateString: string) => {
+      const date = new Date(dateString);
+      const dayName = format(date, 'EEEE');
+      const monthDay = format(date, 'MMM d');
+
+      if (isToday(date)) return `${dayName}, ${monthDay} (Today)`;
+      if (isTomorrow(date)) return `${dayName}, ${monthDay} (Tomorrow)`;
+      if (isYesterday(date)) return `${dayName}, ${monthDay} (Yesterday)`;
+
+      return `${dayName}, ${monthDay}`;
+    };
+
+    const weekGroups = groupSlotsByWeek();
+    const sortedWeekKeys = Object.keys(weekGroups).sort();
+
+    if (availabilitySlots.length === 0) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center text-gray-500">
+            <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium mb-2">No availability slots found</h3>
+            <p className="text-sm">Set up your weekly template first to create time slots.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {sortedWeekKeys.map(weekKey => {
+          const weekStart = new Date(weekKey);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+
+          return (
+            <div key={weekKey} className="border rounded-lg overflow-hidden bg-white shadow-sm">
+              {/* Week Header - More Prominent */}
+              <div className="bg-blue-50 px-3 py-2 border-b-2 border-blue-100">
+                <h3 className="font-semibold text-blue-900 text-sm">
+                  Week of {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                </h3>
+              </div>
+
+              {/* Week's Slots - Compact Single Lines */}
+              <div className="divide-y divide-gray-100">
+                {weekGroups[weekKey].map(slot => (
+                  <div key={slot.id} className="px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="font-medium text-gray-900 truncate">
+                          {formatSlotDate(slot.start_time)}
+                        </span>
+                        <span className="text-gray-500">•</span>
+                        <span className="text-gray-600 whitespace-nowrap">
+                          {formatSlotTime(slot.start_time, slot.end_time)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => deleteSlot(slot.id)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors group flex-shrink-0 ml-2"
+                      title="Remove this time slot"
+                    >
+                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 }
