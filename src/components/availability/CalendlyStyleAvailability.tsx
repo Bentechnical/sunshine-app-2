@@ -527,7 +527,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
               const dayInfo = DAYS.find(d => d.index === dayAvail.dayIndex);
 
               return (
-                <div key={dayAvail.dayIndex} className="border rounded-lg overflow-hidden">
+                <div key={dayAvail.dayIndex} className="border rounded-lg">
                   {/* Day Header */}
                   <div className="bg-gray-50 p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
