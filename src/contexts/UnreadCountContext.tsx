@@ -35,6 +35,9 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
   const [client, setClient] = useState<StreamChat | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
 
+  // Store the current client reference for event listener management
+  const currentClientRef = useRef<StreamChat | null>(null);
+
   const cleanupChatState = useCallback(() => {
     setClient(null);
     setConnectionStatus('disconnected');
@@ -108,6 +111,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
         if (newClient) {
           setClient(newClient);
           setConnectionStatus('connected');
+          currentClientRef.current = newClient;
 
           // Load initial unread state when connection is established
           console.log('[UnreadCountContext] Starting initial unread state load...');
@@ -211,6 +215,8 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
 
           console.log('[UnreadCountContext] 🎧 Real-time event listeners set up');
 
+          // Keep default 60s hidden timeout but make reconnection seamless
+
           // Store cleanup function for this specific client and handlers
           const cleanup = () => {
             try {
@@ -226,27 +232,40 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           // Store cleanup function for later use
           (newClient as any).__unreadContextCleanup = cleanup;
 
-          // Periodic health check for event listeners
+          // Smart health check that handles reconnection automatically
           const healthCheck = setInterval(() => {
             const currentClient = streamChatManager.getClient();
-            if (!currentClient || !currentClient.userID) {
-              console.warn('[UnreadCountContext] ⚠️ Client disconnected, event listeners may be lost');
-            } else if (currentClient !== newClient) {
-              console.warn('[UnreadCountContext] ⚠️ Client instance changed, re-setting up event listeners');
 
-              // Set up event listeners on new client
+            if (!currentClient || !currentClient.userID) {
+              // Client is disconnected - this is expected when tab is hidden
+              console.log('[UnreadCountContext] ℹ️ Client disconnected (tab hidden), will reconnect when needed');
+            } else if (currentClient !== currentClientRef.current) {
+              // Client instance changed - reconnection happened, re-attach listeners
+              console.log('[UnreadCountContext] 🔄 Client reconnected, re-setting up event listeners');
+
               try {
+                // Re-attach event listeners to the new client instance
                 currentClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
                 currentClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
                 currentClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
-                console.log('[UnreadCountContext] 🔄 Event listeners re-attached to new client');
+
+                // Update stored client reference and context
+                currentClientRef.current = currentClient;
+                setClient(currentClient);
+
+                // Refresh unread state immediately after reconnection
+                const enrichedChannels = await refreshChannelData();
+                updateUnreadFromChannels(enrichedChannels);
+
+                console.log('[UnreadCountContext] ✅ Event listeners re-attached and state refreshed');
               } catch (err) {
                 console.error('[UnreadCountContext] Failed to re-attach event listeners:', err);
               }
-            } else {
+            } else if (currentClient.userID) {
+              // All good - client connected and same instance
               console.log('[UnreadCountContext] ✅ Event listeners health check passed');
             }
-          }, 60000); // Check every minute
+          }, 30000); // Check every 30 seconds for faster reconnection
 
           // Store health check for cleanup
           (newClient as any).__unreadContextHealthCheck = healthCheck;
