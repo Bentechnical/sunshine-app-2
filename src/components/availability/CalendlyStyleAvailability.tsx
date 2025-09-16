@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Plus, Trash2, Clock, Calendar } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
+import CustomTimePicker from './CustomTimePicker';
 import { RRule } from 'rrule';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -45,6 +46,21 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('template');
   const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsMobile(isMobileDevice || (isTouchDevice && window.innerWidth < 768));
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Initialize availability structure
   useEffect(() => {
@@ -206,8 +222,23 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     );
   };
 
+  // Round time to nearest 15 minutes
+  const roundToNearestQuarter = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const roundedMinutes = Math.round(minutes / 15) * 15;
+
+    if (roundedMinutes === 60) {
+      return `${String(Math.min(hours + 1, 23)).padStart(2, '0')}:00`;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
+  };
+
   // Update time range
   const updateTimeRange = (dayIndex: number, rangeId: string, field: 'startTime' | 'endTime', value: string) => {
+    // Round to nearest 15 minutes
+    const roundedValue = roundToNearestQuarter(value);
+
     setAvailability(prev =>
       prev.map(day => {
         if (day.dayIndex === dayIndex) {
@@ -215,7 +246,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
             ...day,
             timeRanges: day.timeRanges.map(range => {
               if (range.id === rangeId) {
-                const updated = { ...range, [field]: value };
+                const updated = { ...range, [field]: roundedValue };
 
                 // Ensure end time is after start time
                 if (field === 'startTime' && updated.startTime >= updated.endTime) {
@@ -530,19 +561,43 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                         dayAvail.timeRanges.map((range) => (
                           <div key={range.id} className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg">
                             <div className="flex-1 flex items-center gap-2 min-w-0">
-                              <input
-                                type="time"
-                                value={range.startTime}
-                                onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', e.target.value)}
-                                className="px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-0 flex-1"
-                              />
+                              <div className="relative flex-1">
+                                {isMobile ? (
+                                  <input
+                                    type="time"
+                                    step="900"
+                                    value={range.startTime}
+                                    onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', e.target.value)}
+                                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors"
+                                    onClick={(e) => e.currentTarget.showPicker?.()}
+                                  />
+                                ) : (
+                                  <CustomTimePicker
+                                    value={range.startTime}
+                                    onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', value)}
+                                    className="flex-1"
+                                  />
+                                )}
+                              </div>
                               <span className="text-gray-500 flex-shrink-0">to</span>
-                              <input
-                                type="time"
-                                value={range.endTime}
-                                onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', e.target.value)}
-                                className="px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-0 flex-1"
-                              />
+                              <div className="relative flex-1">
+                                {isMobile ? (
+                                  <input
+                                    type="time"
+                                    step="900"
+                                    value={range.endTime}
+                                    onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', e.target.value)}
+                                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors"
+                                    onClick={(e) => e.currentTarget.showPicker?.()}
+                                  />
+                                ) : (
+                                  <CustomTimePicker
+                                    value={range.endTime}
+                                    onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', value)}
+                                    className="flex-1"
+                                  />
+                                )}
+                              </div>
                             </div>
 
                             {dayAvail.timeRanges.length > 1 && (
