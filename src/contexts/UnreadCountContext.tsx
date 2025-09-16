@@ -72,6 +72,41 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
         if (newClient) {
           setClient(newClient);
           setConnectionStatus('connected');
+
+          // Load initial unread state when connection is established
+          try {
+            const response = await fetch('/api/chat/channels');
+            if (response.ok) {
+              const data = await response.json();
+              const channelsArray = Array.isArray(data.chats) ? data.chats : [];
+
+              // Get unread counts from Stream Chat for initial load
+              const unreadResponse = await newClient.getUnreadCount();
+
+              // Update channels with unread counts (same logic as MessagingTab)
+              const enrichedChannels = channelsArray.map((chat: any) => {
+                const channelId = chat.channelId?.split(':')[1] || chat.channelId;
+                const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+                  uc.channel_id === channelId || uc.channel_id === chat.channelId
+                );
+                return {
+                  ...chat,
+                  unreadCount: unreadChannel?.unread_count || 0
+                };
+              });
+
+              // Update context with initial unread state
+              updateUnreadFromChannels(enrichedChannels);
+
+              console.log('[UnreadCountContext] Initial unread state loaded:', {
+                totalChannels: enrichedChannels.length,
+                hasAnyUnreads: enrichedChannels.some((ch: any) => ch.unreadCount > 0)
+              });
+            }
+          } catch (err) {
+            console.warn('[UnreadCountContext] Failed to load initial unread state:', err);
+          }
+
           setLoading(false);
         } else {
           throw new Error('Failed to initialize chat client');

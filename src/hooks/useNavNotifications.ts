@@ -6,7 +6,14 @@ export function useNavNotifications(activeTab?: string) {
   // Clear notification when user is viewing messages
   const effectiveHasUnread = activeTab === 'messaging' ? false : hasUnreadMessages;
 
-  // Only log when there are changes or issues
+  // Enhanced logging to track flag state
+  console.log('[NavNotifications] State check:', {
+    activeTab,
+    hasUnreadMessages,
+    effectiveHasUnread,
+    willShowFlag: effectiveHasUnread
+  });
+
   if (effectiveHasUnread !== hasUnreadMessages) {
     console.log('[NavNotifications] Flag suppressed on messaging tab:', { activeTab, hasUnreadMessages });
   }

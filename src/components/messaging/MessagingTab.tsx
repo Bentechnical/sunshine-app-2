@@ -112,6 +112,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       setChannels(enrichedChannels);
 
       // Update shared context with reliable MessagingTab data
+      console.log('[MessagingTab] Updating shared context with channels:', {
+        channelCount: enrichedChannels.length,
+        sampleUnreadCounts: enrichedChannels.slice(0, 3).map((ch: any) => ({
+          channelId: ch.channelId,
+          unreadCount: ch.unreadCount
+        }))
+      });
       updateUnreadFromChannels(enrichedChannels);
 
       // Restore active channel if it exists
