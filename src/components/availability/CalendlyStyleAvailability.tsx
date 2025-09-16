@@ -219,6 +219,23 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     return `${String(hours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
   };
 
+  // Calculate minimum end time (1 hour after start time)
+  const getMinimumEndTime = (startTime: string) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + 60; // Add 1 hour
+
+    const endHours = Math.floor(endMinutes / 60);
+    const endMins = endMinutes % 60;
+
+    // Don't go beyond 9 PM (21:00)
+    if (endHours > 21) {
+      return '21:00';
+    }
+
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+  };
+
   // Update time range
   const updateTimeRange = (dayIndex: number, rangeId: string, field: 'startTime' | 'endTime', value: string) => {
     // Round to nearest 15 minutes
@@ -233,13 +250,17 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
               if (range.id === rangeId) {
                 const updated = { ...range, [field]: roundedValue };
 
-                // Ensure end time is after start time
-                if (field === 'startTime' && updated.startTime >= updated.endTime) {
-                  const startHour = parseInt(updated.startTime.split(':')[0]);
-                  updated.endTime = `${String(Math.min(startHour + 1, 23)).padStart(2, '0')}:00`;
-                } else if (field === 'endTime' && updated.endTime <= updated.startTime) {
-                  const endHour = parseInt(updated.endTime.split(':')[0]);
-                  updated.startTime = `${String(Math.max(endHour - 1, 0)).padStart(2, '0')}:00`;
+                // Ensure minimum 1-hour duration
+                if (field === 'startTime') {
+                  const minEndTime = getMinimumEndTime(updated.startTime);
+                  if (updated.endTime < minEndTime) {
+                    updated.endTime = minEndTime;
+                  }
+                } else if (field === 'endTime') {
+                  const minEndTime = getMinimumEndTime(updated.startTime);
+                  if (updated.endTime < minEndTime) {
+                    updated.endTime = minEndTime;
+                  }
                 }
 
                 return updated;

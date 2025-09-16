@@ -87,7 +87,7 @@ export default function CustomTimePicker({ value, onChange, className = '' }: Cu
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg overflow-y-auto" style={{ height: '200px' }}>
           <div className="py-1">
             {timeOptions.map((option) => (
               <button
