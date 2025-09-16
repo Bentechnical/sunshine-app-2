@@ -10,7 +10,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import MeetWithDog from '@/components/visits/MeetWithDog';
 import MyVisits from '@/components/visits/MyVisits';
-import VolunteerAvailability from '@/components/availability/VolunteerAvailability';
+import CalendlyStyleAvailability from '@/components/availability/CalendlyStyleAvailability';
 import MessagingTab from '@/components/messaging/MessagingTab';
 
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -107,8 +107,8 @@ export default function DashboardPage() {
         return <MyVisits userId={userId} role={role as 'volunteer' | 'individual'} />;
       case 'my-therapy-dog':
         return (
-          <div className="space-y-0 md:space-y-6 md:bg-transparent">
-            <VolunteerAvailability userId={userId} />
+          <div className="h-full flex flex-col space-y-0 md:space-y-6 md:bg-transparent">
+            <CalendlyStyleAvailability userId={userId} />
           </div>
         );
       case 'messaging':
@@ -134,7 +134,7 @@ export default function DashboardPage() {
       hideMobileNav={hideMobileNav}
       noMobileTopPadding={activeTab === 'messaging' && isMessagingActiveChat}
     >
-      <main className={`flex-grow ${activeTab === 'messaging' || activeTab === 'my-therapy-dog' ? 'p-0 md:p-4' : 'p-4'}`}>
+      <main className={`flex-grow ${activeTab === 'messaging' || activeTab === 'my-therapy-dog' ? 'p-0 md:p-4 h-full min-h-0' : 'p-4'}`}>
         {renderActiveTabContent()}
         
         {/* Mobile Logout Button - Only on home tab */}
