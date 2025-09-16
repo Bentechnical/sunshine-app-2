@@ -10,7 +10,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import MeetWithDog from '@/components/visits/MeetWithDog';
 import MyVisits from '@/components/visits/MyVisits';
-import VolunteerAvailability from '@/components/availability/VolunteerAvailability';
+import CalendlyStyleAvailability from '@/components/availability/CalendlyStyleAvailability';
 import MessagingTab from '@/components/messaging/MessagingTab';
 
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -108,7 +108,7 @@ export default function DashboardPage() {
       case 'my-therapy-dog':
         return (
           <div className="space-y-0 md:space-y-6 md:bg-transparent">
-            <VolunteerAvailability userId={userId} />
+            <CalendlyStyleAvailability userId={userId} />
           </div>
         );
       case 'messaging':
