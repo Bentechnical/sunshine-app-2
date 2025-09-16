@@ -65,24 +65,34 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     lastUnreadCheckRef.current = now;
 
     try {
-      console.log('[UnreadCountContext] 🔍 Checking unread count (shared state)...');
 
       const unreadResponse = await client.getUnreadCount();
 
-      console.log('[UnreadCountContext] Got unread counts from Stream Chat API:', {
-        total_unread: unreadResponse.total_unread_count,
-        channels: unreadResponse.channels?.length,
-        timestamp: new Date().toISOString()
+      // Calculate unread count from individual channels instead of trusting API total
+      const actualUnreadCount = unreadResponse.channels?.reduce((total: number, channel: any) => {
+        return total + (channel.unread_count || 0);
+      }, 0) || 0;
+
+      const apiTotal = unreadResponse.total_unread_count || 0;
+
+      console.log('[UnreadCountContext] Unread count comparison:', {
+        apiTotal,
+        calculatedFromChannels: actualUnreadCount,
+        channelCount: unreadResponse.channels?.length
       });
 
-      const hasUnread = (unreadResponse.total_unread_count || 0) > 0;
+      // Use calculated count instead of API total to avoid caching issues
+      const hasUnread = actualUnreadCount > 0;
       setHasUnreadMessages(hasUnread);
       setLoading(false);
 
-      console.log('[UnreadCountContext] ✅ Updated shared unread state:', {
-        hasUnread,
-        timestamp: new Date().toISOString()
-      });
+      if (apiTotal !== actualUnreadCount) {
+        console.warn('[UnreadCountContext] ⚠️ API total mismatch - using calculated:', {
+          apiSaid: apiTotal,
+          calculatedActual: actualUnreadCount,
+          using: actualUnreadCount
+        });
+      }
 
     } catch (error) {
       console.error('[UnreadCountContext] ❌ Error getting unread count:', error);
@@ -109,7 +119,6 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
       setLoading(true);
 
       try {
-        console.log('[UnreadCountContext] 🔄 Initializing shared chat connection...');
 
         const newClient = await streamChatManager.connectUserWithProvider(
           user.id,
@@ -121,7 +130,6 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
         );
 
         if (newClient) {
-          console.log('[UnreadCountContext] ✅ Shared chat client connected');
           setClient(newClient);
           setConnectionStatus('connected');
           await loadUnreadCount();
@@ -129,7 +137,6 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           // Set up shared event listeners for real-time unread count updates
           const updateUnreadCounts = async () => {
             try {
-              console.log('[UnreadCountContext] 🔄 Real-time unread update triggered (shared)');
               await loadUnreadCount();
             } catch (err) {
               console.warn('[UnreadCountContext] Failed to update unread counts:', err);
@@ -167,13 +174,12 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     };
   }, [user, loadUnreadCount, cleanupChatState]);
 
-  console.log('[UnreadCountContext] 📊 Shared state:', {
-    connectionStatus,
-    hasClient: !!client,
-    hasUnreadMessages,
-    loading,
-    timestamp: new Date().toISOString()
-  });
+  // Only log state changes, not every render
+  const prevHasUnread = React.useRef(hasUnreadMessages);
+  if (prevHasUnread.current !== hasUnreadMessages) {
+    console.log('[UnreadCountContext] State change:', { hasUnreadMessages, connectionStatus });
+    prevHasUnread.current = hasUnreadMessages;
+  }
 
   return (
     <UnreadCountContext.Provider

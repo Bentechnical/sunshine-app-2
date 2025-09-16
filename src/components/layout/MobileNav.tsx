@@ -20,13 +20,10 @@ export default function MobileNav({
 }: MobileNavProps) {
   const { hasUnreadMessages } = useNavNotifications(activeTab);
 
-  console.log('[MobileNav] 📱 MOBILE NAV RENDER:', {
-    role,
-    activeTab,
-    hasUnreadMessages,
-    'will show alert on Messages tab': hasUnreadMessages,
-    timestamp: new Date().toISOString()
-  });
+  // Only log when showing alert
+  if (hasUnreadMessages) {
+    console.log('[MobileNav] Showing unread alert:', { activeTab, hasUnreadMessages });
+  }
   const tabs: {
     key: ActiveTab;
     label: string;

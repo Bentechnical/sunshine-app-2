@@ -12,14 +12,10 @@
   export function DesktopNav({ role, activeTab, setActiveTab }: DesktopNavProps) {
     const { hasUnreadMessages } = useNavNotifications(activeTab);
 
-    // Debug logging for navigation notifications
-    console.log('[DesktopNav] 🖥️ DESKTOP NAV RENDER:', {
-      role,
-      activeTab,
-      hasUnreadMessages,
-      'will show alert on Messages tab': hasUnreadMessages,
-      timestamp: new Date().toISOString()
-    });
+    // Only log when showing alert
+    if (hasUnreadMessages) {
+      console.log('[DesktopNav] Showing unread alert:', { activeTab, hasUnreadMessages });
+    }
 
     const tabs: { label: string; key: ActiveTab; showAlert?: boolean }[] =
     role === 'individual'

@@ -127,13 +127,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   // Load channels when client is ready
   useEffect(() => {
     if (client && connectionStatus === 'connected') {
-      console.log('[MessagingTab] Client ready, loading channels...');
       loadChannels();
 
       // Set up event listeners for real-time unread count updates
       const updateUnreadCounts = async () => {
         try {
-          console.log('[MessagingTab] Real-time unread update triggered, refreshing shared state...');
           // Trigger refresh of shared unread state
           await refreshUnreadCount();
           // Also reload channels to update individual chat unread counts
