@@ -74,14 +74,39 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           setConnectionStatus('connected');
 
           // Load initial unread state when connection is established
+          console.log('[UnreadCountContext] Starting initial unread state load...');
+
           try {
+            console.log('[UnreadCountContext] Fetching channels from API...');
             const response = await fetch('/api/chat/channels');
+
+            console.log('[UnreadCountContext] Channels API response:', {
+              ok: response.ok,
+              status: response.status,
+              statusText: response.statusText
+            });
+
             if (response.ok) {
               const data = await response.json();
               const channelsArray = Array.isArray(data.chats) ? data.chats : [];
 
+              console.log('[UnreadCountContext] Got channels from API:', {
+                channelCount: channelsArray.length,
+                sampleChannels: channelsArray.slice(0, 2).map((ch: any) => ({
+                  channelId: ch.channelId,
+                  dogName: ch.dogName
+                }))
+              });
+
               // Get unread counts from Stream Chat for initial load
+              console.log('[UnreadCountContext] Getting unread counts from Stream Chat...');
               const unreadResponse = await newClient.getUnreadCount();
+
+              console.log('[UnreadCountContext] Stream Chat unread response:', {
+                total_unread: unreadResponse.total_unread_count,
+                channels: unreadResponse.channels?.length,
+                channelDetails: unreadResponse.channels?.slice(0, 2)
+              });
 
               // Update channels with unread counts (same logic as MessagingTab)
               const enrichedChannels = channelsArray.map((chat: any) => {
@@ -95,16 +120,26 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
                 };
               });
 
+              console.log('[UnreadCountContext] Enriched channels for context update:', {
+                channelCount: enrichedChannels.length,
+                sampleUnreadCounts: enrichedChannels.slice(0, 3).map((ch: any) => ({
+                  channelId: ch.channelId,
+                  unreadCount: ch.unreadCount
+                }))
+              });
+
               // Update context with initial unread state
               updateUnreadFromChannels(enrichedChannels);
 
-              console.log('[UnreadCountContext] Initial unread state loaded:', {
-                totalChannels: enrichedChannels.length,
-                hasAnyUnreads: enrichedChannels.some((ch: any) => ch.unreadCount > 0)
+              console.log('[UnreadCountContext] ✅ Initial unread state loaded successfully');
+            } else {
+              console.error('[UnreadCountContext] Channels API failed:', {
+                status: response.status,
+                statusText: response.statusText
               });
             }
           } catch (err) {
-            console.warn('[UnreadCountContext] Failed to load initial unread state:', err);
+            console.error('[UnreadCountContext] ❌ Failed to load initial unread state:', err);
           }
 
           setLoading(false);
