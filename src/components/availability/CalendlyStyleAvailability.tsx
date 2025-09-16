@@ -407,23 +407,23 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
   return (
     <div className="flex flex-col bg-white h-full min-h-0">
-      {/* Tab Navigation Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b bg-white">
+      {/* Tab Navigation Header - Sticky */}
+      <div className="flex-shrink-0 px-4 py-3 border-b bg-white sticky top-0 z-10">
         <div className="flex justify-between items-center">
           <div className="flex space-x-0">
             <button
               onClick={() => setActiveTab('template')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === 'template'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
-              Set Weekly Template
+              Set Weekly Availability
             </button>
             <button
               onClick={() => setActiveTab('slots')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === 'slots'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-800'
@@ -433,23 +433,25 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
             </button>
           </div>
 
-          {/* Save Changes button - only show on template tab */}
-          {activeTab === 'template' && (
-            <button
-              onClick={saveAvailability}
-              disabled={isSaving}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          )}
+          {/* Save Changes button - invisible on slots tab for consistent sizing */}
+          <button
+            onClick={saveAvailability}
+            disabled={isSaving || activeTab === 'slots'}
+            className={`px-3 py-1.5 text-sm rounded flex items-center gap-2 transition-all ${
+              activeTab === 'template'
+                ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                : 'invisible'
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
         </div>
 
         {saveMessage && (
@@ -461,29 +463,30 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         )}
       </div>
 
-      {/* Explanatory prompt - full width */}
-      <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
-        <p className="text-sm text-amber-800">
-          {activeTab === 'template' ? (
-            <>
-              <strong>Setting your availability:</strong> This will create appointment slots for the next 12 weeks.
-              Individuals will be able to request appointments during these times.
-            </>
-          ) : (
-            <>
-              <strong>Managing specific dates:</strong> Remove individual time slots for holidays, conflicts, or other exceptions.
-              Changes are applied immediately.
-            </>
-          )}
-        </p>
-      </div>
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Explanatory prompt - full width, part of scrollable content */}
+        <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
+          <p className="text-sm text-amber-800">
+            {activeTab === 'template' ? (
+              <>
+                <strong>Setting your availability:</strong> This will create appointment slots for the next 12 weeks.
+                Individuals will be able to request appointments during these times.
+              </>
+            ) : (
+              <>
+                <strong>Managing specific dates:</strong> Remove individual time slots for holidays, conflicts, or other exceptions.
+                Changes are applied immediately.
+              </>
+            )}
+          </p>
+        </div>
 
-      <div className="flex-1 overflow-y-auto p-4 min-h-0">
-        <div className="max-w-4xl mx-auto">
-          {activeTab === 'template' ? (
-            // Weekly Template Tab Content
-            <div className="space-y-4">
-              {availability.map((dayAvail) => {
+        <div className="p-3 sm:p-4">
+          <div className="max-w-4xl mx-auto">
+            {activeTab === 'template' ? (
+              // Weekly Template Tab Content
+              <div className="space-y-4">
+                {availability.map((dayAvail) => {
               const dayInfo = DAYS.find(d => d.index === dayAvail.dayIndex);
 
               return (
@@ -517,7 +520,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
                   {/* Time Ranges */}
                   {dayAvail.enabled && (
-                    <div className="p-4 space-y-3">
+                    <div className="p-2 sm:p-4 space-y-3">
                       {dayAvail.timeRanges.length === 0 ? (
                         <div className="text-gray-500 text-center py-4 flex items-center justify-center gap-2">
                           <Clock className="w-4 h-4" />
@@ -525,27 +528,27 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                         </div>
                       ) : (
                         dayAvail.timeRanges.map((range) => (
-                          <div key={range.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                            <div className="flex-1 flex items-center gap-2">
+                          <div key={range.id} className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1 flex items-center gap-2 min-w-0">
                               <input
                                 type="time"
                                 value={range.startTime}
                                 onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-0 flex-1"
                               />
-                              <span className="text-gray-500">to</span>
+                              <span className="text-gray-500 flex-shrink-0">to</span>
                               <input
                                 type="time"
                                 value={range.endTime}
                                 onChange={(e) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-0 flex-1"
                               />
                             </div>
 
                             {dayAvail.timeRanges.length > 1 && (
                               <button
                                 onClick={() => removeTimeRange(dayAvail.dayIndex, range.id)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors flex-shrink-0"
                                 title="Remove time range"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -567,13 +570,14 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
               );
               })}
             </div>
-          ) : (
-            // Individual Slots Tab Content
-            renderSlotsTab()
-          )}
+            ) : (
+              // Individual Slots Tab Content
+              renderSlotsTab()
+            )}
 
-          {/* Bottom padding for mobile layout */}
-          <div className="h-24"></div>
+            {/* Bottom padding for mobile layout */}
+            <div className="h-24"></div>
+          </div>
         </div>
       </div>
     </div>
