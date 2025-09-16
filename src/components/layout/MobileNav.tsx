@@ -3,7 +3,7 @@
 
 import { Home, PawPrint, MessageCircle, CalendarCheck } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
-import { useStreamChatUnread } from '@/hooks/useStreamChatUnread';
+import { useNavNotifications } from '@/hooks/useNavNotifications';
 
 interface MobileNavProps {
   role: 'individual' | 'volunteer';
@@ -18,7 +18,7 @@ export default function MobileNav({
   setActiveTab,
   profileImage,
 }: MobileNavProps) {
-  const { hasUnreadMessages } = useStreamChatUnread(activeTab);
+  const { hasUnreadMessages } = useNavNotifications(activeTab);
   const tabs: {
     key: ActiveTab;
     label: string;

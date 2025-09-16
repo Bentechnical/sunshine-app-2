@@ -1,7 +1,7 @@
   // src/components/layout/DesktopNav.tsx
   import { Dispatch, SetStateAction } from 'react';
   import { ActiveTab } from '@/types/navigation';
-  import { useStreamChatUnread } from '@/hooks/useStreamChatUnread';
+  import { useNavNotifications } from '@/hooks/useNavNotifications';
 
   export interface DesktopNavProps {
     role: 'individual' | 'volunteer' | 'admin';
@@ -10,7 +10,7 @@
   }
 
   export function DesktopNav({ role, activeTab, setActiveTab }: DesktopNavProps) {
-    const { hasUnreadMessages } = useStreamChatUnread(activeTab);
+    const { hasUnreadMessages } = useNavNotifications(activeTab);
 
     // Debug logging for navigation notifications
     console.log('[DesktopNav] Notification state:', {
