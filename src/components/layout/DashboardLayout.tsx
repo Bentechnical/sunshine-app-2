@@ -8,6 +8,7 @@ import DesktopNavAdmin from './DesktopNavAdmin'; // ✅ New
 import MobileNav from './MobileNav';
 import MobileNavAdmin from './MobileNavAdmin'; // ✅ New
 import { SignOutButton } from '@clerk/clerk-react';
+import { UnreadCountProvider } from '@/contexts/UnreadCountContext';
 
 interface DashboardLayoutProps {
   profileImage: string;
@@ -51,7 +52,8 @@ export default function DashboardLayout({
   noMobileTopPadding = false,
 }: DashboardLayoutProps) {
   return (
-    <div className="flex h-screen relative" data-active-tab={activeTab}>
+    <UnreadCountProvider>
+      <div className="flex h-screen relative" data-active-tab={activeTab}>
       {/* ------------ Desktop sidebar ------------ */}
       <aside className="hidden md:flex flex-col h-screen w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] p-6 shadow-lg font-sans z-20">
         <div className="mb-8 flex justify-center relative w-full h-16">
@@ -133,6 +135,7 @@ export default function DashboardLayout({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </UnreadCountProvider>
   );
 }

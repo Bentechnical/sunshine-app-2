@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useUser } from '@clerk/clerk-react';
 import {
   Chat,
   Channel,
@@ -11,9 +10,8 @@ import {
   Thread,
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
-import { streamChatManager } from '@/utils/stream-chat-client';
-import { StreamChat } from 'stream-chat';
 import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { useUnreadCount } from '@/contexts/UnreadCountContext';
 import styles from './MessagingTab.module.css';
 
 interface ChatData {
@@ -34,18 +32,15 @@ interface MessagingTabProps {
 }
 
 export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) {
-  const { user } = useUser();
-  
+  const { client, connectionStatus, refreshUnreadCount } = useUnreadCount();
+
   // Core state
-  const [client, setClient] = useState<StreamChat | null>(null);
   const [channels, setChannels] = useState<ChatData[]>([]);
   const [activeChannel, setActiveChannel] = useState<any>(null);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
-  
-  // Connection state
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
+
+  // UI state
   const [error, setError] = useState<string | null>(null);
-  const [isReconnecting, setIsReconnecting] = useState(false);
   
   // Mobile state
   const [isMobile, setIsMobile] = useState(false);
@@ -129,93 +124,38 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     }
   }, [activeChannelId, client]);
 
-  // Initialize chat
+  // Load channels when client is ready
   useEffect(() => {
-    if (!user) return;
+    if (client && connectionStatus === 'connected') {
+      console.log('[MessagingTab] Client ready, loading channels...');
+      loadChannels();
 
-    const initializeChat = async () => {
-      setConnectionStatus('connecting');
-      setError(null);
-
-      try {
-        const newClient = await streamChatManager.connectUserWithProvider(
-          user.id,
-          {
-            id: user.id,
-            name: user.fullName || user.firstName || 'User',
-            image: user.imageUrl || undefined,
-          }
-        );
-
-        if (newClient) {
-          setClient(newClient);
-          setConnectionStatus('connected');
+      // Set up event listeners for real-time unread count updates
+      const updateUnreadCounts = async () => {
+        try {
+          console.log('[MessagingTab] Real-time unread update triggered, refreshing shared state...');
+          // Trigger refresh of shared unread state
+          await refreshUnreadCount();
+          // Also reload channels to update individual chat unread counts
           await loadChannels();
-
-          // Set up event listeners for real-time unread count updates
-          const updateUnreadCounts = async () => {
-            try {
-              // Use official unread API instead of queryChannels
-              const unreadResponse = await newClient.getUnreadCount();
-
-              console.log('[MessagingTab] Real-time unread update:', {
-                total_unread: unreadResponse.total_unread_count,
-                channels_with_unread: unreadResponse.channels?.length
-              });
-
-              setChannels(prev => {
-                // Only update if we have channels loaded
-                if (prev.length === 0) return prev;
-
-                return prev.map((chat: any) => {
-                  const channelId = chat.channelId?.split(':')[1] || chat.channelId;
-                  const unreadChannel = unreadResponse.channels?.find((uc: any) =>
-                    uc.channel_id === channelId || uc.channel_id === chat.channelId
-                  );
-
-                  return {
-                    ...chat,
-                    unreadCount: unreadChannel?.unread_count || 0
-                  };
-                });
-              });
-            } catch (err) {
-              console.warn('[MessagingTab] Failed to update unread counts:', err);
-            }
-          };
-
-          // Listen for official unread notification events
-          newClient.on('notification.message_new', updateUnreadCounts as any);
-          newClient.on('notification.mark_read', updateUnreadCounts as any);
-          newClient.on('notification.mark_unread', updateUnreadCounts as any);
-        } else {
-          throw new Error('Failed to initialize chat client');
+        } catch (err) {
+          console.warn('[MessagingTab] Failed to update unread counts:', err);
         }
-      } catch (err: any) {
-        console.error('Chat initialization failed:', err);
-        setError('Failed to connect to chat. Please try again.');
-        setConnectionStatus('error');
-        cleanupChatState();
-      }
-    };
+      };
 
-    // Handle disconnection from StreamChatManager
-    const handleDisconnect = () => {
-      console.log('[MessagingTab] Received disconnect notification');
-      setConnectionStatus('disconnected');
-      cleanupChatState();
-    };
+      // Listen for official unread notification events
+      client.on('notification.message_new', updateUnreadCounts as any);
+      client.on('notification.mark_read', updateUnreadCounts as any);
+      client.on('notification.mark_unread', updateUnreadCounts as any);
 
-    // Register disconnect handler and initialize
-    streamChatManager.onDisconnect(handleDisconnect);
-    initializeChat();
-
-    // Cleanup: unregister disconnect handler
-    return () => {
-      streamChatManager.offDisconnect(handleDisconnect);
-      // Note: Event listeners are cleaned up when the client disconnects
-    };
-  }, [user, loadChannels, cleanupChatState]);
+      return () => {
+        // Clean up event listeners
+        client.off('notification.message_new', updateUnreadCounts as any);
+        client.off('notification.mark_read', updateUnreadCounts as any);
+        client.off('notification.mark_unread', updateUnreadCounts as any);
+      };
+    }
+  }, [client, connectionStatus, loadChannels, refreshUnreadCount]);
 
   // Mobile detection
   useEffect(() => {
@@ -259,23 +199,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
-  // Monitor connection state changes
-  useEffect(() => {
-    if (!client) return;
-
-    const handleConnectionChange = ({ online = false }) => {
-      setConnectionStatus(online ? 'connected' : 'disconnected');
-    };
-
-    client.on('connection.changed', handleConnectionChange);
-
-    return () => {
-      client.off('connection.changed', handleConnectionChange);
-    };
-  }, [client]);
 
   // Render loading state
-  if (connectionStatus === 'connecting' || isReconnecting) {
+  if (connectionStatus === 'connecting') {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -296,9 +222,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           <button
             onClick={cleanupChatState}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center mx-auto"
-            disabled={isReconnecting}
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isReconnecting ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Try Again
           </button>
         </div>
