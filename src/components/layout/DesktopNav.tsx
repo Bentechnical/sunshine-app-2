@@ -13,10 +13,11 @@
     const { hasUnreadMessages } = useNavNotifications(activeTab);
 
     // Debug logging for navigation notifications
-    console.log('[DesktopNav] Notification state:', {
+    console.log('[DesktopNav] 🖥️ DESKTOP NAV RENDER:', {
       role,
       activeTab,
       hasUnreadMessages,
+      'will show alert on Messages tab': hasUnreadMessages,
       timestamp: new Date().toISOString()
     });
 

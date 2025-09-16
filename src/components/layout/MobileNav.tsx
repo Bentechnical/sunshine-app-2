@@ -19,6 +19,14 @@ export default function MobileNav({
   profileImage,
 }: MobileNavProps) {
   const { hasUnreadMessages } = useNavNotifications(activeTab);
+
+  console.log('[MobileNav] 📱 MOBILE NAV RENDER:', {
+    role,
+    activeTab,
+    hasUnreadMessages,
+    'will show alert on Messages tab': hasUnreadMessages,
+    timestamp: new Date().toISOString()
+  });
   const tabs: {
     key: ActiveTab;
     label: string;
