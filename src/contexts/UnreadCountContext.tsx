@@ -94,6 +94,78 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
   useEffect(() => {
     if (!user) return;
 
+    // Set up visibility change listener for automatic reconnection
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        // Tab became visible - check if we need to reconnect
+        const currentClient = streamChatManager.getClient();
+        if (!currentClient || !currentClient.userID) {
+          console.log('[UnreadCountContext] 🔄 Tab became visible and client disconnected, attempting reconnection...');
+          try {
+            const reconnectedClient = await streamChatManager.connectUserWithProvider(
+              user.id,
+              {
+                id: user.id,
+                name: user.fullName || user.firstName || 'User',
+                image: user.imageUrl || undefined,
+              }
+            );
+
+            if (reconnectedClient) {
+              setClient(reconnectedClient);
+              setConnectionStatus('connected');
+              currentClientRef.current = reconnectedClient;
+
+              // Re-attach event listeners
+              const updateUnreadFromRealtimeEvent = async () => {
+                try {
+                  console.log('[UnreadCountContext] 🔔 Real-time message event received, refreshing unread state...', {
+                    clientExists: !!reconnectedClient,
+                    clientUserID: reconnectedClient?.userID,
+                    timestamp: new Date().toISOString()
+                  });
+
+                  const enrichedChannels = await refreshChannelData();
+                  updateUnreadFromChannels(enrichedChannels);
+
+                  console.log('[UnreadCountContext] ✅ Real-time unread state updated');
+
+                  window.dispatchEvent(new CustomEvent('unreadCountUpdated', {
+                    detail: { channels: enrichedChannels }
+                  }));
+                } catch (err) {
+                  console.warn('[UnreadCountContext] Failed to update real-time unread state:', err);
+                }
+              };
+
+              reconnectedClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
+              reconnectedClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
+              reconnectedClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
+
+              // Refresh unread state after a brief delay
+              setTimeout(async () => {
+                try {
+                  const enrichedChannels = await refreshChannelData();
+                  updateUnreadFromChannels(enrichedChannels);
+
+                  window.dispatchEvent(new CustomEvent('clientReconnected', {
+                    detail: { channels: enrichedChannels, client: reconnectedClient }
+                  }));
+
+                  console.log('[UnreadCountContext] ✅ Successfully reconnected on tab activation');
+                } catch (err) {
+                  console.error('[UnreadCountContext] Failed to refresh state after reconnection:', err);
+                }
+              }, 1000);
+            }
+          } catch (err) {
+            console.error('[UnreadCountContext] Failed to reconnect on tab activation:', err);
+            setConnectionStatus('error');
+          }
+        }
+      }
+    };
+
     const initializeChat = async () => {
       setConnectionStatus('connecting');
       setLoading(true);
@@ -182,6 +254,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
             console.error('[UnreadCountContext] ❌ Failed to load initial unread state:', err);
           }
 
+
           // Set up global real-time event listeners for unread updates
           const updateUnreadFromRealtimeEvent = async () => {
             try {
@@ -237,7 +310,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
             const currentClient = streamChatManager.getClient();
 
             if (!currentClient || !currentClient.userID) {
-              // Client is disconnected - this is expected when tab is hidden
+              // Client is disconnected - visibility change handler will handle reconnection
               console.log('[UnreadCountContext] ℹ️ Client disconnected (tab hidden), will reconnect when needed');
             } else if (currentClient !== currentClientRef.current) {
               // Client instance changed - reconnection happened, re-attach listeners
@@ -303,11 +376,15 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
 
     // Register disconnect handler and initialize
     streamChatManager.onDisconnect(handleDisconnect);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     initializeChat();
 
     // Cleanup: unregister disconnect handler and remove event listeners
     return () => {
       streamChatManager.offDisconnect(handleDisconnect);
+
+      // Remove visibility change listener
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
 
       // Clean up Stream Chat event listeners if client exists
       const currentClient = streamChatManager.getClient();
