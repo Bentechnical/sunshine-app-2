@@ -153,12 +153,42 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       setChannels(updatedChannels);
     };
 
+    const handleClientReconnect = (event: CustomEvent) => {
+      const { channels: updatedChannels, client: reconnectedClient } = event.detail;
+      console.log('[MessagingTab] Stream Chat client reconnected, refreshing state');
+
+      // Clear any error states
+      setError(null);
+
+      // Update channels from the reconnected state
+      setChannels(updatedChannels);
+
+      // If we had an active channel, re-establish it with the new client
+      if (activeChannelId && reconnectedClient) {
+        console.log('[MessagingTab] Re-establishing active channel:', activeChannelId);
+        const channel = reconnectedClient.channel('messaging', activeChannelId);
+        channel.watch().then(() => {
+          setActiveChannel(channel);
+          console.log('[MessagingTab] Active channel re-established successfully');
+        }).catch((err: any) => {
+          console.error('[MessagingTab] Failed to re-establish active channel:', err);
+          // Reset active channel if we can't re-establish it
+          setActiveChannel(null);
+          setActiveChannelId(null);
+          setViewMode('channelList');
+          onActiveChatChange?.(false);
+        });
+      }
+    };
+
     window.addEventListener('unreadCountUpdated', handleUnreadUpdate as EventListener);
+    window.addEventListener('clientReconnected', handleClientReconnect as EventListener);
 
     return () => {
       window.removeEventListener('unreadCountUpdated', handleUnreadUpdate as EventListener);
+      window.removeEventListener('clientReconnected', handleClientReconnect as EventListener);
     };
-  }, []);
+  }, [activeChannelId, onActiveChatChange]);
 
   // Mobile detection
   useEffect(() => {

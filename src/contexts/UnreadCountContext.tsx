@@ -253,11 +253,25 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
                 currentClientRef.current = currentClient;
                 setClient(currentClient);
 
-                // Refresh unread state immediately after reconnection
-                const enrichedChannels = await refreshChannelData();
-                updateUnreadFromChannels(enrichedChannels);
+                // Add a small delay before refreshing data to let the client stabilize
+                setTimeout(async () => {
+                  try {
+                    // Refresh unread state after reconnection
+                    const enrichedChannels = await refreshChannelData();
+                    updateUnreadFromChannels(enrichedChannels);
 
-                console.log('[UnreadCountContext] ✅ Event listeners re-attached and state refreshed');
+                    // Trigger a global event for MessagingTab to refresh its channel list
+                    // Include connection status to help MessagingTab handle the refresh properly
+                    window.dispatchEvent(new CustomEvent('clientReconnected', {
+                      detail: { channels: enrichedChannels, client: currentClient }
+                    }));
+
+                    console.log('[UnreadCountContext] ✅ Event listeners re-attached and state refreshed');
+                  } catch (err) {
+                    console.error('[UnreadCountContext] Failed to refresh state after reconnection:', err);
+                  }
+                }, 1000); // 1 second delay to ensure client is fully ready
+
               } catch (err) {
                 console.error('[UnreadCountContext] Failed to re-attach event listeners:', err);
               }
