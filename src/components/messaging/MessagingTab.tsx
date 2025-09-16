@@ -71,11 +71,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           // Use Stream Chat's official unread count API
           const unreadResponse = await client.getUnreadCount();
 
-          console.log('[MessagingTab] Got unread counts from Stream Chat API:', {
-            total_unread: unreadResponse.total_unread_count,
-            channels: unreadResponse.channels?.length,
-            channelDetails: unreadResponse.channels?.slice(0, 3)
-          });
 
           // Update unread counts with official Stream Chat unread data
           enrichedChannels = channelsArray.map((chat: any) => {
@@ -98,27 +93,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
         }
       }
 
-      console.log('[MessagingTab] 📋 Final channels data:', {
-        originalCount: channelsArray.length,
-        enrichedCount: enrichedChannels.length,
-        hasClient: !!client,
-        channelSample: enrichedChannels.slice(0, 2).map((ch: any) => ({
-          channelId: ch.channelId,
-          unreadCount: ch.unreadCount,
-          dogName: ch.dogName
-        }))
-      });
-
       setChannels(enrichedChannels);
 
       // Update shared context with reliable MessagingTab data
-      console.log('[MessagingTab] Updating shared context with channels:', {
-        channelCount: enrichedChannels.length,
-        sampleUnreadCounts: enrichedChannels.slice(0, 3).map((ch: any) => ({
-          channelId: ch.channelId,
-          unreadCount: ch.unreadCount
-        }))
-      });
       updateUnreadFromChannels(enrichedChannels);
 
       // Restore active channel if it exists
@@ -141,7 +118,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
       // NOTE: Real-time event listeners are now handled globally by UnreadCountContext
       // MessagingTab no longer sets up its own listeners to avoid conflicts
-      console.log('[MessagingTab] Initial channels loaded, real-time updates handled by UnreadCountContext');
     }
   }, [client, connectionStatus, loadChannels]);
 
@@ -149,13 +125,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   useEffect(() => {
     const handleUnreadUpdate = (event: CustomEvent) => {
       const { channels: updatedChannels } = event.detail;
-      console.log('[MessagingTab] Received global unread update, refreshing channel list');
       setChannels(updatedChannels);
     };
 
     const handleClientReconnect = (event: CustomEvent) => {
       const { channels: updatedChannels, client: reconnectedClient } = event.detail;
-      console.log('[MessagingTab] Stream Chat client reconnected, refreshing state');
 
       // Clear any error states
       setError(null);
@@ -165,11 +139,9 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
       // If we had an active channel, re-establish it with the new client
       if (activeChannelId && reconnectedClient) {
-        console.log('[MessagingTab] Re-establishing active channel:', activeChannelId);
         const channel = reconnectedClient.channel('messaging', activeChannelId);
         channel.watch().then(() => {
           setActiveChannel(channel);
-          console.log('[MessagingTab] Active channel re-established successfully');
         }).catch((err: any) => {
           console.error('[MessagingTab] Failed to re-establish active channel:', err);
           // Reset active channel if we can't re-establish it
