@@ -11,6 +11,7 @@ interface UnreadCountContextType {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   client: StreamChat | null;
   updateUnreadFromChannels: (channels: any[]) => void;
+  refreshChannelData: () => Promise<any[]>;
 }
 
 const UnreadCountContext = createContext<UnreadCountContextType | null>(null);
@@ -41,7 +42,42 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     setLoading(false);
   }, []);
 
-  // ONLY function to update unread state - called by MessagingTab
+  // Function to fetch and return fresh channel data
+  const refreshChannelData = useCallback(async (): Promise<any[]> => {
+    try {
+      const response = await fetch('/api/chat/channels');
+      if (response.ok) {
+        const data = await response.json();
+        const channelsArray = Array.isArray(data.chats) ? data.chats : [];
+
+        // Get fresh unread counts from Stream Chat
+        const currentClient = streamChatManager.getClient();
+        if (currentClient) {
+          const unreadResponse = await currentClient.getUnreadCount();
+
+          // Update channels with unread counts
+          const enrichedChannels = channelsArray.map((chat: any) => {
+            const channelId = chat.channelId?.split(':')[1] || chat.channelId;
+            const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+              uc.channel_id === channelId || uc.channel_id === chat.channelId
+            );
+            return {
+              ...chat,
+              unreadCount: unreadChannel?.unread_count || 0
+            };
+          });
+
+          return enrichedChannels;
+        }
+      }
+      return [];
+    } catch (err) {
+      console.warn('[UnreadCountContext] Failed to refresh channel data:', err);
+      return [];
+    }
+  }, []);
+
+  // Function to update unread state - called by MessagingTab or real-time events
   const updateUnreadFromChannels = useCallback((channels: any[]) => {
     const totalUnreadFromChannels = channels.reduce((total, channel) => {
       return total + (channel.unreadCount || 0);
@@ -151,32 +187,18 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
                 timestamp: new Date().toISOString()
               });
 
-              // Fetch fresh channel data (same as initial load)
-              const response = await fetch('/api/chat/channels');
-              if (response.ok) {
-                const data = await response.json();
-                const channelsArray = Array.isArray(data.chats) ? data.chats : [];
+              // Use shared function to get fresh channel data
+              const enrichedChannels = await refreshChannelData();
 
-                // Get fresh unread counts from Stream Chat
-                const unreadResponse = await newClient.getUnreadCount();
+              // Update context with fresh unread state
+              updateUnreadFromChannels(enrichedChannels);
 
-                // Update channels with unread counts
-                const enrichedChannels = channelsArray.map((chat: any) => {
-                  const channelId = chat.channelId?.split(':')[1] || chat.channelId;
-                  const unreadChannel = unreadResponse.channels?.find((uc: any) =>
-                    uc.channel_id === channelId || uc.channel_id === chat.channelId
-                  );
-                  return {
-                    ...chat,
-                    unreadCount: unreadChannel?.unread_count || 0
-                  };
-                });
+              console.log('[UnreadCountContext] ✅ Real-time unread state updated');
 
-                // Update context with fresh unread state
-                updateUnreadFromChannels(enrichedChannels);
-
-                console.log('[UnreadCountContext] ✅ Real-time unread state updated');
-              }
+              // Trigger a global event for MessagingTab to refresh its channel list
+              window.dispatchEvent(new CustomEvent('unreadCountUpdated', {
+                detail: { channels: enrichedChannels }
+              }));
             } catch (err) {
               console.warn('[UnreadCountContext] Failed to update real-time unread state:', err);
             }
@@ -274,7 +296,8 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
         loading,
         connectionStatus,
         client,
-        updateUnreadFromChannels
+        updateUnreadFromChannels,
+        refreshChannelData
       }}
     >
       {children}

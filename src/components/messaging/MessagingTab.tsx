@@ -32,7 +32,7 @@ interface MessagingTabProps {
 }
 
 export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) {
-  const { client, connectionStatus, updateUnreadFromChannels } = useUnreadCount();
+  const { client, connectionStatus, updateUnreadFromChannels, refreshChannelData } = useUnreadCount();
 
   // Core state
   const [channels, setChannels] = useState<ChatData[]>([]);
@@ -139,29 +139,26 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     if (client && connectionStatus === 'connected') {
       loadChannels();
 
-      // Set up event listeners for real-time unread count updates
-      const updateUnreadCounts = async () => {
-        try {
-          // Reload channels which will automatically update shared context
-          await loadChannels();
-        } catch (err) {
-          console.warn('[MessagingTab] Failed to update unread counts:', err);
-        }
-      };
-
-      // Listen for official unread notification events
-      client.on('notification.message_new', updateUnreadCounts as any);
-      client.on('notification.mark_read', updateUnreadCounts as any);
-      client.on('notification.mark_unread', updateUnreadCounts as any);
-
-      return () => {
-        // Clean up event listeners
-        client.off('notification.message_new', updateUnreadCounts as any);
-        client.off('notification.mark_read', updateUnreadCounts as any);
-        client.off('notification.mark_unread', updateUnreadCounts as any);
-      };
+      // NOTE: Real-time event listeners are now handled globally by UnreadCountContext
+      // MessagingTab no longer sets up its own listeners to avoid conflicts
+      console.log('[MessagingTab] Initial channels loaded, real-time updates handled by UnreadCountContext');
     }
   }, [client, connectionStatus, loadChannels]);
+
+  // Listen for global unread count updates from UnreadCountContext
+  useEffect(() => {
+    const handleUnreadUpdate = (event: CustomEvent) => {
+      const { channels: updatedChannels } = event.detail;
+      console.log('[MessagingTab] Received global unread update, refreshing channel list');
+      setChannels(updatedChannels);
+    };
+
+    window.addEventListener('unreadCountUpdated', handleUnreadUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleUnreadUpdate as EventListener);
+    };
+  }, []);
 
   // Mobile detection
   useEffect(() => {
