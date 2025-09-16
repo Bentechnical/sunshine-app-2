@@ -8,6 +8,7 @@ import DesktopNavAdmin from './DesktopNavAdmin'; // ✅ New
 import MobileNav from './MobileNav';
 import MobileNavAdmin from './MobileNavAdmin'; // ✅ New
 import { SignOutButton } from '@clerk/clerk-react';
+import { UnreadCountProvider } from '@/contexts/UnreadCountContext';
 
 interface DashboardLayoutProps {
   profileImage: string;
@@ -18,6 +19,26 @@ interface DashboardLayoutProps {
   refreshTrigger?: number;
   hideMobileNav?: boolean;
   noMobileTopPadding?: boolean;
+}
+
+// Helper function to generate main content classes
+function getMainContentClasses(activeTab: ActiveTab, noMobileTopPadding: boolean): string {
+  const baseClasses = 'relative flex-1';
+  
+  // Overflow behavior: messaging and therapy-dog need special handling
+  const overflowClasses = (activeTab === 'messaging' || activeTab === 'my-therapy-dog') 
+    ? 'overflow-hidden' 
+    : 'overflow-y-auto';
+  
+  // Mobile top padding
+  const paddingTopClasses = noMobileTopPadding ? 'pt-0 md:pt-0' : 'pt-12 md:pt-0';
+  
+  // Horizontal padding and background
+  const spacingClasses = (activeTab === 'messaging' || activeTab === 'my-therapy-dog')
+    ? 'px-0 md:px-8 bg-white md:bg-transparent'
+    : 'pb-4 px-2 md:px-8';
+  
+  return `${baseClasses} ${overflowClasses} ${paddingTopClasses} ${spacingClasses}`;
 }
 
 export default function DashboardLayout({
@@ -31,7 +52,8 @@ export default function DashboardLayout({
   noMobileTopPadding = false,
 }: DashboardLayoutProps) {
   return (
-    <div className="flex h-screen relative">
+    <UnreadCountProvider>
+      <div className="flex h-screen relative" data-active-tab={activeTab}>
       {/* ------------ Desktop sidebar ------------ */}
       <aside className="hidden md:flex flex-col h-screen w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] p-6 shadow-lg font-sans z-20">
         <div className="mb-8 flex justify-center relative w-full h-16">
@@ -69,7 +91,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* ------------ Main / Mobile ------------ */}
-      <main className="relative z-10 flex-1 flex flex-col overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col h-full overflow-y-auto">
         {/* Mobile top bar */}
         <div
           className="md:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 py-2 shadow-sm"
@@ -87,22 +109,7 @@ export default function DashboardLayout({
 
         {/* Page content (offset for top + bottom bars on mobile) */}
         <div
-          className={
-            `relative flex-1 ` +
-            (activeTab === 'messaging'
-              ? 'overflow-hidden'
-              : activeTab === 'my-therapy-dog'
-                ? 'overflow-hidden md:overflow-y-auto'
-                : 'overflow-y-auto') +
-            ' ' +
-            (noMobileTopPadding ? 'pt-0 ' : 'pt-12 ') +
-            `md:pt-0 ` +
-            (activeTab === 'messaging'
-              ? 'px-0 md:px-8 bg-white md:bg-transparent'
-              : activeTab === 'my-therapy-dog'
-                ? 'px-0 md:px-8 bg-white md:bg-transparent'
-                : 'pb-4 px-2 md:px-8')
-          }
+          className={getMainContentClasses(activeTab, noMobileTopPadding)}
         >
           {children}
         </div>
@@ -128,6 +135,7 @@ export default function DashboardLayout({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </UnreadCountProvider>
   );
 }

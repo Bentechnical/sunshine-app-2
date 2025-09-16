@@ -326,7 +326,7 @@ await fetch('/api/request', {
 
       {/* Booking Modal */}
       {showBookingModal && bookingSlot && (
-        <div className="fixed top-0 left-0 lg:left-[256px] w-full lg:w-[calc(100vw-256px)] h-screen bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="fixed top-0 left-0 lg:left-[256px] w-full lg:w-[calc(100vw-256px)] h-[100dvh] bg-black bg-opacity-50 z-50 flex items-center justify-center">
 
           <div className="bg-white p-6 rounded-md max-w-md w-full">
             {bookingStep === 'input' && (

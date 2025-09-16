@@ -4,6 +4,54 @@
 @import "tw-animate-css";
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
 
+/* Stream Chat component overrides */
+.str-chat {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+.str-chat__list {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  padding-bottom: 0 !important; /* Remove bottom padding */
+  margin-bottom: 0 !important;
+}
+
+.str-chat__input-flat {
+  min-height: unset !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  border-top: 1px solid #e5e7eb !important;
+  background: white !important;
+}
+
+.str-chat-channel {
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Remove extra spacing in message list */
+.str-chat__message-list {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.str-chat__message-list-scroll {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Adjust message spacing */
+.str-chat__message-simple {
+  margin: 0 !important;
+  padding: 1px 0 !important; /* Reduced from 4px to 1px for tighter spacing */
+}
+
 
 @custom-variant dark (&:is(.dark *));
 
@@ -171,9 +219,9 @@
   }
 }
 
-/* --- Messaging Tab Mobile Responsiveness --- */
+/* --- Mobile Calendar/Availability Responsiveness --- */
 
-/* Mobile messaging layout adjustments */
+/* Mobile availability layout adjustments */
 @media (max-width: 767px) {
   /* Fill viewport between top bar, subheader, and bottom nav for availability */
   .availability-fill {
@@ -185,196 +233,11 @@
   .availability-scroll-port { height: calc(100dvh - 176px - env(safe-area-inset-bottom)); overflow-y: auto; background: #fff; }
   @media (min-width: 768px) {
     /* On desktop, let the port fill the available area without blocking page scroll */
-    .availability-scroll-port { height: auto; max-height: calc(100vh - 220px); }
+    .availability-scroll-port { height: auto; max-height: calc(100dvh - 220px); }
   }
   .availability-scroll-port .fc-header-toolbar { position: sticky; top: 0; background: white; z-index: 5; margin: 0 !important; padding: 6px 8px !important; border-top: 0 !important; }
   /* Use FullCalendar's built-in stickyHeaderDates for the day header */
   .availability-scroll-port .fc-col-header { position: static; top: auto; background: white; z-index: auto; border-top: 0 !important; }
-  /* Ensure chat fills available parent height (not viewport) */
-  .str-chat {
-    height: 100% !important;
-  }
-  
-  /* Mobile channel list items */
-  .mobile-channel-list .str-chat__channel-list {
-    height: 100% !important;
-  }
-  
-  /* Mobile message list: keep minimal padding; spacing handled by outer scroll container */
-  .str-chat__message-list {
-    height: 100% !important;
-    overflow-y: auto !important;
-    padding-bottom: 0 !important;
-    padding-top: 0 !important; /* Header offset handled in component */
-    padding-left: 12px !important; /* Prevent avatar overflow touching edge */
-    padding-right: 12px !important;
-  }
-
-  .str-chat__list,
-  .str-chat__ul,
-  .str-chat__virtual-list,
-  .str-chat__reverse-infinite-scroll {
-    padding-bottom: 0 !important;
-  }
-  
-  /* Mobile message input */
-  .str-chat__input-flat {
-    border-top: 1px solid #e5e7eb !important;
-    background: white !important;
-    position: static !important;
-    bottom: auto !important;
-    z-index: 20 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    min-height: 40px !important;
-  }
-  
-  /* Mobile message input container */
-  .str-chat__input-flat .str-chat__input-flat--textarea-wrapper {
-    margin-bottom: 0 !important;
-  }
-
-  /* Wrapper around MessageInput will sit in grid row 3 (no fixed) */
-  .chat-mobile-input {
-    position: static !important;
-    background: white !important;
-    z-index: 1 !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
-    padding-top: 8px !important;
-  }
-  
-  /* Mobile thread */
-  .str-chat__thread {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    z-index: 1000 !important;
-    background: white !important;
-  }
-  
-  /* Ensure touch-friendly button sizes */
-  .str-chat__button {
-    min-height: 44px !important;
-    min-width: 44px !important;
-  }
-  
-  /* Mobile message bubbles */
-  .str-chat__message-bubble {
-    max-width: 92% !important; /* allow wider bubbles on mobile */
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
-  }
-
-  /* Fix overly large opposite margins on mobile */
-  .str-chat__message--me .str-chat__message-bubble {
-    margin-left: 6vw !important;
-    margin-right: 2vw !important;
-  }
-  .str-chat__message--other .str-chat__message-bubble {
-    margin-right: 6vw !important;
-    margin-left: 2vw !important;
-  }
-  
-  /* Tighten subheader and input heights */
-  .chat-mobile-subheader {
-    padding: 4px 12px !important;
-    min-height: 40px !important;
-  }
-  .chat-mobile-input {
-    min-height: auto !important;
-    padding: 2px 0 env(safe-area-inset-bottom) 0 !important;
-  }
-
-  /* Compact Stream input on mobile */
-  .str-chat__input-flat { padding: 0 6px !important; }
-
-  /* Flatten message-input wrapper padding/margins that can force tall rows */
-  .str-chat__message-input,
-  .str-chat__input-ui,
-  .str-chat__textarea-container {
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  .str-chat__message-input { min-height: 32px !important; }
-  .str-chat__textarea-container { min-height: 32px !important; }
-  .str-chat__message-textarea,
-  .str-chat__textarea { padding-top: 4px !important; padding-bottom: 4px !important; }
-
-  /* Force compact row: shrink action buttons and cap wrapper height */
-  .str-chat__message-input {
-    height: auto !important;
-    min-height: 32px !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    box-sizing: border-box !important;
-  }
-
-  .str-chat__message-input .str-chat__send-button,
-  .str-chat__message-input .str-chat__fileupload,
-  .str-chat__message-input .str-chat__emojiselect,
-  .str-chat__message-input .str-chat__commands-button,
-  .str-chat__message-input .str-chat__attachment-button {
-    height: 28px !important;
-    width: 28px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .str-chat__message-input .str-chat__send-button svg,
-  .str-chat__message-input .str-chat__fileupload svg,
-  .str-chat__message-input .str-chat__emojiselect svg,
-  .str-chat__message-input .str-chat__commands-button svg,
-  .str-chat__message-input .str-chat__attachment-button svg {
-    width: 14px !important;
-    height: 14px !important;
-  }
-  .str-chat__input-flat textarea,
-  .str-chat__textarea,
-  .str-chat__textarea > textarea,
-  .str-chat__input-flat--textarea-wrapper textarea {
-    min-height: 24px !important;
-    max-height: 80px !important;
-    line-height: 1.15 !important;
-    padding-top: 2px !important;
-    padding-bottom: 2px !important;
-  }
-  /* add horizontal padding inside input bubble */
-  .str-chat__message-input .str-chat__message-textarea,
-  .str-chat__message-input .str-chat__textarea,
-  .str-chat__message-input .str-chat__textarea > textarea,
-  .str-chat__message-input .str-chat__input-flat--textarea-wrapper textarea {
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-  }
-  /* small, even visual gap top/bottom for the textarea */
-  .str-chat__message-textarea { margin-top: 4px !important; margin-bottom: 4px !important; }
-  /* Additional inner wrappers used by Stream (with emoji picker) */
-  .str-chat__message-input .str-chat__message-input-inner { padding: 0 !important; margin: 0 !important; display:flex !important; align-items:center !important; }
-  .str-chat__message-input .str-chat__message-textarea-container { padding: 0 !important; margin: 0 !important; }
-  .str-chat__message-input .str-chat__message-textarea-with-emoji-picker { padding: 0 !important; margin: 0 !important; min-height: 24px !important; display:flex !important; align-items:center !important; }
-  .str-chat__input-flat--textarea-wrapper {
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  /* Shrink icon buttons to reduce overall input height */
-  .str-chat__input-flat .str-chat__send-button,
-  .str-chat__input-flat .str-chat__fileupload,
-  .str-chat__input-flat .str-chat__emojiselect,
-  .str-chat__input-flat .str-chat__commands-button { padding: 2px !important; min-width: 32px !important; min-height: 32px !important; }
-  .str-chat__input-flat .str-chat__send-button svg,
-  .str-chat__input-flat .str-chat__fileupload svg,
-  .str-chat__input-flat .str-chat__emojiselect svg,
-  .str-chat__input-flat .str-chat__commands-button svg { width: 16px !important; height: 16px !important; }
 }
 
 /* Animate FullCalendar view when navigating */
@@ -428,6 +291,8 @@
   }
 }
 
+
+
 /* --- Block landscape on touch devices only (exclude desktop) --- */
 @media (orientation: landscape) and (hover: none) and (pointer: coarse) {
   html, body { height: 100%; overflow: hidden; }
@@ -446,5 +311,43 @@
     font-size: 16px;
     line-height: 1.4;
     font-weight: 600;
+  }
+}
+
+/* iOS Safari viewport height fixes - more specific targeting */
+@supports (-webkit-touch-callout: none) and (not (hover: hover)) {
+  /* iOS Safari specific fixes (excludes iPadOS and desktop Safari) */
+  html, body {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+  
+  /* Fix root layout container height on iOS - prevents 100vh getting stuck */
+  .h-screen {
+    height: -webkit-fill-available !important;
+  }
+  
+  /* Restore iOS body min-height behavior */
+  body.min-h-screen {
+    min-height: -webkit-fill-available !important;
+  }
+  
+  /* Force proper height for chat containers on iOS */
+  .str-chat__container,
+  .str-chat__channel-list,
+  .str-chat__message-list {
+    height: -webkit-fill-available !important;
+    min-height: -webkit-fill-available !important;
+  }
+  
+  /* Prevent iOS Safari from adding extra padding */
+  .str-chat__input-flat {
+    position: static !important;
+    bottom: auto !important;
+  }
+  
+  /* iOS-specific height calculation for chat container */
+  .mobile-chat-container.nav-hidden {
+    height: calc(100vh - 90px) !important; /* iOS needs more offset */
   }
 }

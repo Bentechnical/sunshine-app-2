@@ -3,6 +3,7 @@
 
 import { Home, PawPrint, MessageCircle, CalendarCheck } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
+import { useNavNotifications } from '@/hooks/useNavNotifications';
 
 interface MobileNavProps {
   role: 'individual' | 'volunteer';
@@ -17,6 +18,8 @@ export default function MobileNav({
   setActiveTab,
   profileImage,
 }: MobileNavProps) {
+  const { hasUnreadMessages } = useNavNotifications(activeTab);
+
   const tabs: {
     key: ActiveTab;
     label: string;
@@ -27,13 +30,13 @@ export default function MobileNav({
         { key: 'dashboard-home', label: 'Home', icon: <Home size={20} /> },
         { key: 'meet-with-dog', label: 'Meet Dogs', icon: <PawPrint size={20} /> },
         { key: 'my-visits', label: 'Visits', icon: <CalendarCheck size={20} /> },
-        { key: 'messaging', label: 'Messages', icon: <MessageCircle size={20} /> },
+        { key: 'messaging', label: 'Messages', icon: <MessageCircle size={20} />, showAlert: hasUnreadMessages },
       ]
     : [
         { key: 'dashboard-home', label: 'Home', icon: <Home size={20} /> },
         { key: 'my-therapy-dog', label: 'Availability', icon: <PawPrint size={20} /> },
         { key: 'my-visits', label: 'Visits', icon: <CalendarCheck size={20} /> },
-        { key: 'messaging', label: 'Messages', icon: <MessageCircle size={20} /> },
+        { key: 'messaging', label: 'Messages', icon: <MessageCircle size={20} />, showAlert: hasUnreadMessages },
       ];
 
   return (
@@ -52,7 +55,9 @@ export default function MobileNav({
             <div className="relative">
               {icon}
               {showAlert && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  !
+                </span>
               )}
             </div>
             <span className="text-xs font-medium">{label}</span>

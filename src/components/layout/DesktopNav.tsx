@@ -1,6 +1,7 @@
   // src/components/layout/DesktopNav.tsx
   import { Dispatch, SetStateAction } from 'react';
   import { ActiveTab } from '@/types/navigation';
+  import { useNavNotifications } from '@/hooks/useNavNotifications';
 
   export interface DesktopNavProps {
     role: 'individual' | 'volunteer' | 'admin';
@@ -9,20 +10,27 @@
   }
 
   export function DesktopNav({ role, activeTab, setActiveTab }: DesktopNavProps) {
+    const { hasUnreadMessages } = useNavNotifications(activeTab);
+
+    // Only log when showing alert
+    if (hasUnreadMessages) {
+      console.log('[DesktopNav] Showing unread alert:', { activeTab, hasUnreadMessages });
+    }
+
     const tabs: { label: string; key: ActiveTab; showAlert?: boolean }[] =
     role === 'individual'
       ? [
           { key: 'dashboard-home', label: 'Home' },
           { key: 'meet-with-dog', label: 'Meet With Dog' },
           { key: 'my-visits', label: 'My Visits' },
-          { key: 'messaging', label: 'Messages' },
+          { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : role === 'volunteer'
       ? [
           { key: 'dashboard-home', label: 'Home' },
           { key: 'my-therapy-dog', label: 'Set Availability' },
           { key: 'my-visits', label: 'My Visits' },
-          { key: 'messaging', label: 'Messages' },
+          { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : [];
 
@@ -41,7 +49,9 @@
           >
             {label}
             {showAlert && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-1/2 -translate-y-1/2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                !
+              </span>
             )}
           </button>
         ))}

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import StreamChatCleanup from '@/components/layout/StreamChatCleanup';
 import OrientationLock from '@/components/layout/OrientationLock';
+import MobileDebugger from '@/components/layout/MobileDebugger';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <link rel="icon" type="image/png" sizes="16x16" href="/web-app-manifest-192x192.png" />
         </head>
         <body className={`min-h-screen overflow-auto ${geistSans.variable} ${geistMono.variable} antialiased`}>
+          <MobileDebugger />
           <StreamChatCleanup />
           <OrientationLock />
           {children}

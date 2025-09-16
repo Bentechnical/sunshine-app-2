@@ -75,7 +75,7 @@ export default function DashboardPage() {
   // Block access if user is pending or denied
   if (status !== 'approved' || role === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white p-6 rounded-lg shadow text-center">
           <h2 className="text-xl font-semibold mb-2">Your profile is under review</h2>
           <p className="text-gray-700">

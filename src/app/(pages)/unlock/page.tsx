@@ -34,10 +34,17 @@ export default function UnlockPage() {
             document.cookie = 'access_granted=true; Path=/; SameSite=Lax';
           } catch {}
         }
-        // Slight delay to ensure cookie commit before navigation (Safari/iOS)
-        setTimeout(() => {
-          window.location.replace('/');
-        }, 150);
+        
+        // For ngrok requests, use router.push to avoid full page reload
+        // This prevents the middleware from re-running and redirecting back
+        if (window.location.hostname.includes('ngrok')) {
+          router.push('/');
+        } else {
+          // Slight delay to ensure cookie commit before navigation (Safari/iOS)
+          setTimeout(() => {
+            window.location.replace('/');
+          }, 150);
+        }
       } else {
         const data = await res.json();
         setError(data.error || 'Invalid password.');
@@ -56,7 +63,7 @@ export default function UnlockPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gray-100 px-4">
       <form onSubmit={handleSubmit} className="bg-white shadow-lg p-6 rounded-lg max-w-sm w-full">
         <h2 className="text-xl font-semibold mb-4">Enter Access Password</h2>
         <input

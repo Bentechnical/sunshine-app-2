@@ -26,7 +26,7 @@ export default function SignOutPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen space-y-4">
+    <div className="flex flex-col items-center justify-center h-[100dvh] space-y-4">
       <h2 className="text-xl">Are you sure you want to sign out?</h2>
       <button
         onClick={handleSignOut}
