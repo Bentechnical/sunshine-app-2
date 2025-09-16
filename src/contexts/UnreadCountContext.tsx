@@ -142,6 +142,64 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
             console.error('[UnreadCountContext] ❌ Failed to load initial unread state:', err);
           }
 
+          // Set up global real-time event listeners for unread updates
+          const updateUnreadFromRealtimeEvent = async () => {
+            try {
+              console.log('[UnreadCountContext] 🔔 Real-time message event received, refreshing unread state...');
+
+              // Fetch fresh channel data (same as initial load)
+              const response = await fetch('/api/chat/channels');
+              if (response.ok) {
+                const data = await response.json();
+                const channelsArray = Array.isArray(data.chats) ? data.chats : [];
+
+                // Get fresh unread counts from Stream Chat
+                const unreadResponse = await newClient.getUnreadCount();
+
+                // Update channels with unread counts
+                const enrichedChannels = channelsArray.map((chat: any) => {
+                  const channelId = chat.channelId?.split(':')[1] || chat.channelId;
+                  const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+                    uc.channel_id === channelId || uc.channel_id === chat.channelId
+                  );
+                  return {
+                    ...chat,
+                    unreadCount: unreadChannel?.unread_count || 0
+                  };
+                });
+
+                // Update context with fresh unread state
+                updateUnreadFromChannels(enrichedChannels);
+
+                console.log('[UnreadCountContext] ✅ Real-time unread state updated');
+              }
+            } catch (err) {
+              console.warn('[UnreadCountContext] Failed to update real-time unread state:', err);
+            }
+          };
+
+          // Listen for Stream Chat real-time events globally
+          newClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
+          newClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
+          newClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
+
+          console.log('[UnreadCountContext] 🎧 Real-time event listeners set up');
+
+          // Store cleanup function for this specific client and handlers
+          const cleanup = () => {
+            try {
+              newClient.off('notification.message_new', updateUnreadFromRealtimeEvent as any);
+              newClient.off('notification.mark_read', updateUnreadFromRealtimeEvent as any);
+              newClient.off('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
+              console.log('[UnreadCountContext] 🧹 Event listeners cleaned up');
+            } catch (err) {
+              console.warn('[UnreadCountContext] Error cleaning up event listeners:', err);
+            }
+          };
+
+          // Store cleanup function for later use
+          (newClient as any).__unreadContextCleanup = cleanup;
+
           setLoading(false);
         } else {
           throw new Error('Failed to initialize chat client');
@@ -163,9 +221,15 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     streamChatManager.onDisconnect(handleDisconnect);
     initializeChat();
 
-    // Cleanup: unregister disconnect handler
+    // Cleanup: unregister disconnect handler and remove event listeners
     return () => {
       streamChatManager.offDisconnect(handleDisconnect);
+
+      // Clean up Stream Chat event listeners if client exists
+      const currentClient = streamChatManager.getClient();
+      if (currentClient && (currentClient as any).__unreadContextCleanup) {
+        (currentClient as any).__unreadContextCleanup();
+      }
     };
   }, [user, cleanupChatState]);
 
