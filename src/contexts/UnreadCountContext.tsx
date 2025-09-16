@@ -233,7 +233,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           (newClient as any).__unreadContextCleanup = cleanup;
 
           // Smart health check that handles reconnection automatically
-          const healthCheck = setInterval(() => {
+          const healthCheck = setInterval(async () => {
             const currentClient = streamChatManager.getClient();
 
             if (!currentClient || !currentClient.userID) {
