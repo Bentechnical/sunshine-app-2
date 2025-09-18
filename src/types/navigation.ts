@@ -9,6 +9,7 @@ export type ActiveTab =
   | 'manage-users' // admin
   | 'user-requests' // admin
   | 'appointments' // admin
+  | 'availabilities' // admin
   | 'chats' // admin
   | 'email-testing' // admin
   | 'welcome-messages' // admin

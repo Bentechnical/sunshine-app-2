@@ -1,7 +1,7 @@
 // src/components/layout/MobileNavAdmin.tsx
 'use client';
 
-import { Home, Users, MessageCircle, CalendarCheck, Mail, MessageSquare } from 'lucide-react';
+import { Home, Users, MessageCircle, CalendarCheck, Mail, MessageSquare, Calendar } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
 import { useAdminUnreadCount } from '@/hooks/useAdminUnreadCount';
 
@@ -30,6 +30,7 @@ export default function MobileNavAdmin({
     { key: 'user-requests', label: 'Requests', icon: <Users size={20} /> },
     { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0 },
     { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} /> },
+    { key: 'availabilities', label: 'Avail', icon: <Calendar size={20} /> },
     { key: 'welcome-messages', label: 'Messages', icon: <MessageSquare size={20} /> },
     { key: 'email-testing', label: 'Email', icon: <Mail size={20} /> },
   ];
