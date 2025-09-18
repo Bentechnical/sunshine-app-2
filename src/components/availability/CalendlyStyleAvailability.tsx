@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { Plus, Trash2, Clock, Calendar } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar, CheckCircle, AlertCircle, Circle, History } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
 import CustomTimePicker from './CustomTimePicker';
 import { RRule } from 'rrule';
@@ -58,15 +58,24 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     setAvailability(initAvailability);
     loadExistingAvailability();
     loadAllAvailabilitySlots();
-  }, [userId]);
+  }, [userId]); // loadExistingAvailability and loadAllAvailabilitySlots are stable async functions
 
   // Load all availability slots for the slots tab
   const loadAllAvailabilitySlots = async () => {
     try {
+      // Get start of current week (Monday) to show entire week context
+      const now = new Date();
+      const currentWeekStart = new Date(now);
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday is 6 days from Monday
+      currentWeekStart.setDate(now.getDate() - daysFromMonday);
+      currentWeekStart.setHours(0, 0, 0, 0);
+
       const { data, error } = await supabase
         .from('appointment_availability')
         .select('*')
         .eq('volunteer_id', userId)
+        .gte('start_time', currentWeekStart.toISOString()) // From start of current week
         .order('start_time');
 
       if (error) {
@@ -74,7 +83,52 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         return;
       }
 
-      setAvailabilitySlots(data || []);
+      // Get appointment status for each slot
+      const slots = data || [];
+      if (slots.length > 0) {
+        const slotIds = slots.map(slot => slot.id);
+        const { data: appointments, error: aptError } = await supabase
+          .from('appointments')
+          .select('availability_id, status')
+          .eq('volunteer_id', userId)
+          .in('availability_id', slotIds)
+          .in('status', ['pending', 'confirmed']);
+
+        if (aptError) {
+          console.error('Error loading appointment statuses:', aptError);
+        } else {
+          // Add status to each slot
+          const appointmentMap = new Map(
+            (appointments || []).map(apt => [apt.availability_id, apt.status])
+          );
+
+          const slotsWithStatus = slots.map(slot => {
+            const slotStart = new Date(slot.start_time);
+            const isPast = slotStart < now;
+            return {
+              ...slot,
+              appointmentStatus: appointmentMap.get(slot.id) || 'available',
+              isPast: isPast
+            };
+          });
+
+          setAvailabilitySlots(slotsWithStatus);
+          return;
+        }
+      }
+
+      // Add isPast flag even when no appointments
+      const slotsWithPastFlag = slots.map(slot => {
+        const slotStart = new Date(slot.start_time);
+        const isPast = slotStart < now;
+        return {
+          ...slot,
+          appointmentStatus: 'available',
+          isPast: isPast
+        };
+      });
+
+      setAvailabilitySlots(slotsWithPastFlag);
     } catch (error) {
       console.error('Error loading availability slots:', error);
     }
@@ -333,21 +387,32 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
       const recurrenceId = uuidv4(); // Single recurrence ID for all slots from this save
       const now = new Date();
 
-      // Start from next Monday to avoid conflicts with current week
-      const nextMonday = new Date(now);
-      const daysUntilMonday = (1 + 7 - now.getDay()) % 7 || 7;
-      nextMonday.setDate(now.getDate() + daysUntilMonday);
-      nextMonday.setHours(0, 0, 0, 0);
+      // Start from tomorrow to create availability as soon as possible
+      const startDate = new Date(now);
+      startDate.setDate(now.getDate() + 1); // Start from tomorrow
+      startDate.setHours(0, 0, 0, 0);
+
+      // Find the Monday of the week containing our start date
+      const startMonday = new Date(startDate);
+      const dayOfWeek = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday is 6 days from Monday
+      startMonday.setDate(startDate.getDate() - daysFromMonday);
+      startMonday.setHours(0, 0, 0, 0);
 
       availability.forEach(dayAvail => {
         if (dayAvail.enabled && dayAvail.timeRanges.length > 0) {
           dayAvail.timeRanges.forEach(range => {
             // Create the first occurrence for this day/time combination
-            const firstOccurrence = new Date(nextMonday);
+            const firstOccurrence = new Date(startMonday);
 
             // Adjust for the specific day of week (0=Sunday, 1=Monday, etc.)
             const dayOffset = dayAvail.dayIndex === 0 ? 6 : dayAvail.dayIndex - 1; // Convert to Monday=0 based
-            firstOccurrence.setDate(nextMonday.getDate() + dayOffset);
+            firstOccurrence.setDate(startMonday.getDate() + dayOffset);
+
+            // Skip this occurrence if it's before our minimum start date (tomorrow)
+            if (firstOccurrence < startDate) {
+              firstOccurrence.setDate(firstOccurrence.getDate() + 7); // Move to next week
+            }
 
             // Set the time
             const [startHour, startMin] = range.startTime.split(':').map(Number);
@@ -424,10 +489,41 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   };
 
   // Delete individual slot
-  const deleteSlot = async (slotId: number) => {
+  const deleteSlot = async (slotId: number, appointmentStatus?: string, isPast?: boolean) => {
+    // Check if slot is in the past
+    if (isPast) {
+      alert('Cannot delete past time slots.');
+      return;
+    }
+
+    // Check if slot has an appointment
+    if (appointmentStatus && appointmentStatus !== 'available') {
+      const statusText = appointmentStatus === 'confirmed' ? 'confirmed appointment' : 'pending appointment request';
+      alert(`Cannot delete this time slot because it has a ${statusText}. Please cancel the appointment first.`);
+      return;
+    }
+
     if (!confirm('Are you sure you want to remove this time slot?')) return;
 
     try {
+      // Double-check for appointments before deletion
+      const { data: appointments, error: checkError } = await supabase
+        .from('appointments')
+        .select('id, status')
+        .eq('availability_id', slotId)
+        .eq('volunteer_id', userId)
+        .in('status', ['pending', 'confirmed'])
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (appointments && appointments.length > 0) {
+        const appointment = appointments[0];
+        const statusText = appointment.status === 'confirmed' ? 'confirmed appointment' : 'pending appointment request';
+        alert(`Cannot delete this time slot because it has a ${statusText}. Please cancel the appointment first.`);
+        return;
+      }
+
       const { error } = await supabase
         .from('appointment_availability')
         .delete()
@@ -439,6 +535,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
       setAvailabilitySlots(prev => prev.filter(slot => slot.id !== slotId));
     } catch (error) {
       console.error('Error deleting slot:', error);
+      alert('Error deleting time slot. Please try again.');
     }
   };
 
@@ -677,8 +774,8 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         <div className="flex items-center justify-center p-8">
           <div className="text-center text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium mb-2">No availability slots found</h3>
-            <p className="text-sm">Set up your weekly template first to create time slots.</p>
+            <h3 className="text-lg font-medium mb-2">No availability slots this week</h3>
+            <p className="text-sm">Set up your weekly template first to create time slots for this week and beyond.</p>
           </div>
         </div>
       );
@@ -702,29 +799,100 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
               {/* Week's Slots - Compact Single Lines */}
               <div className="divide-y divide-gray-100">
-                {weekGroups[weekKey].map(slot => (
-                  <div key={slot.id} className="px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 text-sm">
-                        <span className="font-medium text-gray-900 truncate">
-                          {formatSlotDate(slot.start_time)}
-                        </span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-600 whitespace-nowrap">
-                          {formatSlotTime(slot.start_time, slot.end_time)}
-                        </span>
+                {weekGroups[weekKey].map(slot => {
+                  const status = slot.appointmentStatus || 'available';
+                  const isBooked = status !== 'available';
+                  const isPast = slot.isPast || false;
+                  const isDisabled = isBooked || isPast;
+
+                  // Status styling
+                  const getStatusConfig = () => {
+                    if (isPast) {
+                      return {
+                        icon: History,
+                        color: 'text-gray-500',
+                        bg: 'bg-gray-100',
+                        label: status === 'available' ? 'Past' : status === 'confirmed' ? 'Past (Confirmed)' : 'Past (Requested)'
+                      };
+                    }
+
+                    switch (status) {
+                      case 'confirmed':
+                        return {
+                          icon: CheckCircle,
+                          color: 'text-green-600',
+                          bg: 'bg-green-50',
+                          label: 'Confirmed'
+                        };
+                      case 'pending':
+                        return {
+                          icon: AlertCircle,
+                          color: 'text-amber-600',
+                          bg: 'bg-amber-50',
+                          label: 'Requested'
+                        };
+                      default:
+                        return {
+                          icon: Circle,
+                          color: 'text-blue-600',
+                          bg: 'bg-blue-50',
+                          label: 'Available'
+                        };
+                    }
+                  };
+
+                  const statusConfig = getStatusConfig();
+                  const StatusIcon = statusConfig.icon;
+
+                  return (
+                    <div key={slot.id} className={`px-3 py-2 flex items-center justify-between transition-colors ${
+                      isPast ? 'bg-gray-25 opacity-75' : isBooked ? 'bg-gray-25' : 'hover:bg-gray-50'
+                    }`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="font-medium text-gray-900 truncate">
+                            {formatSlotDate(slot.start_time)}
+                          </span>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-600 whitespace-nowrap">
+                            {formatSlotTime(slot.start_time, slot.end_time)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                          statusConfig.bg
+                        } ${statusConfig.color}`}>
+                          <StatusIcon className="w-3 h-3" />
+                          <span>{statusConfig.label}</span>
+                        </div>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => deleteSlot(slot.id, status, isPast)}
+                          disabled={isDisabled}
+                          className={`p-1.5 rounded transition-colors group flex-shrink-0 ${
+                            isDisabled
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-red-600 hover:bg-red-50'
+                          }`}
+                          title={isPast
+                            ? 'Cannot delete past time slots'
+                            : isBooked
+                            ? `Cannot delete - slot has ${status === 'confirmed' ? 'confirmed appointment' : 'appointment request'}`
+                            : 'Remove this time slot'
+                          }
+                        >
+                          <Trash2 className={`w-4 h-4 transition-transform ${
+                            isDisabled ? '' : 'group-hover:scale-110'
+                          }`} />
+                        </button>
                       </div>
                     </div>
-
-                    <button
-                      onClick={() => deleteSlot(slot.id)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors group flex-shrink-0 ml-2"
-                      title="Remove this time slot"
-                    >
-                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
