@@ -13,6 +13,7 @@ import type { ActiveTab } from '@/types/navigation';
 import AdminDashboardHome from '@/components/admin/AdminDashboardHome';
 import AdminManageUsers from '@/components/admin/AdminManageUsers';
 import AdminAppointments from '@/components/admin/AdminAppointments';
+import AdminAvailabilities from '@/components/admin/AdminAvailabilities';
 import AdminUserRequests from '@/components/admin/AdminUserRequests';
 import AdminChats from '@/components/admin/AdminChats';
 import AdminWelcomeMessages from '@/components/admin/AdminWelcomeMessages';
@@ -52,6 +53,8 @@ export default function AdminDashboardPage() {
         return <AdminUserRequests />;
       case 'appointments':
         return <AdminAppointments />;
+      case 'availabilities':
+        return <AdminAvailabilities />;
       case 'chats':
         return <AdminChats onUnreadCountChange={handleUnreadCountChange} />;
       case 'welcome-messages':
@@ -61,7 +64,7 @@ export default function AdminDashboardPage() {
       default:
         return (
           <div className="p-4 text-red-600">
-            Unknown tab selected. Please report this issue.
+            Unknown tab selected: "{activeTab}". Please report this issue.
           </div>
         );
     }
