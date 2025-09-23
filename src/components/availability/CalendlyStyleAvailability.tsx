@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { Plus, Trash2, Clock, Calendar } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar, CheckCircle, AlertCircle, Circle, History } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
 import CustomTimePicker from './CustomTimePicker';
 import { RRule } from 'rrule';
@@ -46,6 +46,8 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('template');
   const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [hasConflicts, setHasConflicts] = useState(false);
 
   // Initialize availability structure
   useEffect(() => {
@@ -58,15 +60,24 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     setAvailability(initAvailability);
     loadExistingAvailability();
     loadAllAvailabilitySlots();
-  }, [userId]);
+  }, [userId]); // loadExistingAvailability and loadAllAvailabilitySlots are stable async functions
 
   // Load all availability slots for the slots tab
   const loadAllAvailabilitySlots = async () => {
     try {
+      // Get start of current week (Monday) to show entire week context
+      const now = new Date();
+      const currentWeekStart = new Date(now);
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday is 6 days from Monday
+      currentWeekStart.setDate(now.getDate() - daysFromMonday);
+      currentWeekStart.setHours(0, 0, 0, 0);
+
       const { data, error } = await supabase
         .from('appointment_availability')
         .select('*')
         .eq('volunteer_id', userId)
+        .gte('start_time', currentWeekStart.toISOString()) // From start of current week
         .order('start_time');
 
       if (error) {
@@ -74,7 +85,52 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         return;
       }
 
-      setAvailabilitySlots(data || []);
+      // Get appointment status for each slot
+      const slots = data || [];
+      if (slots.length > 0) {
+        const slotIds = slots.map(slot => slot.id);
+        const { data: appointments, error: aptError } = await supabase
+          .from('appointments')
+          .select('availability_id, status')
+          .eq('volunteer_id', userId)
+          .in('availability_id', slotIds)
+          .in('status', ['pending', 'confirmed']);
+
+        if (aptError) {
+          console.error('Error loading appointment statuses:', aptError);
+        } else {
+          // Add status to each slot
+          const appointmentMap = new Map(
+            (appointments || []).map(apt => [apt.availability_id, apt.status])
+          );
+
+          const slotsWithStatus = slots.map(slot => {
+            const slotStart = new Date(slot.start_time);
+            const isPast = slotStart < now;
+            return {
+              ...slot,
+              appointmentStatus: appointmentMap.get(slot.id) || 'available',
+              isPast: isPast
+            };
+          });
+
+          setAvailabilitySlots(slotsWithStatus);
+          return;
+        }
+      }
+
+      // Add isPast flag even when no appointments
+      const slotsWithPastFlag = slots.map(slot => {
+        const slotStart = new Date(slot.start_time);
+        const isPast = slotStart < now;
+        return {
+          ...slot,
+          appointmentStatus: 'available',
+          isPast: isPast
+        };
+      });
+
+      setAvailabilitySlots(slotsWithPastFlag);
     } catch (error) {
       console.error('Error loading availability slots:', error);
     }
@@ -88,6 +144,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         .select('*')
         .eq('volunteer_id', userId)
         .not('recurrence_id', 'is', null) // Only load recurring slots
+        .gte('start_time', new Date().toISOString()) // Only load future slots
         .order('start_time');
 
       if (error) {
@@ -97,15 +154,54 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
       if (!data || data.length === 0) return;
 
-      // Group by day of week and time range to create template
+      // Group by day of week and deduplicate time ranges to clean up legacy data
       const groupedByDay: { [key: number]: Set<string> } = {};
 
       data.forEach(slot => {
-        const date = new Date(slot.start_time);
-        const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const startTime = date.toTimeString().slice(0, 5); // HH:MM
-        const endTime = new Date(slot.end_time).toTimeString().slice(0, 5); // HH:MM
+        const startDate = new Date(slot.start_time);
+        const endDate = new Date(slot.end_time);
+
+        // Skip invalid dates
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.warn('Invalid date found in slot:', slot);
+          return;
+        }
+
+        const dayOfWeek = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+        // Use a consistent reference date (today) for timezone conversion
+        // This ensures all template times are converted using current timezone rules
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        // Create reference times using today's date but original UTC hours/minutes
+        const referenceStart = new Date();
+        referenceStart.setUTCHours(startDate.getUTCHours(), startDate.getUTCMinutes(), 0, 0);
+
+        const referenceEnd = new Date();
+        referenceEnd.setUTCHours(endDate.getUTCHours(), endDate.getUTCMinutes(), 0, 0);
+
+        const startTime = referenceStart.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: userTimezone
+        });
+
+        const endTime = referenceEnd.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: userTimezone
+        });
+
+        // Skip invalid time ranges
+        if (!startTime || !endTime || startTime === 'NaN:Na' || endTime === 'NaN:Na') {
+          console.warn('Invalid time range found:', { startTime, endTime, slot });
+          return;
+        }
+
         const timeRangeKey = `${startTime}-${endTime}`;
+
 
         if (!groupedByDay[dayOfWeek]) {
           groupedByDay[dayOfWeek] = new Set();
@@ -113,23 +209,39 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         groupedByDay[dayOfWeek].add(timeRangeKey);
       });
 
+      // Convert Sets back to arrays for processing, removing duplicates
+      const cleanedGroupedByDay: { [key: number]: string[] } = {};
+      Object.keys(groupedByDay).forEach(dayKey => {
+        const dayIndex = Number(dayKey);
+        cleanedGroupedByDay[dayIndex] = Array.from(groupedByDay[dayIndex]);
+      });
+
       // Convert to our availability structure
       setAvailability(prev => {
         return prev.map(dayAvail => {
-          const dayTimeRanges = groupedByDay[dayAvail.dayIndex];
+          const dayTimeRanges = cleanedGroupedByDay[dayAvail.dayIndex];
 
-          if (!dayTimeRanges || dayTimeRanges.size === 0) {
+          if (!dayTimeRanges || dayTimeRanges.length === 0) {
             return dayAvail;
           }
 
-          const timeRanges: TimeRange[] = Array.from(dayTimeRanges).map((timeRangeKey, index) => {
-            const [startTime, endTime] = timeRangeKey.split('-');
-            return {
-              id: `${dayAvail.dayIndex}-${index}`, // Template ID
-              startTime,
-              endTime,
-            };
-          });
+          const timeRanges: TimeRange[] = dayTimeRanges
+            .map((timeRangeKey, index) => {
+              const [startTime, endTime] = timeRangeKey.split('-');
+
+              // Skip invalid time ranges
+              if (!startTime || !endTime || startTime === 'undefined' || endTime === 'undefined') {
+                console.warn('Invalid time range key:', timeRangeKey);
+                return null;
+              }
+
+              return {
+                id: `${dayAvail.dayIndex}-${index}`, // Template ID
+                startTime,
+                endTime,
+              };
+            })
+            .filter((range): range is TimeRange => range !== null);
 
           return {
             ...dayAvail,
@@ -138,6 +250,11 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
           };
         });
       });
+
+      // Validate after loading data
+      setTimeout(() => {
+        validateAvailability();
+      }, 200);
     } catch (error) {
       console.error('Error loading availability:', error);
     }
@@ -188,23 +305,127 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         return day;
       })
     );
+    // Validate after state update
+    setTimeout(validateAvailability, 0);
   };
 
   // Remove time range
   const removeTimeRange = (dayIndex: number, rangeId: string) => {
-    setAvailability(prev =>
-      prev.map(day => {
+    console.log('[DELETE] Removing range:', rangeId, 'from day:', dayIndex);
+
+    setAvailability(prev => {
+      const updated = prev.map(day => {
         if (day.dayIndex === dayIndex) {
-          const newTimeRanges = day.timeRanges.filter(range => range.id !== rangeId);
+          const beforeRanges = day.timeRanges;
+          const afterRanges = day.timeRanges.filter(range => range.id !== rangeId);
+
+          console.log('[DELETE] Before:', beforeRanges);
+          console.log('[DELETE] After:', afterRanges);
+
           return {
             ...day,
-            timeRanges: newTimeRanges,
-            enabled: newTimeRanges.length > 0 // Auto-disable if no ranges left
+            timeRanges: afterRanges,
+            enabled: afterRanges.length > 0 // Auto-disable if no ranges left
           };
         }
         return day;
+      });
+
+      console.log('[DELETE] Updated availability:', updated);
+      return updated;
+    });
+
+    // Only validate if there are still multiple ranges that could conflict
+    setTimeout(() => {
+      console.log('[DELETE] Running validation after delete');
+      // Re-check current availability state for validation need
+      setAvailability(currentAvailability => {
+        const needsValidation = currentAvailability.some(day => day.enabled && day.timeRanges.length > 1);
+        if (needsValidation) {
+          validateAvailability();
+        } else {
+          // Clear any existing validation errors since no conflicts are possible
+          setValidationErrors({});
+          setHasConflicts(false);
+        }
+        return currentAvailability; // No changes to state
+      });
+    }, 0);
+  };
+
+  // Round time to nearest 15 minutes
+  // Detect overlapping time ranges within a day
+  const detectOverlaps = (timeRanges: TimeRange[]): { [rangeId: string]: string } => {
+    const conflicts: { [rangeId: string]: string } = {};
+
+    for (let i = 0; i < timeRanges.length; i++) {
+      for (let j = i + 1; j < timeRanges.length; j++) {
+        const range1 = timeRanges[i];
+        const range2 = timeRanges[j];
+
+        // Convert times to minutes for easier comparison
+        const start1 = timeToMinutes(range1.startTime);
+        const end1 = timeToMinutes(range1.endTime);
+        const start2 = timeToMinutes(range2.startTime);
+        const end2 = timeToMinutes(range2.endTime);
+
+        // Check for overlap or duplicate
+        const hasOverlap = start1 < end2 && start2 < end1;
+        const isDuplicate = start1 === start2 && end1 === end2;
+
+        if (hasOverlap || isDuplicate) {
+          const conflictMsg = isDuplicate
+            ? `Duplicate time range: ${range2.startTime}-${range2.endTime}`
+            : `Overlaps with ${range2.startTime}-${range2.endTime}`;
+
+          conflicts[range1.id] = conflictMsg;
+          conflicts[range2.id] = isDuplicate
+            ? `Duplicate time range: ${range1.startTime}-${range1.endTime}`
+            : `Overlaps with ${range1.startTime}-${range1.endTime}`;
+        }
+      }
+    }
+
+    return conflicts;
+  };
+
+  // Convert HH:MM time to minutes since midnight
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Validate all availability and update conflicts
+  const validateAvailability = () => {
+    const allErrors: { [key: string]: string } = {};
+    let conflictsFound = false;
+
+    // Skip validation if any time ranges are invalid (start >= end)
+    const hasInvalidRanges = availability.some(dayAvail =>
+      dayAvail.enabled && dayAvail.timeRanges.some(range => {
+        const startMinutes = timeToMinutes(range.startTime);
+        const endMinutes = timeToMinutes(range.endTime);
+        return startMinutes >= endMinutes;
       })
     );
+
+    if (hasInvalidRanges) {
+      console.log('[VALIDATE] Skipping validation due to invalid time ranges');
+      return;
+    }
+
+    availability.forEach(dayAvail => {
+      if (dayAvail.enabled && dayAvail.timeRanges.length > 1) {
+        const dayConflicts = detectOverlaps(dayAvail.timeRanges);
+        Object.assign(allErrors, dayConflicts);
+        if (Object.keys(dayConflicts).length > 0) {
+          conflictsFound = true;
+        }
+      }
+    });
+
+    setValidationErrors(allErrors);
+    setHasConflicts(conflictsFound);
   };
 
   // Round time to nearest 15 minutes
@@ -238,6 +459,8 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
   // Update time range
   const updateTimeRange = (dayIndex: number, rangeId: string, field: 'startTime' | 'endTime', value: string) => {
+    console.log(`[UPDATE] Updating ${field} to ${value} for range ${rangeId}`);
+
     // Round to nearest 15 minutes
     const roundedValue = roundToNearestQuarter(value);
 
@@ -250,19 +473,36 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
               if (range.id === rangeId) {
                 const updated = { ...range, [field]: roundedValue };
 
-                // Ensure minimum 1-hour duration
+                // Ensure valid time range (start < end) with minimum 1-hour duration
+                const startMinutes = timeToMinutes(updated.startTime);
+                const endMinutes = timeToMinutes(updated.endTime);
+
                 if (field === 'startTime') {
-                  const minEndTime = getMinimumEndTime(updated.startTime);
-                  if (updated.endTime < minEndTime) {
-                    updated.endTime = minEndTime;
+                  // When changing start time, ensure end time is at least 1 hour later
+                  const minEndMinutes = startMinutes + 60;
+                  if (endMinutes <= startMinutes || endMinutes < minEndMinutes) {
+                    const minHours = Math.floor(minEndMinutes / 60);
+                    const minMins = minEndMinutes % 60;
+                    // Don't go beyond 9 PM
+                    if (minHours <= 21) {
+                      updated.endTime = `${String(minHours).padStart(2, '0')}:${String(minMins).padStart(2, '0')}`;
+                    } else {
+                      // If minimum end time would exceed 9 PM, adjust start time instead
+                      updated.startTime = '20:00';
+                      updated.endTime = '21:00';
+                    }
                   }
                 } else if (field === 'endTime') {
-                  const minEndTime = getMinimumEndTime(updated.startTime);
-                  if (updated.endTime < minEndTime) {
-                    updated.endTime = minEndTime;
+                  // When changing end time, ensure it's at least 1 hour after start
+                  const minEndMinutes = startMinutes + 60;
+                  if (endMinutes <= startMinutes || endMinutes < minEndMinutes) {
+                    const minHours = Math.floor(minEndMinutes / 60);
+                    const minMins = minEndMinutes % 60;
+                    updated.endTime = `${String(minHours).padStart(2, '0')}:${String(minMins).padStart(2, '0')}`;
                   }
                 }
 
+                console.log(`[UPDATE] Final updated range:`, updated);
                 return updated;
               }
               return range;
@@ -272,10 +512,32 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         return day;
       })
     );
+    // Validate after state update
+    setTimeout(validateAvailability, 0);
   };
 
   // Save availability to database with recurring slots
   const saveAvailability = async () => {
+    // Run validation immediately and check conflicts synchronously
+    const allErrors: { [key: string]: string } = {};
+    let conflictsFound = false;
+
+    availability.forEach(dayAvail => {
+      if (dayAvail.enabled && dayAvail.timeRanges.length > 1) {
+        const dayConflicts = detectOverlaps(dayAvail.timeRanges);
+        Object.assign(allErrors, dayConflicts);
+        if (Object.keys(dayConflicts).length > 0) {
+          conflictsFound = true;
+        }
+      }
+    });
+
+    // Check for conflicts before saving
+    if (conflictsFound) {
+      alert('Cannot save availability with time conflicts. Please resolve overlapping time ranges first.');
+      return;
+    }
+
     setIsSaving(true);
     setSaveMessage(null);
 
@@ -333,21 +595,32 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
       const recurrenceId = uuidv4(); // Single recurrence ID for all slots from this save
       const now = new Date();
 
-      // Start from next Monday to avoid conflicts with current week
-      const nextMonday = new Date(now);
-      const daysUntilMonday = (1 + 7 - now.getDay()) % 7 || 7;
-      nextMonday.setDate(now.getDate() + daysUntilMonday);
-      nextMonday.setHours(0, 0, 0, 0);
+      // Start from tomorrow to create availability as soon as possible
+      const startDate = new Date(now);
+      startDate.setDate(now.getDate() + 1); // Start from tomorrow
+      startDate.setHours(0, 0, 0, 0);
+
+      // Find the Monday of the week containing our start date
+      const startMonday = new Date(startDate);
+      const dayOfWeek = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday is 6 days from Monday
+      startMonday.setDate(startDate.getDate() - daysFromMonday);
+      startMonday.setHours(0, 0, 0, 0);
 
       availability.forEach(dayAvail => {
         if (dayAvail.enabled && dayAvail.timeRanges.length > 0) {
           dayAvail.timeRanges.forEach(range => {
             // Create the first occurrence for this day/time combination
-            const firstOccurrence = new Date(nextMonday);
+            const firstOccurrence = new Date(startMonday);
 
             // Adjust for the specific day of week (0=Sunday, 1=Monday, etc.)
             const dayOffset = dayAvail.dayIndex === 0 ? 6 : dayAvail.dayIndex - 1; // Convert to Monday=0 based
-            firstOccurrence.setDate(nextMonday.getDate() + dayOffset);
+            firstOccurrence.setDate(startMonday.getDate() + dayOffset);
+
+            // Skip this occurrence if it's before our minimum start date (tomorrow)
+            if (firstOccurrence < startDate) {
+              firstOccurrence.setDate(firstOccurrence.getDate() + 7); // Move to next week
+            }
 
             // Set the time
             const [startHour, startMin] = range.startTime.split(':').map(Number);
@@ -385,7 +658,6 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
       // Insert new recurring slots
       if (slotsToInsert.length > 0) {
-        console.log(`Creating ${slotsToInsert.length} recurring availability slots over ${RECURRING_WEEKS} weeks`);
 
         const { error: insertError } = await supabase
           .from('appointment_availability')
@@ -424,10 +696,41 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   };
 
   // Delete individual slot
-  const deleteSlot = async (slotId: number) => {
+  const deleteSlot = async (slotId: number, appointmentStatus?: string, isPast?: boolean) => {
+    // Check if slot is in the past
+    if (isPast) {
+      alert('Cannot delete past time slots.');
+      return;
+    }
+
+    // Check if slot has an appointment
+    if (appointmentStatus && appointmentStatus !== 'available') {
+      const statusText = appointmentStatus === 'confirmed' ? 'confirmed appointment' : 'pending appointment request';
+      alert(`Cannot delete this time slot because it has a ${statusText}. Please cancel the appointment first.`);
+      return;
+    }
+
     if (!confirm('Are you sure you want to remove this time slot?')) return;
 
     try {
+      // Double-check for appointments before deletion
+      const { data: appointments, error: checkError } = await supabase
+        .from('appointments')
+        .select('id, status')
+        .eq('availability_id', slotId)
+        .eq('volunteer_id', userId)
+        .in('status', ['pending', 'confirmed'])
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (appointments && appointments.length > 0) {
+        const appointment = appointments[0];
+        const statusText = appointment.status === 'confirmed' ? 'confirmed appointment' : 'pending appointment request';
+        alert(`Cannot delete this time slot because it has a ${statusText}. Please cancel the appointment first.`);
+        return;
+      }
+
       const { error } = await supabase
         .from('appointment_availability')
         .delete()
@@ -439,6 +742,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
       setAvailabilitySlots(prev => prev.filter(slot => slot.id !== slotId));
     } catch (error) {
       console.error('Error deleting slot:', error);
+      alert('Error deleting time slot. Please try again.');
     }
   };
 
@@ -473,18 +777,23 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
           {/* Save Changes button - invisible on slots tab for consistent sizing */}
           <button
             onClick={saveAvailability}
-            disabled={isSaving || activeTab === 'slots'}
+            disabled={isSaving || activeTab === 'slots' || hasConflicts}
             className={`px-3 py-1.5 text-sm rounded flex items-center gap-2 transition-all ${
               activeTab === 'template'
-                ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                ? hasConflicts
+                  ? 'bg-red-600 text-white cursor-not-allowed opacity-75'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
                 : 'invisible'
             }`}
+            title={hasConflicts ? 'Resolve time conflicts before saving' : ''}
           >
             {isSaving ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Saving...
               </>
+            ) : hasConflicts ? (
+              'Fix Conflicts First'
             ) : (
               'Save Changes'
             )}
@@ -564,8 +873,12 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                           <span>Click "Add Time" to set available hours</span>
                         </div>
                       ) : (
-                        dayAvail.timeRanges.map((range) => (
-                          <div key={range.id} className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg">
+                        dayAvail.timeRanges.map((range) => {
+                          const hasError = validationErrors[range.id];
+                          return (
+                          <div key={range.id} className={`flex items-center gap-2 p-2 sm:p-3 rounded-lg ${
+                            hasError ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'
+                          }`}>
                             <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
                               <div className="relative flex-1 min-w-0">
                                 <CustomTimePicker
@@ -593,8 +906,16 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
+
+                            {/* Error message */}
+                            {hasError && (
+                              <div className="w-full mt-2 text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                                {hasError}
+                              </div>
+                            )}
                           </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -677,8 +998,8 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         <div className="flex items-center justify-center p-8">
           <div className="text-center text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium mb-2">No availability slots found</h3>
-            <p className="text-sm">Set up your weekly template first to create time slots.</p>
+            <h3 className="text-lg font-medium mb-2">No availability slots this week</h3>
+            <p className="text-sm">Set up your weekly template first to create time slots for this week and beyond.</p>
           </div>
         </div>
       );
@@ -702,29 +1023,100 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
               {/* Week's Slots - Compact Single Lines */}
               <div className="divide-y divide-gray-100">
-                {weekGroups[weekKey].map(slot => (
-                  <div key={slot.id} className="px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 text-sm">
-                        <span className="font-medium text-gray-900 truncate">
-                          {formatSlotDate(slot.start_time)}
-                        </span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-600 whitespace-nowrap">
-                          {formatSlotTime(slot.start_time, slot.end_time)}
-                        </span>
+                {weekGroups[weekKey].map(slot => {
+                  const status = slot.appointmentStatus || 'available';
+                  const isBooked = status !== 'available';
+                  const isPast = slot.isPast || false;
+                  const isDisabled = isBooked || isPast;
+
+                  // Status styling
+                  const getStatusConfig = () => {
+                    if (isPast) {
+                      return {
+                        icon: History,
+                        color: 'text-gray-500',
+                        bg: 'bg-gray-100',
+                        label: status === 'available' ? 'Past' : status === 'confirmed' ? 'Past (Confirmed)' : 'Past (Requested)'
+                      };
+                    }
+
+                    switch (status) {
+                      case 'confirmed':
+                        return {
+                          icon: CheckCircle,
+                          color: 'text-green-600',
+                          bg: 'bg-green-50',
+                          label: 'Confirmed'
+                        };
+                      case 'pending':
+                        return {
+                          icon: AlertCircle,
+                          color: 'text-amber-600',
+                          bg: 'bg-amber-50',
+                          label: 'Requested'
+                        };
+                      default:
+                        return {
+                          icon: Circle,
+                          color: 'text-blue-600',
+                          bg: 'bg-blue-50',
+                          label: 'Available'
+                        };
+                    }
+                  };
+
+                  const statusConfig = getStatusConfig();
+                  const StatusIcon = statusConfig.icon;
+
+                  return (
+                    <div key={slot.id} className={`px-3 py-2 flex items-center justify-between transition-colors ${
+                      isPast ? 'bg-gray-25 opacity-75' : isBooked ? 'bg-gray-25' : 'hover:bg-gray-50'
+                    }`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="font-medium text-gray-900 truncate">
+                            {formatSlotDate(slot.start_time)}
+                          </span>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-600 whitespace-nowrap">
+                            {formatSlotTime(slot.start_time, slot.end_time)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                          statusConfig.bg
+                        } ${statusConfig.color}`}>
+                          <StatusIcon className="w-3 h-3" />
+                          <span>{statusConfig.label}</span>
+                        </div>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => deleteSlot(slot.id, status, isPast)}
+                          disabled={isDisabled}
+                          className={`p-1.5 rounded transition-colors group flex-shrink-0 ${
+                            isDisabled
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-red-600 hover:bg-red-50'
+                          }`}
+                          title={isPast
+                            ? 'Cannot delete past time slots'
+                            : isBooked
+                            ? `Cannot delete - slot has ${status === 'confirmed' ? 'confirmed appointment' : 'appointment request'}`
+                            : 'Remove this time slot'
+                          }
+                        >
+                          <Trash2 className={`w-4 h-4 transition-transform ${
+                            isDisabled ? '' : 'group-hover:scale-110'
+                          }`} />
+                        </button>
                       </div>
                     </div>
-
-                    <button
-                      onClick={() => deleteSlot(slot.id)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors group flex-shrink-0 ml-2"
-                      title="Remove this time slot"
-                    >
-                      <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
