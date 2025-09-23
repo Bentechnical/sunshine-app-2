@@ -292,14 +292,14 @@ export default function AdminAvailabilities() {
           <div className="border-t border-gray-200 p-4 bg-gray-50">
             <div className="space-y-4">
               {/* Recurring Patterns */}
-              {group.recurringPatterns.length > 0 && (
+              {group.recurringPatterns.filter(pattern => pattern.futureCount > 0).length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <Repeat className="w-4 h-4 mr-2" />
-                    Recurring Patterns ({group.recurringPatterns.length})
+                    Recurring Patterns ({group.recurringPatterns.filter(pattern => pattern.futureCount > 0).length})
                   </h4>
                   <div className="space-y-2">
-                    {group.recurringPatterns.map(pattern => {
+                    {group.recurringPatterns.filter(pattern => pattern.futureCount > 0).map(pattern => {
                       const patternKey = `${group.volunteer.id}-${pattern.recurrence_id}`;
                       const isPatternExpanded = expandedPatterns.has(patternKey);
                       return (
