@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Plus, Trash2, Clock, Calendar, CheckCircle, AlertCircle, Circle, History } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
@@ -48,6 +48,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
   const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [hasConflicts, setHasConflicts] = useState(false);
+  const saveMessageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize availability structure
   useEffect(() => {
@@ -61,6 +62,15 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
     loadExistingAvailability();
     loadAllAvailabilitySlots();
   }, [userId]); // loadExistingAvailability and loadAllAvailabilitySlots are stable async functions
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveMessageTimeoutRef.current) {
+        clearTimeout(saveMessageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Load all availability slots for the slots tab
   const loadAllAvailabilitySlots = async () => {
@@ -574,6 +584,11 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
       const existingIds = (existingSlots || []).map(slot => Number(slot.id));
       const deletableIds = existingIds.filter(id => !bookedIds.has(id));
 
+      // Track counts for accurate messaging
+      const originalTotalCount = existingIds.length;
+      const deletedCount = deletableIds.length;
+      const protectedCount = existingIds.length - deletableIds.length;
+
       // Only delete availability slots that don't have appointments
       if (deletableIds.length > 0) {
         const { error: deleteError } = await supabase
@@ -584,8 +599,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
         if (deleteError) throw deleteError;
       }
 
-      // Warn user about slots that couldn't be deleted
-      const protectedCount = existingIds.length - deletableIds.length;
+      // Log protected slots
       if (protectedCount > 0) {
         console.log(`Protected ${protectedCount} availability slots that have appointments booked`);
       }
@@ -665,9 +679,24 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
 
         if (insertError) throw insertError;
 
-        let message = `Availability saved! Created ${slotsToInsert.length} slots over ${RECURRING_WEEKS} weeks.`;
-        if (protectedCount > 0) {
-          message += ` (${protectedCount} existing slots with appointments were preserved)`;
+        // Calculate the final state for accurate messaging
+        const newSlotsCount = slotsToInsert.length;
+        // Final count is just the new slots + protected slots (old deletable slots are gone)
+        const finalTotalCount = newSlotsCount + protectedCount;
+
+        let message: string;
+
+        // Determine the appropriate message based on what changed
+        if (originalTotalCount === 0) {
+          // First time setting up availability
+          message = `Availability created! ${newSlotsCount} slots scheduled over ${RECURRING_WEEKS} weeks.`;
+        } else {
+          // Generic update message for any changes
+          if (protectedCount > 0) {
+            message = `Availability updated successfully! ${finalTotalCount} total slots, ${protectedCount} with existing appointments preserved.`;
+          } else {
+            message = `Availability updated successfully! ${finalTotalCount} total slots.`;
+          }
         }
 
         setSaveMessage({
@@ -675,14 +704,32 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
           text: message
         });
       } else {
-        setSaveMessage({
-          type: 'success',
-          text: 'All availability cleared successfully.'
-        });
+        // No new slots being created
+        if (originalTotalCount > 0) {
+          if (protectedCount > 0) {
+            setSaveMessage({
+              type: 'success',
+              text: `Availability cleared! Removed ${deletedCount} slots. (${protectedCount} slots with appointments were preserved)`
+            });
+          } else {
+            setSaveMessage({
+              type: 'success',
+              text: 'All availability cleared successfully.'
+            });
+          }
+        } else {
+          setSaveMessage({
+            type: 'success',
+            text: 'No availability slots to save.'
+          });
+        }
       }
 
-      // Clear success message after 5 seconds
-      setTimeout(() => setSaveMessage(null), 5000);
+      // Clear success message after 5 seconds (clear any existing timeout first)
+      if (saveMessageTimeoutRef.current) {
+        clearTimeout(saveMessageTimeoutRef.current);
+      }
+      saveMessageTimeoutRef.current = setTimeout(() => setSaveMessage(null), 5000);
 
       // Reload all slots for the slots tab
       loadAllAvailabilitySlots();
@@ -885,6 +932,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                                   value={range.startTime}
                                   onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', value)}
                                   className="w-full"
+                                  maxTime="20:00" // Latest start time to allow 1 hour before 9 PM
                                 />
                               </div>
                               <span className="text-gray-500 flex-shrink-0 text-sm">to</span>
@@ -893,6 +941,7 @@ export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvail
                                   value={range.endTime}
                                   onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', value)}
                                   className="w-full"
+                                  minTime={getMinimumEndTime(range.startTime)}
                                 />
                               </div>
                             </div>
