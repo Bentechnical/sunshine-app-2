@@ -604,8 +604,38 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
         console.log(`Protected ${protectedCount} availability slots that have appointments booked`);
       }
 
+      // Get existing slots that have appointments (the ones we need to avoid conflicts with)
+      const { data: bookedSlots, error: conflictError } = await supabase
+        .from('appointment_availability')
+        .select(`
+          id,
+          start_time,
+          end_time,
+          appointments!inner (
+            id,
+            status
+          )
+        `)
+        .eq('volunteer_id', userId)
+        .gte('start_time', new Date().toISOString()) // Only future slots
+        .in('appointments.status', ['pending', 'confirmed']); // Only slots with active appointments
+
+      if (conflictError) {
+        console.warn('Could not fetch booked slots for conflict detection:', conflictError);
+      }
+
+      // Create array of existing booked time slots for overlap checking
+      const existingBookedSlots = (bookedSlots || []).map(slot => ({
+        start: new Date(slot.start_time),
+        end: new Date(slot.end_time),
+        original: slot
+      }));
+
+      console.log(`Found ${existingBookedSlots.length} existing booked slots to check for conflicts`);
+
       // Prepare new slots to insert with recurring logic
       const slotsToInsert: any[] = [];
+      const skippedConflicts: any[] = [];
       const recurrenceId = uuidv4(); // Single recurrence ID for all slots from this save
       const now = new Date();
 
@@ -655,16 +685,50 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
             const occurrences = rule.all();
 
-            // Add all occurrences to the insert batch
+            // Add all occurrences to the insert batch, but skip conflicts
             occurrences.forEach(occurrenceStart => {
               const occurrenceEnd = new Date(occurrenceStart.getTime() + (endDateTime.getTime() - startDateTime.getTime()));
 
-              slotsToInsert.push({
-                volunteer_id: userId,
-                start_time: occurrenceStart.toISOString(),
-                end_time: occurrenceEnd.toISOString(),
-                recurrence_id: recurrenceId
+              // Check if this new slot overlaps with any existing booked slots
+              const hasConflict = existingBookedSlots.some(existingSlot => {
+                // Check for time overlap: start1 < end2 && start2 < end1
+                const newStart = occurrenceStart.getTime();
+                const newEnd = occurrenceEnd.getTime();
+                const existingStart = existingSlot.start.getTime();
+                const existingEnd = existingSlot.end.getTime();
+
+                const overlaps = newStart < existingEnd && existingStart < newEnd;
+
+                if (overlaps) {
+                  console.log(`Conflict detected:`, {
+                    new: `${occurrenceStart.toISOString()} - ${occurrenceEnd.toISOString()}`,
+                    existing: `${existingSlot.original.start_time} - ${existingSlot.original.end_time}`,
+                    day: dayAvail.day,
+                    timeRange: `${range.startTime}-${range.endTime}`
+                  });
+                }
+
+                return overlaps;
               });
+
+              if (hasConflict) {
+                // Skip this occurrence due to conflict
+                skippedConflicts.push({
+                  start_time: occurrenceStart.toISOString(),
+                  end_time: occurrenceEnd.toISOString(),
+                  day: dayAvail.day,
+                  time_range: `${range.startTime}-${range.endTime}`
+                });
+                console.log(`Skipping conflicting slot: ${dayAvail.day} ${range.startTime}-${range.endTime} on ${occurrenceStart.toISOString()}`);
+              } else {
+                // No conflict, add to insert batch
+                slotsToInsert.push({
+                  volunteer_id: userId,
+                  start_time: occurrenceStart.toISOString(),
+                  end_time: occurrenceEnd.toISOString(),
+                  recurrence_id: recurrenceId
+                });
+              }
             });
           });
         }
@@ -689,13 +753,24 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
         // Determine the appropriate message based on what changed
         if (originalTotalCount === 0) {
           // First time setting up availability
-          message = `Availability created! ${newSlotsCount} slots scheduled over ${RECURRING_WEEKS} weeks.`;
+          if (skippedConflicts.length > 0) {
+            message = `Availability created! ${newSlotsCount} slots scheduled over ${RECURRING_WEEKS} weeks. ${skippedConflicts.length} slots skipped due to existing appointments.`;
+          } else {
+            message = `Availability created! ${newSlotsCount} slots scheduled over ${RECURRING_WEEKS} weeks.`;
+          }
         } else {
           // Generic update message for any changes
+          let baseMessage = '';
           if (protectedCount > 0) {
-            message = `Availability updated successfully! ${finalTotalCount} total slots, ${protectedCount} with existing appointments preserved.`;
+            baseMessage = `Availability updated successfully! ${finalTotalCount} total slots, ${protectedCount} with existing appointments preserved.`;
           } else {
-            message = `Availability updated successfully! ${finalTotalCount} total slots.`;
+            baseMessage = `Availability updated successfully! ${finalTotalCount} total slots.`;
+          }
+
+          if (skippedConflicts.length > 0) {
+            message = `${baseMessage} ${skippedConflicts.length} slots skipped due to existing appointments.`;
+          } else {
+            message = baseMessage;
           }
         }
 
@@ -1024,7 +1099,32 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
     const formatSlotTime = (startTime: string, endTime: string) => {
       const start = new Date(startTime);
       const end = new Date(endTime);
-      return `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
+
+      // Use consistent timezone handling like the template input tab
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      // Create reference times using today's date but original UTC hours/minutes
+      const referenceStart = new Date();
+      referenceStart.setUTCHours(start.getUTCHours(), start.getUTCMinutes(), 0, 0);
+
+      const referenceEnd = new Date();
+      referenceEnd.setUTCHours(end.getUTCHours(), end.getUTCMinutes(), 0, 0);
+
+      const formattedStart = referenceStart.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: userTimezone
+      });
+
+      const formattedEnd = referenceEnd.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: userTimezone
+      });
+
+      return `${formattedStart} - ${formattedEnd}`;
     };
 
     const formatSlotDate = (dateString: string) => {
