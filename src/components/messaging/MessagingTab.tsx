@@ -204,6 +204,16 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
+  // Format appointment date for display
+  const formatAppointmentDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
 
   // Render loading state
   if (connectionStatus === 'connecting') {
@@ -276,11 +286,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {chat.dogName}
                         </h3>
-                        {chat.unreadCount > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {chat.unreadCount}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                            <div className="text-xs text-gray-400">
+                              {formatAppointmentDate(chat.appointmentTime)}
+                            </div>
+                          </div>
+                          {chat.unreadCount > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {chat.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
                         with {chat.otherUserName}
@@ -377,11 +395,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {chat.dogName}
                         </h3>
-                        {chat.unreadCount > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {chat.unreadCount}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                            <div className="text-xs text-gray-400">
+                              {formatAppointmentDate(chat.appointmentTime)}
+                            </div>
+                          </div>
+                          {chat.unreadCount > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {chat.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
                         with {chat.otherUserName}
