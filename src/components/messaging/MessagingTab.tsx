@@ -270,7 +270,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     No Messages Yet
                   </h3>
                   <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
-                    Your messages will appear here once you have a confirmed appointment. Chat with volunteers to coordinate your therapy dog visits!
+                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
                   </p>
                 </div>
               ) : (
@@ -393,7 +393,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     No Messages Yet
                   </h3>
                   <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
-                    Your messages will appear here once you have a confirmed appointment. Chat with volunteers to coordinate your therapy dog visits!
+                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
                   </p>
                 </div>
               ) : (
