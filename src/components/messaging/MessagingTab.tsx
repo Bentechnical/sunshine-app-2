@@ -262,12 +262,24 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.map(chat => (
-                <div
-                  key={chat.channelId}
-                  onClick={() => handleChannelSelect(chat.channelId)}
-                >
-                  <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
+              {channels.length === 0 ? (
+                // Empty state for mobile
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <div className="text-6xl mb-4">🐕</div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    No Messages Yet
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Your messages will appear here once you have a confirmed appointment. Chat with volunteers to coordinate your therapy dog visits!
+                  </p>
+                </div>
+              ) : (
+                channels.map(chat => (
+                  <div
+                    key={chat.channelId}
+                    onClick={() => handleChannelSelect(chat.channelId)}
+                  >
+                    <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
                     <div className="flex-shrink-0">
                       {chat.dogImage ? (
                         <img
@@ -306,7 +318,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     </div>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
         ) : (
@@ -372,13 +385,25 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.map(chat => (
-                <div
-                  key={chat.channelId}
-                  onClick={() => handleChannelSelect(chat.channelId)}
-                  className={`${styles.channelItem} ${activeChannelId === chat.channelId ? styles.active : ''}`}
-                >
-                  <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
+              {channels.length === 0 ? (
+                // Empty state for desktop
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <div className="text-6xl mb-4">🐕</div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    No Messages Yet
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Your messages will appear here once you have a confirmed appointment. Chat with volunteers to coordinate your therapy dog visits!
+                  </p>
+                </div>
+              ) : (
+                channels.map(chat => (
+                  <div
+                    key={chat.channelId}
+                    onClick={() => handleChannelSelect(chat.channelId)}
+                    className={`${styles.channelItem} ${activeChannelId === chat.channelId ? styles.active : ''}`}
+                  >
+                    <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
                     {chat.dogImage ? (
                       <img
                         src={chat.dogImage}
@@ -415,7 +440,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     </div>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
 
