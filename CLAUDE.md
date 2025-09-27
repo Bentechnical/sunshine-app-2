@@ -39,6 +39,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `resend` - Email delivery
 - `@fullcalendar/react` - Appointment scheduling
 - `handlebars` - Email template engine
+- `rrule` - Recurring appointment pattern generation
+- `uuid` - Unique identifier generation for availability patterns
 
 ## Architecture Overview
 
@@ -50,10 +52,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Database Architecture
 - **Supabase Integration**: PostgreSQL with comprehensive RLS policies
 - **User Management**: Single `users` table supporting multiple roles
-- **Appointment System**: `appointments`, `appointment_availability` tables
+- **Appointment System**: `appointments`, `appointment_availability` tables with recurring pattern support
+- **Availability Management**: Recurring weekly patterns with RRule generation (12-week cycles)
 - **Dog Profiles**: `dogs` table linked to volunteers
 - **Audience Matching**: `audience_categories` system for volunteer-individual matching
 - **Chat Integration**: `appointment_chats` and `chat_logs` for message tracking
+
+### Availability Management System
+- **Template-Style Interface**: Weekly template system for volunteer availability (`TemplateStyleAvailability.tsx`)
+- **Custom Time Picker**: 15-minute increment picker with dynamic constraints (`CustomTimePicker.tsx`)
+- **Recurring Pattern Generation**: Uses RRule to generate 12 weeks of future availability slots
+- **Smart Conflict Detection**: Real-time overlap detection with visual feedback and save blocking
+- **Appointment Protection**: Preserves existing booked slots during availability updates
+- **Dual View System**: Template editor and individual slot management tabs
+- **Timezone Handling**: Consistent timezone conversion using browser's Intl API
 
 ### Stream Chat System
 - **Connection Management**: Enhanced client manager with token caching and smart reconnection
@@ -71,6 +83,7 @@ src/
 │   └── layout.tsx         # Root layout with providers
 ├── components/            # React components
 │   ├── admin/            # Admin-only components
+│   ├── availability/     # Volunteer availability management
 │   ├── dashboard/        # Dashboard components
 │   ├── layout/           # Layout components
 │   ├── messaging/        # Chat components
@@ -125,6 +138,8 @@ Critical environment variables needed:
 - Dashboard components are role-specific (Individual, Volunteer, Admin)
 - UI components follow shadcn/ui patterns with class-variance-authority
 - Admin components have separate navigation and functionality
+- Availability components use controlled state management with real-time validation
+- Time picker components implement auto-scroll to selected values and dynamic constraints
 
 ### API Routes
 - Authentication required for most API routes via middleware
@@ -140,11 +155,19 @@ Critical environment variables needed:
 - Check browser dev tools for WebSocket connection status
 - Admin chat logs available at `/dashboard/admin` for message history
 
+### Availability System Debugging
+- **Timezone Issues**: Check browser timezone vs. appointment timezone conversion in console logs
+- **Pattern Conflicts**: Real-time validation shows red borders and prevents saves
+- **Protected Slots**: Booked appointments prevent deletion/modification of specific time slots
+- **RRule Generation**: Verify 12-week recurring pattern creation in database after saves
+- **Time Picker Constraints**: Start time limited to 8 PM, end time constrained to 1+ hours after start
+
 ### Common Issues
 - **Stream Chat Disconnection**: Enhanced connection manager handles most cases automatically
 - **Database Permission Issues**: Verify RLS policies and use appropriate client type
 - **Mobile PWA Issues**: Check manifest.json validity and icon file paths
 - **Authentication Failures**: Verify Clerk configuration and middleware setup
+- **Availability Save Failures**: Check console for overlap detection and protected slot conflicts
 
 ## Mobile Development Notes
 

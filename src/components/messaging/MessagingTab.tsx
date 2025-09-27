@@ -204,6 +204,16 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
+  // Format appointment date for display
+  const formatAppointmentDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
 
   // Render loading state
   if (connectionStatus === 'connecting') {
@@ -252,12 +262,24 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.map(chat => (
-                <div
-                  key={chat.channelId}
-                  onClick={() => handleChannelSelect(chat.channelId)}
-                >
-                  <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
+              {channels.length === 0 ? (
+                // Empty state for mobile
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <div className="text-6xl mb-4">🐕</div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    No Messages Yet
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
+                  </p>
+                </div>
+              ) : (
+                channels.map(chat => (
+                  <div
+                    key={chat.channelId}
+                    onClick={() => handleChannelSelect(chat.channelId)}
+                  >
+                    <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
                     <div className="flex-shrink-0">
                       {chat.dogImage ? (
                         <img
@@ -276,11 +298,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {chat.dogName}
                         </h3>
-                        {chat.unreadCount > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {chat.unreadCount}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                            <div className="text-xs text-gray-400">
+                              {formatAppointmentDate(chat.appointmentTime)}
+                            </div>
+                          </div>
+                          {chat.unreadCount > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {chat.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
                         with {chat.otherUserName}
@@ -288,7 +318,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     </div>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
         ) : (
@@ -354,13 +385,25 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.map(chat => (
-                <div
-                  key={chat.channelId}
-                  onClick={() => handleChannelSelect(chat.channelId)}
-                  className={`${styles.channelItem} ${activeChannelId === chat.channelId ? styles.active : ''}`}
-                >
-                  <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
+              {channels.length === 0 ? (
+                // Empty state for desktop
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <div className="text-6xl mb-4">🐕</div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    No Messages Yet
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
+                  </p>
+                </div>
+              ) : (
+                channels.map(chat => (
+                  <div
+                    key={chat.channelId}
+                    onClick={() => handleChannelSelect(chat.channelId)}
+                    className={`${styles.channelItem} ${activeChannelId === chat.channelId ? styles.active : ''}`}
+                  >
+                    <div className="flex items-center space-x-3 p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
                     {chat.dogImage ? (
                       <img
                         src={chat.dogImage}
@@ -377,11 +420,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {chat.dogName}
                         </h3>
-                        {chat.unreadCount > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {chat.unreadCount}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                            <div className="text-xs text-gray-400">
+                              {formatAppointmentDate(chat.appointmentTime)}
+                            </div>
+                          </div>
+                          {chat.unreadCount > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {chat.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
                         with {chat.otherUserName}
@@ -389,7 +440,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     </div>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
 
