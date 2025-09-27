@@ -21,7 +21,7 @@ interface DayAvailability {
   timeRanges: TimeRange[];
 }
 
-interface CalendlyStyleAvailabilityProps {
+interface TemplateStyleAvailabilityProps {
   userId: string;
 }
 
@@ -39,7 +39,7 @@ const DAYS = [
   { name: 'Sunday', short: 'Sun', index: 0 },
 ];
 
-export default function CalendlyStyleAvailability({ userId }: CalendlyStyleAvailabilityProps) {
+export default function TemplateStyleAvailability({ userId }: TemplateStyleAvailabilityProps) {
   const supabase = useSupabaseClient();
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [isSaving, setIsSaving] = useState(false);

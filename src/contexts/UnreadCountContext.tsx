@@ -105,7 +105,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
               user.id,
               {
                 id: user.id,
-                name: user.fullName || user.firstName || 'User',
+                name: user.firstName || 'User',
                 image: user.imageUrl || undefined,
               }
             );
@@ -164,7 +164,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           user.id,
           {
             id: user.id,
-            name: user.fullName || user.firstName || 'User',
+            name: user.firstName || 'User',
             image: user.imageUrl || undefined,
           }
         );
