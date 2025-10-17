@@ -44,17 +44,22 @@ export async function POST(req: NextRequest) {
     if (resolvedStatus === 'approved') {
       const { data: userData, error: fetchError } = await supabase
         .from('users')
-        .select('email, first_name')
+        .select('email, first_name, role')
         .eq('id', user_id)
         .single();
 
       if (fetchError) {
         console.error('[updateUserStatus] Failed to fetch user email:', fetchError.message);
       } else if (userData?.email) {
+        // Use role-specific template
+        const templateName = userData.role === 'individual'
+          ? 'userApprovedIndividual'
+          : 'userApprovedVolunteer';
+
         await sendTransactionalEmail({
           to: userData.email,
           subject: 'Your profile has been approved!',
-          templateName: 'userApproved',
+          templateName,
           data: {
             firstName: userData.first_name ?? 'there',
             year: new Date().getFullYear(),

@@ -1,0 +1,16 @@
+Hi {{firstName}},
+
+Yur Sunshine Therapy Dogs profile has been approved!
+
+You can now log into your dashboard, manage your availability, and connect with individuals seeking therapy dog visits.
+
+{{dashboardLink}}
+
+Thanks for being part of our community 🐾
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

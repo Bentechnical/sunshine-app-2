@@ -32,8 +32,12 @@ const templateFields: Record<string, EmailField[]> = {
   welcome: [
     { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'John', required: true },
   ],
-  userApproved: [
+  userApprovedIndividual: [
     { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'John', required: true },
+    { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
+  ],
+  userApprovedVolunteer: [
+    { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'Sarah', required: true },
     { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
   ],
   individualRequest: [
@@ -42,7 +46,6 @@ const templateFields: Record<string, EmailField[]> = {
     { key: 'appointmentTime', label: 'Appointment Time', type: 'text', placeholder: 'February 15, 2024 at 2:00 PM', required: true },
     { key: 'dogName', label: 'Dog Name', type: 'text', placeholder: 'Buddy', required: true },
     { key: 'dogBreed', label: 'Dog Breed', type: 'text', placeholder: 'Golden Retriever', required: true },
-    { key: 'dogAge', label: 'Dog Age', type: 'text', placeholder: '5', required: true },
   ],
   volunteerRequest: [
     { key: 'firstName', label: 'Volunteer First Name', type: 'text', placeholder: 'Sarah', required: true },

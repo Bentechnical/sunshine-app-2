@@ -19,21 +19,29 @@
         <td style="padding: 30px;">
           <h2 style="color: #0e62ae; margin-bottom: 16px;">New Appointment Request</h2>
           <p style="margin: 0 0 12px 0;">Hello {{firstName}},</p>
-          <p style="margin: 0 0 12px 0;">You have received a new appointment request with the following details:</p>
+          <p style="margin: 0 0 12px 0;">You have received a new appointment request:</p>
 
-          <ul style="margin: 0 0 12px 0; padding-left: 18px;">
-            <li><strong>Date & Time:</strong> {{appointmentTime}}</li>
-            <li><strong>Dog Name:</strong> {{dogName}}</li>
-            <li><strong>Requested By:</strong> {{individualName}}</li>
-          </ul>
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #0e62ae;">From: {{individualName}}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> {{appointmentTime}}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Therapy Dog:</strong> {{dogName}}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 0; font-weight: bold; color: #856404;">⏰ Action Required</p>
+            <p style="margin: 8px 0 0 0; color: #856404;">{{individualName}} is waiting for your response! Please sign in to approve or decline this request as soon as possible.</p>
+          </div>
 
           <p style="margin: 24px 0;">
-            <a href="{{dashboardLink}}" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-              Review Request
+            <a href="{{dashboardLink}}" style="background-color: #f09f1a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold; font-size: 16px;">
+              Sign In & Respond Now
             </a>
           </p>
 
-          <p style="font-size: 14px; color: #666;">Please log in to your dashboard to take action.</p>
+          <!-- No-Reply Notice -->
+          <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #0e62ae; border-radius: 4px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">This email was sent from an unmonitored address. For support, please contact <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a></p>
+          </div>
         </td>
       </tr>
 
@@ -41,7 +49,8 @@
       <tr>
         <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
           &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
-          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a> |
+          <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Contact Support</a>
         </td>
       </tr>
     </table>

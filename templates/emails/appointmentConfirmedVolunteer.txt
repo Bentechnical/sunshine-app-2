@@ -1,16 +1,23 @@
 Hello {{firstName}},
 
-An appointment has been confirmed with the following details:
+✅ APPOINTMENT CONFIRMED
+Thank you for accepting this appointment request! Your visit will make a real difference.
+
+You have confirmed an appointment:
 
 Date & Time: {{appointmentTime}}
-Dog Name: {{dogName}}
-Requested By: {{individualName}}
+Therapy Dog: {{dogName}}
+With {{individualName}}
 
-You can view the appointment and manage it through your dashboard:
+💬 PRIVATE CHAT NOW AVAILABLE
+A private chat has been opened between you and {{individualName}}. Please use this chat to coordinate meeting details, confirm the location, and discuss any questions about the appointment. This chat is your direct line of communication for this visit.
+
+View your appointment & chat:
 {{dashboardLink}}
 
-If you have any questions, feel free to contact us through the platform.
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
 
 — Sunshine Therapy Dogs
 {{year}}
 https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

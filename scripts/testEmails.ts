@@ -2,12 +2,13 @@
 
 /**
  * Email Testing Script
- * 
+ *
  * This script sends all email templates to a test email address with sample data.
  * Run with: npx tsx scripts/testEmails.ts
  */
 
 import { sendTransactionalEmail } from '../src/app/utils/mailer';
+import { formatAppointmentTime } from '../src/utils/dateFormat';
 
 // Configuration
 const TEST_EMAIL = process.env.TEST_EMAIL || 'test@example.com';
@@ -49,11 +50,21 @@ const emailTemplates = [
     },
   },
   {
-    name: 'User Approved Email',
-    templateName: 'userApproved',
+    name: 'User Approved Email (Individual)',
+    templateName: 'userApprovedIndividual',
     subject: 'Your profile has been approved!',
     data: {
       firstName: sampleData.individual.first_name,
+      year: new Date().getFullYear(),
+      dashboardLink: 'https://sunshinedogs.app/dashboard',
+    },
+  },
+  {
+    name: 'User Approved Email (Volunteer)',
+    templateName: 'userApprovedVolunteer',
+    subject: 'Your profile has been approved!',
+    data: {
+      firstName: sampleData.volunteer.first_name,
       year: new Date().getFullYear(),
       dashboardLink: 'https://sunshinedogs.app/dashboard',
     },
@@ -63,10 +74,9 @@ const emailTemplates = [
     templateName: 'individualRequest',
     subject: 'Your Appointment Request Submitted',
     data: {
-      appointmentTime: sampleData.appointment.start_time.toLocaleString(),
+      appointmentTime: formatAppointmentTime(sampleData.appointment.start_time),
       dogName: sampleData.dog.dog_name,
       dogBreed: sampleData.dog.dog_breed,
-      dogAge: sampleData.dog.dog_age,
       firstName: sampleData.individual.first_name,
       volunteerName: sampleData.volunteer.first_name,
       year: new Date().getFullYear(),
@@ -77,7 +87,7 @@ const emailTemplates = [
     templateName: 'volunteerRequest',
     subject: 'New Appointment Request',
     data: {
-      appointmentTime: sampleData.appointment.start_time.toLocaleString(),
+      appointmentTime: formatAppointmentTime(sampleData.appointment.start_time),
       dogName: sampleData.dog.dog_name,
       firstName: sampleData.volunteer.first_name,
       individualName: sampleData.individual.first_name,
@@ -90,7 +100,7 @@ const emailTemplates = [
     templateName: 'appointmentConfirmedIndividual',
     subject: 'Your Appointment is Confirmed',
     data: {
-      appointmentTime: sampleData.appointment.start_time.toLocaleString(),
+      appointmentTime: formatAppointmentTime(sampleData.appointment.start_time),
       dogName: sampleData.dog.dog_name,
       dogBreed: sampleData.dog.dog_breed,
       dogAge: sampleData.dog.dog_age,
@@ -104,7 +114,7 @@ const emailTemplates = [
     templateName: 'appointmentConfirmedVolunteer',
     subject: 'Appointment Confirmed',
     data: {
-      appointmentTime: sampleData.appointment.start_time.toLocaleString(),
+      appointmentTime: formatAppointmentTime(sampleData.appointment.start_time),
       dogName: sampleData.dog.dog_name,
       firstName: sampleData.volunteer.first_name,
       individualName: sampleData.individual.first_name,
@@ -117,7 +127,7 @@ const emailTemplates = [
     templateName: 'appointmentCanceledIndividual',
     subject: 'Your Appointment has been Canceled',
     data: {
-      appointmentTime: sampleData.appointment.start_time.toLocaleString(),
+      appointmentTime: formatAppointmentTime(sampleData.appointment.start_time),
       dogName: sampleData.dog.dog_name,
       cancellationReason: sampleData.cancellationReason,
       firstName: sampleData.individual.first_name,
@@ -129,7 +139,7 @@ const emailTemplates = [
     templateName: 'appointmentCanceledVolunteer',
     subject: 'Appointment Canceled',
     data: {
-      appointmentTime: sampleData.appointment.start_time.toLocaleString(),
+      appointmentTime: formatAppointmentTime(sampleData.appointment.start_time),
       dogName: sampleData.dog.dog_name,
       cancellationReason: sampleData.cancellationReason,
       firstName: sampleData.volunteer.first_name,
