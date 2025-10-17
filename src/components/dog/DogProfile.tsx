@@ -160,9 +160,19 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   }
 
   function formatTime(iso: string) {
-    return new Date(iso).toLocaleTimeString([], {
+    const originalDate = new Date(iso);
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Create reference time using today's date but original UTC hours/minutes
+    // This ensures DST adjustments are applied correctly
+    const referenceTime = new Date();
+    referenceTime.setUTCHours(originalDate.getUTCHours(), originalDate.getUTCMinutes(), 0, 0);
+
+    return referenceTime.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: true,
+      timeZone: userTimezone
     });
   }
 
@@ -171,8 +181,12 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     const parsed = parseTimeInput(bookingTime);
     if (!parsed) return setBookingFeedback('Please enter a valid time (e.g., "11am", "11:30 AM", "2:00pm")');
 
-    const start = new Date(bookingSlot.start_time);
-    start.setHours(parsed.hour, parsed.minute, 0, 0);
+    // Create appointment time using the slot's date but user's input time
+    // Parse the slot's date to preserve the correct day
+    const slotDate = new Date(bookingSlot.start_time);
+
+    // Create the user's requested time using the slot's date
+    const start = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), parsed.hour, parsed.minute, 0, 0);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
 
     if (start < new Date(bookingSlot.start_time) || end > new Date(bookingSlot.end_time)) {

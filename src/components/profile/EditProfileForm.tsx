@@ -303,6 +303,26 @@ export default function EditProfileForm({
         />
       </div>
 
+      {/* Pronouns for Volunteers */}
+      {role === 'volunteer' && (
+        <div>
+          <label htmlFor="pronouns" className="block text-sm font-semibold text-gray-700 mb-2">
+            Pronouns
+          </label>
+          <select
+            id="pronouns"
+            value={pronouns}
+            onChange={(e) => setPronouns(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
+          >
+            <option value="">Select pronouns</option>
+            <option value="he/him">He/Him</option>
+            <option value="she/her">She/Her</option>
+            <option value="they/them">They/Them</option>
+          </select>
+        </div>
+      )}
+
       {/* Individual User Specific Fields */}
       {role === 'individual' && (
         <>
@@ -320,7 +340,6 @@ export default function EditProfileForm({
               <option value="he/him">He/Him</option>
               <option value="she/her">She/Her</option>
               <option value="they/them">They/Them</option>
-              <option value="other">Other</option>
             </select>
           </div>
 

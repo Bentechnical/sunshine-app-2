@@ -19,6 +19,7 @@ export interface Appointment {
     last_name: string;
     email: string;
     city?: string;
+    pronouns?: string;
     dogs?: {
       id: number;
       dog_name: string;
@@ -36,6 +37,7 @@ export interface Appointment {
     visit_recipient_type?: string;
     dependant_name?: string;
     relationship_to_recipient?: string;
+    pronouns?: string;
   };
 }
 
@@ -141,6 +143,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   }, [appointment.id]);
 
   let displayName = '';
+  let displayNameWithPronouns = '';
   let dogName: string | undefined = undefined;
   let dogPictureUrl: string | undefined = undefined;
   let dogBreed: string | undefined = undefined;
@@ -155,6 +158,10 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
     const volunteer = appointment.volunteer;
     if (volunteer) {
       displayName = volunteer.first_name;
+      // Add pronouns if available
+      displayNameWithPronouns = volunteer.pronouns
+        ? `${volunteer.first_name} (${volunteer.pronouns})`
+        : volunteer.first_name;
       if (volunteer.dogs) {
         // Handle both array and single object formats
         const dog = Array.isArray(volunteer.dogs) ? volunteer.dogs[0] : volunteer.dogs;
@@ -181,6 +188,10 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
     const requester = appointment.individual;
     if (requester) {
       displayName = `${requester.first_name} ${requester.last_name}`;
+      // Add pronouns if available
+      displayNameWithPronouns = requester.pronouns
+        ? `${requester.first_name} ${requester.last_name} (${requester.pronouns})`
+        : `${requester.first_name} ${requester.last_name}`;
       // For volunteers, show the individual's location
       if (requester.physical_address) {
         location = requester.physical_address;
@@ -293,12 +304,12 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             )}
 
             {/* Contact info */}
-            {displayName && !isPast && (
+            {displayName && (
               <div className="space-y-2 mb-4">
                 <div className="flex items-center text-gray-700">
                   <User className="w-4 h-4 mr-2 text-gray-500" />
                   <span className="font-medium">{role === 'individual' ? 'Volunteer' : 'Requester'}:</span>
-                  <span className="ml-2">{displayName}</span>
+                  <span className="ml-2">{displayNameWithPronouns || displayName}</span>
                 </div>
                 {dependantInfo && (
                   <div className="flex items-center text-gray-600">

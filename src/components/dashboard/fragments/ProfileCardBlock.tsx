@@ -100,6 +100,7 @@ export default function ProfileCardBlock() {
       phone_number: phone,
       profile_image: avatarUrl,
       postal_code: postalCode,
+      pronouns: pronouns, // Add pronouns for both individuals and volunteers
     };
 
     if (profile?.role === 'volunteer') {
@@ -108,7 +109,6 @@ export default function ProfileCardBlock() {
 
     // Add individual-specific fields
     if (profile?.role === 'individual') {
-      updatePayload.pronouns = pronouns;
       updatePayload.birthday = birthday ? parseInt(birthday) : null;
       updatePayload.physical_address = physicalAddress;
       updatePayload.other_pets_on_site = otherPetsOnSite;

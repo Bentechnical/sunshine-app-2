@@ -46,10 +46,10 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           cancellation_reason,
           availability_id,
           individual:individual_id (
-            id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient
+            id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns
           ),
           volunteer:volunteer_id (
-            id, first_name, last_name, email, city,
+            id, first_name, last_name, email, city, pronouns,
             dogs (
               id, dog_name, dog_picture_url, dog_breed
             )
@@ -108,8 +108,8 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
         const { data: existingChat } = await supabase
           .from('appointment_chats')
           .select('id')
-        .eq('appointment_id', appointmentId)
-        .single();
+          .eq('appointment_id', appointmentId)
+          .maybeSingle();
 
       if (existingChat) {
         console.log('[MyVisits] Chat already exists for appointment:', appointmentId);
@@ -121,8 +121,8 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
         .from('appointments')
         .select(`
           *,
-          individual:individual_id (first_name, last_name),
-          volunteer:volunteer_id (first_name, last_name),
+          individual:individual_id (first_name, last_name, pronouns),
+          volunteer:volunteer_id (first_name, last_name, pronouns),
           availability:availability_id (start_time, end_time)
         `)
         .eq('id', appointmentId)
