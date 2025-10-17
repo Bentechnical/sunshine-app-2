@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { closeAppointmentChat } from '@/utils/stream-chat';
+import { formatAppointmentTime } from '@/utils/dateFormat';
 
 export async function POST(req: NextRequest) {
   try {
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     const dogData = dogs?.[0] ?? null;
-    const appointmentTime = new Date(appointment.start_time).toLocaleString();
+    const appointmentTime = formatAppointmentTime(new Date(appointment.start_time));
 
     const individualEmailData = {
       appointmentTime,

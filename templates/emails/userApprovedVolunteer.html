@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Appointment Confirmed</title>
+    <title>Your Account Has Been Approved</title>
   </head>
   <body style="margin: 0; padding: 0; background-color: #e3f0f1; font-family: Arial, Helvetica, sans-serif;">
     <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 6px; overflow: hidden;">
@@ -17,36 +17,18 @@
       <!-- Content -->
       <tr>
         <td style="padding: 30px;">
-          <h2 style="color: #0e62ae; margin-bottom: 16px;">Appointment Confirmed</h2>
-          <p style="margin: 0 0 12px 0;">Hello {{firstName}},</p>
-
-          <!-- Success Confirmation -->
-          <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 16px; margin: 16px 0;">
-            <p style="margin: 0; font-weight: bold; color: #155724;">✅ Appointment Confirmed</p>
-            <p style="margin: 8px 0 0 0; color: #155724;">Thank you for accepting this appointment request! Your visit will make a real difference.</p>
-          </div>
-
-          <p style="margin: 0 0 12px 0;">You have confirmed an appointment:</p>
-
-          <!-- Appointment Details -->
-          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> {{appointmentTime}}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Therapy Dog:</strong> {{dogName}}</p>
-            <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #0e62ae;">With {{individualName}}</p>
-          </div>
-
-          <!-- Chat Information -->
-          <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 16px; margin: 16px 0;">
-            <p style="margin: 0; font-weight: bold; color: #1565c0;">💬 Private Chat Now Available</p>
-            <p style="margin: 8px 0 0 0; color: #1565c0;">A private chat has been opened between you and {{individualName}}. Please use this chat to coordinate meeting details, confirm the location, and discuss any questions about the appointment. This chat is your direct line of communication for this visit.</p>
-          </div>
+          <h2 style="color: #0e62ae; margin-bottom: 16px;">You're In! 🎉</h2>
+          <p style="margin: 0 0 12px 0;">Hi {{firstName}},</p>
+          <p style="margin: 0 0 12px 0;">Great news — your profile has been approved by our team!</p>
+          <p style="margin: 0 0 12px 0;">You can now log in to your dashboard, manage your availability, and connect with individuals seeking therapy dog visits.</p>
 
           <p style="margin: 24px 0;">
             <a href="{{dashboardLink}}" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-              View Appointment & Chat
+              Go to Dashboard
             </a>
           </p>
 
+          <p style="margin: 0 0 12px 0;">If you have any questions, we're always here to help.</p>
 
           <!-- No-Reply Notice -->
           <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #0e62ae; border-radius: 4px;">

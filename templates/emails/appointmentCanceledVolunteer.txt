@@ -8,6 +8,9 @@ Cancellation Reason: {{cancellationReason}}
 
 Please log in to your dashboard to view any updates or schedule another visit.
 
-— Sunshine Therapy Dogs  
-{{year}}  
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
 https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

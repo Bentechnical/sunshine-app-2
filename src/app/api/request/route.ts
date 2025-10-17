@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { formatAppointmentTime } from '@/utils/dateFormat';
 
 export async function POST(req: NextRequest) {
   try {
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Build email content ---
-    const appointmentTime = new Date(appointment.start_time).toLocaleString();
+    const appointmentTime = formatAppointmentTime(new Date(appointment.start_time));
     let emailRecipient = '';
     let subject = '';
     let emailData: Record<string, any> = {};

@@ -1,16 +1,16 @@
 Hello {{firstName}},
 
-Your appointment request has been submitted with the following details:
+Your appointment request has been received:
 
 Date & Time: {{appointmentTime}}
-Dog Name: {{dogName}}
-Breed: {{dogBreed}}
-Age: {{dogAge}}
+Therapy Dog: {{dogName}} and Sunshine Volunteer {{volunteerName}}
 
-Volunteer: {{volunteerName}}
+⏳ AWAITING CONFIRMATION
+Your appointment is NOT YET CONFIRMED. The volunteer will review your request and respond soon. You'll receive another email once your appointment is confirmed or if any changes are needed.
 
-We will notify you once your request is confirmed.
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
 
-— Sunshine Therapy Dogs  
-{{year}}  
+— Sunshine Therapy Dogs
+{{year}}
 https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

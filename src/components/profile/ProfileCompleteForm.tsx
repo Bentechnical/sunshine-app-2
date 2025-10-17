@@ -239,11 +239,11 @@ export default function ProfileCompleteForm() {
         profile_image: profilePictureUrl,
         travel_distance_km: selectedRole === 'volunteer' ? Number(travelDistance) : null,
         profile_complete: true,
+        pronouns: pronouns, // Add pronouns for both individuals and volunteers
       };
 
       // Add individual-specific fields
       if (selectedRole === 'individual') {
-        updatePayload.pronouns = pronouns;
         updatePayload.birthday = birthday;
         updatePayload.physical_address = physicalAddress;
         updatePayload.other_pets_on_site = otherPetsOnSite;
@@ -277,6 +277,7 @@ export default function ProfileCompleteForm() {
           dog_breed: dogBreed,
           dog_bio: dogBio,
           dog_picture_url: dogPhotoUrl || DEFAULT_DOG_IMAGE,
+          status: 'pending', // Explicitly set status so it can be updated by admin
         };
 
         if (existingDog) {
@@ -566,7 +567,6 @@ export default function ProfileCompleteForm() {
                   <option value="he/him">He/Him</option>
                   <option value="she/her">She/Her</option>
                   <option value="they/them">They/Them</option>
-                  <option value="other">Other</option>
                 </select>
               </div>
 
@@ -696,20 +696,41 @@ export default function ProfileCompleteForm() {
 
           {/* Bio for Volunteers */}
           {selectedRole === 'volunteer' && (
-            <div className="mb-4">
-              <label htmlFor="bio" className="block text-sm font-semibold text-gray-700 mb-2">
-                Tell us about yourself <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                id="bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg"
-                disabled={isLoading}
-                placeholder="Tell us about yourself and why you're interested in volunteering..."
-                rows={4}
-              />
-            </div>
+            <>
+              {/* Pronouns for Volunteers */}
+              <div className="mb-4">
+                <label htmlFor="pronouns" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Pronouns
+                </label>
+                <select
+                  id="pronouns"
+                  value={pronouns}
+                  onChange={(e) => setPronouns(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  disabled={isLoading}
+                >
+                  <option value="">Select pronouns</option>
+                  <option value="he/him">He/Him</option>
+                  <option value="she/her">She/Her</option>
+                  <option value="they/them">They/Them</option>
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label htmlFor="bio" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Tell us about yourself <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  disabled={isLoading}
+                  placeholder="Tell us about yourself and why you're interested in volunteering..."
+                  rows={4}
+                />
+              </div>
+            </>
           )}
 
           {/* Travel Distance */}

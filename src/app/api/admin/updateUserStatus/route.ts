@@ -30,31 +30,56 @@ export async function POST(req: NextRequest) {
     }
 
     // Also update corresponding dog (assuming 1:1 mapping for now)
-    const { error: dogError } = await supabase
+    // First check if volunteer has any dogs
+    const { data: existingDogs, error: checkError } = await supabase
+      .from('dogs')
+      .select('id, dog_name, status')
+      .eq('volunteer_id', user_id);
+
+    if (checkError) {
+      console.error('[updateUserStatus] Failed to check for dogs:', checkError.message);
+    } else {
+      console.log('[updateUserStatus] Found dogs for volunteer:', existingDogs);
+    }
+
+    const { data: dogData, error: dogError } = await supabase
       .from('dogs')
       .update({ status: resolvedStatus })
-      .eq('volunteer_id', user_id);
+      .eq('volunteer_id', user_id)
+      .select('id, dog_name, status');
 
     if (dogError) {
       console.error('[updateUserStatus] Failed to update dog:', dogError.message);
       return NextResponse.json({ error: dogError.message }, { status: 500 });
     }
 
+    console.log('[updateUserStatus] Dog update result:', dogData);
+    if (dogData && dogData.length === 0) {
+      console.warn('[updateUserStatus] No dogs found for volunteer_id:', user_id);
+    } else if (dogData) {
+      console.log('[updateUserStatus] Successfully updated dog(s):', dogData.map(d => `${d.dog_name} (${d.id}) -> ${d.status}`));
+    }
+
     // ✅ Send approval email if newly approved
     if (resolvedStatus === 'approved') {
       const { data: userData, error: fetchError } = await supabase
         .from('users')
-        .select('email, first_name')
+        .select('email, first_name, role')
         .eq('id', user_id)
         .single();
 
       if (fetchError) {
         console.error('[updateUserStatus] Failed to fetch user email:', fetchError.message);
       } else if (userData?.email) {
+        // Use role-specific template
+        const templateName = userData.role === 'individual'
+          ? 'userApprovedIndividual'
+          : 'userApprovedVolunteer';
+
         await sendTransactionalEmail({
           to: userData.email,
           subject: 'Your profile has been approved!',
-          templateName: 'userApproved',
+          templateName,
           data: {
             firstName: userData.first_name ?? 'there',
             year: new Date().getFullYear(),

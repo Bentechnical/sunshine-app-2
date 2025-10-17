@@ -1,14 +1,20 @@
 Hello {{firstName}},
 
-You have received a new appointment request with the following details:
+You have received a new appointment request:
 
+From: {{individualName}}
 Date & Time: {{appointmentTime}}
-Dog Name: {{dogName}}
-Requested By: {{individualName}}
+Therapy Dog: {{dogName}}
 
-Please log in to your dashboard to take action:
+⏰ ACTION REQUIRED
+{{individualName}} is waiting for your response! Please sign in to approve or decline this request as soon as possible.
+
+Sign in & respond now:
 {{dashboardLink}}
 
-— Sunshine Therapy Dogs  
-{{year}}  
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
 https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

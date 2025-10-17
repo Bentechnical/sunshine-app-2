@@ -19,16 +19,22 @@
         <td style="padding: 30px;">
           <h2 style="color: #0e62ae; margin-bottom: 16px;">Appointment Request Submitted</h2>
           <p style="margin: 0 0 12px 0;">Hello {{firstName}},</p>
-          <p style="margin: 0 0 12px 0;">Your appointment request has been submitted with the following details:</p>
-          <ul style="margin: 0 0 12px 0; padding-left: 18px;">
-            <li><strong>Date & Time:</strong> {{appointmentTime}}</li>
-            <li><strong>Dog Name:</strong> {{dogName}}</li>
-            <li><strong>Breed:</strong> {{dogBreed}}</li>
-            <li><strong>Age:</strong> {{dogAge}}</li>
-          </ul>
+          <p style="margin: 0 0 12px 0;">Your appointment request has been received:</p>
 
-          <p style="margin: 16px 0;">Volunteer: {{volunteerName}}</p>
-          <p style="font-size: 14px; color: #666;">We will notify you once your request is confirmed.</p>
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> {{appointmentTime}}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Therapy Dog:</strong> {{dogName}} and Sunshine Volunteer {{volunteerName}}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 0; font-weight: bold; color: #856404;">⏳ Awaiting Confirmation</p>
+            <p style="margin: 8px 0 0 0; color: #856404;">Your appointment is <strong>not yet confirmed</strong>. The volunteer will review your request and respond soon. You'll receive another email once your appointment is confirmed or if any changes are needed.</p>
+          </div>
+
+          <!-- No-Reply Notice -->
+          <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #0e62ae; border-radius: 4px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">This email was sent from an unmonitored address. For support, please contact <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a></p>
+          </div>
         </td>
       </tr>
 
@@ -36,7 +42,8 @@
       <tr>
         <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
           &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
-          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a> |
+          <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Contact Support</a>
         </td>
       </tr>
     </table>

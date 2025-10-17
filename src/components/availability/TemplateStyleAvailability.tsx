@@ -558,7 +558,9 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
           .from('appointments')
           .select('availability_id')
           .eq('volunteer_id', userId)
-          .in('status', ['pending', 'confirmed']);
+          // Check for ALL appointment statuses, not just pending/confirmed
+          // This prevents foreign key violations from any referenced slots
+          .not('availability_id', 'is', null);
 
         if (error) {
           console.error('Error checking booked appointments:', error);
@@ -567,8 +569,14 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
         return new Set(
           (appointments || [])
-            .map(apt => Number(apt.availability_id))
-            .filter(id => Number.isFinite(id))
+            .map(apt => {
+              // Handle both string and number availability_id values
+              const id = typeof apt.availability_id === 'string'
+                ? parseInt(apt.availability_id, 10)
+                : Number(apt.availability_id);
+              return id;
+            })
+            .filter(id => Number.isFinite(id) && id > 0)
         );
       };
 
