@@ -41,6 +41,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
   // UI state
   const [error, setError] = useState<string | null>(null);
+  const [loadingChannels, setLoadingChannels] = useState(true);
   
   // Mobile state
   const [isMobile, setIsMobile] = useState(false);
@@ -52,12 +53,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     setActiveChannelId(null);
     setChannels([]);
     setViewMode('channelList');
+    setLoadingChannels(false);
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
   // Load channels
   const loadChannels = useCallback(async () => {
     try {
+      setLoadingChannels(true);
       const response = await fetch('/api/chat/channels');
       if (!response.ok) throw new Error('Failed to fetch channels');
 
@@ -108,6 +111,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       console.error('Failed to load channels:', err);
       setError('Failed to load conversations');
       setChannels([]);
+    } finally {
+      setLoadingChannels(false);
     }
   }, [activeChannelId, client, updateUnreadFromChannels]);
 
@@ -262,7 +267,18 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.length === 0 ? (
+              {loadingChannels ? (
+                // Loading state for mobile
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    Loading Messages...
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Please wait while we fetch your conversations.
+                  </p>
+                </div>
+              ) : channels.length === 0 ? (
                 // Empty state for mobile
                 <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
                   <div className="text-6xl mb-4">🐕</div>
@@ -385,7 +401,18 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.length === 0 ? (
+              {loadingChannels ? (
+                // Loading state for desktop
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    Loading Messages...
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Please wait while we fetch your conversations.
+                  </p>
+                </div>
+              ) : channels.length === 0 ? (
                 // Empty state for desktop
                 <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
                   <div className="text-6xl mb-4">🐕</div>

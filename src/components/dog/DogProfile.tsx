@@ -4,6 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
+import { parseUserTimeInput } from '@/utils/dateUtils';
+import { formatAppointmentDate, formatAppointmentTime } from '@/utils/timeZone';
 
 interface Dog {
   id: number;
@@ -151,42 +153,19 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
     return null;
   }
 
-  function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  }
-
-  function formatTime(iso: string) {
-    const originalDate = new Date(iso);
-    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    // Create reference time using today's date but original UTC hours/minutes
-    // This ensures DST adjustments are applied correctly
-    const referenceTime = new Date();
-    referenceTime.setUTCHours(originalDate.getUTCHours(), originalDate.getUTCMinutes(), 0, 0);
-
-    return referenceTime.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: userTimezone
-    });
-  }
 
   function handleNext() {
     if (!bookingSlot) return;
-    const parsed = parseTimeInput(bookingTime);
-    if (!parsed) return setBookingFeedback('Please enter a valid time (e.g., "11am", "11:30 AM", "2:00pm")');
 
-    // Create appointment time using the slot's date but user's input time
-    // Parse the slot's date to preserve the correct day
+    // Use date-fns to parse user time input for the appointment date
+    // This automatically handles DST correctly for any future date
     const slotDate = new Date(bookingSlot.start_time);
+    const start = parseUserTimeInput(bookingTime, slotDate);
 
-    // Create the user's requested time using the slot's date
-    const start = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), parsed.hour, parsed.minute, 0, 0);
+    if (!start) {
+      return setBookingFeedback('Please enter a valid time (e.g., "11am", "11:30 AM", "2:00pm")');
+    }
+
     const end = new Date(start.getTime() + 60 * 60 * 1000);
 
     if (start < new Date(bookingSlot.start_time) || end > new Date(bookingSlot.end_time)) {
@@ -321,8 +300,8 @@ await fetch('/api/request', {
                 <li key={slot.id} className="border p-3 rounded-md shadow-sm">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="flex-1">
-                      <p><strong>Date:</strong> {formatDate(slot.start_time)}</p>
-                      <p><strong>Time:</strong> {formatTime(slot.start_time)} – {formatTime(slot.end_time)}</p>
+                      <p><strong>Date:</strong> {formatAppointmentDate(slot.start_time)}</p>
+                      <p><strong>Time:</strong> {formatAppointmentTime(slot.start_time)} – {formatAppointmentTime(slot.end_time)}</p>
                     </div>
                     <button
                       onClick={() => openBookingModal(slot)}
@@ -346,7 +325,7 @@ await fetch('/api/request', {
             {bookingStep === 'input' && (
               <>
                 <h3 className="text-xl font-semibold mb-4">Request a Meeting</h3>
-                <p><strong>Available Window:</strong><br />{formatDate(bookingSlot.start_time)}<br />{formatTime(bookingSlot.start_time)} – {formatTime(bookingSlot.end_time)}</p>
+                <p><strong>Available Window:</strong><br />{formatAppointmentDate(bookingSlot.start_time)}<br />{formatAppointmentTime(bookingSlot.start_time)} – {formatAppointmentTime(bookingSlot.end_time)}</p>
                 <div className="mt-4">
                   <label className="block mb-1 font-semibold">Enter Start Time</label>
                   <input
@@ -374,7 +353,7 @@ await fetch('/api/request', {
               <>
                 <h3 className="text-xl font-semibold mb-4">Confirm Request</h3>
                 <p>You are requesting a visit with <strong>{volunteerName}</strong> and <strong>{dog?.dog_name}</strong>.</p>
-                <p className="mt-2"><strong>Requested Time:</strong><br />{formatTime(computedBookingStart.toISOString())} – {formatTime(computedBookingEnd.toISOString())}</p>
+                <p className="mt-2"><strong>Requested Time:</strong><br />{formatAppointmentTime(computedBookingStart)} – {formatAppointmentTime(computedBookingEnd)}</p>
                 {bookingFeedback && <p className="mt-2 text-sm text-red-600">{bookingFeedback}</p>}
                 <div className="mt-6 flex justify-end space-x-2">
                   <button

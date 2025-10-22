@@ -1,4 +1,5 @@
 import { StreamChat } from 'stream-chat';
+import { formatEmailDateTime, getAppointmentDuration } from './dateUtils';
 
 // Stream Chat configuration
 export const STREAM_CHAT_API_KEY = process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!;
@@ -54,13 +55,16 @@ export async function createAppointmentChat(
 
   await channel.create();
 
-  // Send initial bot message
+  // Send initial bot message using clean date-fns formatting
+  const formattedDateTime = formatEmailDateTime(appointmentDetails.startTime);
+  const durationText = getAppointmentDuration(appointmentDetails.startTime, appointmentDetails.endTime);
+
   const botMessage = {
     text: `Welcome to your appointment chat! 🐕
 
 **Appointment Details:**
-• **Date & Time:** ${new Date(appointmentDetails.startTime).toLocaleString()}
-• **Duration:** ${new Date(appointmentDetails.endTime).getTime() - new Date(appointmentDetails.startTime).getTime() > 3600000 ? '1+ hours' : '1 hour'}
+• **Date & Time:** ${formattedDateTime}
+• **Duration:** ${durationText}
 • **Dog:** ${appointmentDetails.dogName}
 • **Location:** ${appointmentDetails.location}
 

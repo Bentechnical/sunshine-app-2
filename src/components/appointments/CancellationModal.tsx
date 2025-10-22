@@ -4,6 +4,7 @@
 import React from 'react';
 import { Appointment } from './AppointmentCard';
 import { X, AlertTriangle, Calendar, Clock } from 'lucide-react';
+import { formatCardDate, formatCardTime } from '@/utils/timeZone';
 
 interface CancellationModalProps {
   appointment: Appointment;
@@ -25,19 +26,11 @@ const CancellationModal: React.FC<CancellationModalProps> = ({
     appointment.volunteer?.first_name || appointment.individual?.first_name || '';
 
   const formatDate = (timeStr: string): string => {
-    return new Date(timeStr).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatCardDate(timeStr);
   };
 
   const formatTime = (timeStr: string): string => {
-    return new Date(timeStr).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return formatCardTime(timeStr);
   };
 
   return (

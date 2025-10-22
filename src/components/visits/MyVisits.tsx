@@ -46,7 +46,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           cancellation_reason,
           availability_id,
           individual:individual_id (
-            id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns
+            id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns, bio
           ),
           volunteer:volunteer_id (
             id, first_name, last_name, email, city, pronouns,
@@ -121,7 +121,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
         .from('appointments')
         .select(`
           *,
-          individual:individual_id (first_name, last_name, pronouns),
+          individual:individual_id (first_name, last_name, pronouns, bio),
           volunteer:volunteer_id (first_name, last_name, pronouns),
           availability:availability_id (start_time, end_time)
         `)

@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Plus, Trash2, Clock, Calendar, CheckCircle, AlertCircle, Circle, History } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday } from 'date-fns';
+import { createAvailabilityDateTime } from '@/utils/dateUtils';
+import { formatTimeRange, toEasternTime } from '@/utils/timeZone';
 import CustomTimePicker from './CustomTimePicker';
 import { RRule } from 'rrule';
 import { v4 as uuidv4 } from 'uuid';
@@ -149,25 +151,62 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
   // Load existing availability from database (recurring slots)
   const loadExistingAvailability = async () => {
     try {
+      // Get one example of each recurring pattern by grouping by recurrence_id
+      // This ensures we only get the template pattern, not all 12 weeks of instances
+      // Exclude slots that have appointments to avoid showing "cleared" availability
       const { data, error } = await supabase
         .from('appointment_availability')
-        .select('*')
+        .select(`
+          *,
+          appointments!left (
+            id,
+            status
+          )
+        `)
         .eq('volunteer_id', userId)
         .not('recurrence_id', 'is', null) // Only load recurring slots
         .gte('start_time', new Date().toISOString()) // Only load future slots
-        .order('start_time');
+        .order('start_time')
+        .limit(100); // Get more to ensure we capture all patterns
 
       if (error) {
         console.error('Error loading availability:', error);
         return;
       }
 
-      if (!data || data.length === 0) return;
+      if (!data || data.length === 0) {
+        return;
+      }
 
-      // Group by day of week and deduplicate time ranges to clean up legacy data
+      // Filter out slots that have appointments (these are protected and shouldn't show in template)
+      const availableSlots = data.filter(slot => {
+        const hasAppointments = slot.appointments && slot.appointments.length > 0;
+        return !hasAppointments;
+      });
+
+      // Group by recurrence_id to get unique patterns, then take earliest occurrence of each
+      const recurrenceGroups = new Map<string, any>();
+
+      availableSlots.forEach(slot => {
+        const recurrenceId = slot.recurrence_id;
+
+        if (!recurrenceGroups.has(recurrenceId)) {
+          recurrenceGroups.set(recurrenceId, slot);
+        } else {
+          // Keep the earliest occurrence for each pattern
+          const existing = recurrenceGroups.get(recurrenceId);
+          if (new Date(slot.start_time) < new Date(existing.start_time)) {
+            recurrenceGroups.set(recurrenceId, slot);
+          }
+        }
+      });
+
+      const uniquePatterns = Array.from(recurrenceGroups.values());
+
+      // Group by day of week and deduplicate time ranges
       const groupedByDay: { [key: number]: Set<string> } = {};
 
-      data.forEach(slot => {
+      uniquePatterns.forEach(slot => {
         const startDate = new Date(slot.start_time);
         const endDate = new Date(slot.end_time);
 
@@ -179,39 +218,31 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
         const dayOfWeek = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
-        // Use a consistent reference date (today) for timezone conversion
-        // This ensures all template times are converted using current timezone rules
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        // Convert UTC database times back to Eastern Time for template display
+        // Use our centralized timezone utility to ensure consistency
+        const easternStartTime = toEasternTime(startDate);
+        const easternEndTime = toEasternTime(endDate);
 
-        // Create reference times using today's date but original UTC hours/minutes
-        const referenceStart = new Date();
-        referenceStart.setUTCHours(startDate.getUTCHours(), startDate.getUTCMinutes(), 0, 0);
-
-        const referenceEnd = new Date();
-        referenceEnd.setUTCHours(endDate.getUTCHours(), endDate.getUTCMinutes(), 0, 0);
-
-        const startTime = referenceStart.toLocaleTimeString('en-US', {
+        // Format as HH:MM for template (24-hour format)
+        // Since toEasternTime already converted to proper timezone, just format directly
+        const startTime = easternStartTime.toLocaleTimeString('en-US', {
           hour12: false,
           hour: '2-digit',
-          minute: '2-digit',
-          timeZone: userTimezone
+          minute: '2-digit'
         });
 
-        const endTime = referenceEnd.toLocaleTimeString('en-US', {
+        const endTime = easternEndTime.toLocaleTimeString('en-US', {
           hour12: false,
           hour: '2-digit',
-          minute: '2-digit',
-          timeZone: userTimezone
+          minute: '2-digit'
         });
 
         // Skip invalid time ranges
         if (!startTime || !endTime || startTime === 'NaN:Na' || endTime === 'NaN:Na') {
-          console.warn('Invalid time range found:', { startTime, endTime, slot });
           return;
         }
 
         const timeRangeKey = `${startTime}-${endTime}`;
-
 
         if (!groupedByDay[dayOfWeek]) {
           groupedByDay[dayOfWeek] = new Set();
@@ -232,7 +263,12 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
           const dayTimeRanges = cleanedGroupedByDay[dayAvail.dayIndex];
 
           if (!dayTimeRanges || dayTimeRanges.length === 0) {
-            return dayAvail;
+            // Keep day disabled if no time ranges
+            return {
+              ...dayAvail,
+              enabled: false,
+              timeRanges: []
+            };
           }
 
           const timeRanges: TimeRange[] = dayTimeRanges
@@ -241,7 +277,11 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
               // Skip invalid time ranges
               if (!startTime || !endTime || startTime === 'undefined' || endTime === 'undefined') {
-                console.warn('Invalid time range key:', timeRangeKey);
+                return null;
+              }
+
+              // Additional validation - ensure times are valid
+              if (startTime.length !== 5 || endTime.length !== 5) {
                 return null;
               }
 
@@ -255,7 +295,7 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
           return {
             ...dayAvail,
-            enabled: true,
+            enabled: timeRanges.length > 0,
             timeRanges: timeRanges.sort((a, b) => a.startTime.localeCompare(b.startTime))
           };
         });
@@ -321,16 +361,10 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
   // Remove time range
   const removeTimeRange = (dayIndex: number, rangeId: string) => {
-    console.log('[DELETE] Removing range:', rangeId, 'from day:', dayIndex);
-
     setAvailability(prev => {
       const updated = prev.map(day => {
         if (day.dayIndex === dayIndex) {
-          const beforeRanges = day.timeRanges;
           const afterRanges = day.timeRanges.filter(range => range.id !== rangeId);
-
-          console.log('[DELETE] Before:', beforeRanges);
-          console.log('[DELETE] After:', afterRanges);
 
           return {
             ...day,
@@ -341,13 +375,11 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
         return day;
       });
 
-      console.log('[DELETE] Updated availability:', updated);
       return updated;
     });
 
     // Only validate if there are still multiple ranges that could conflict
     setTimeout(() => {
-      console.log('[DELETE] Running validation after delete');
       // Re-check current availability state for validation need
       setAvailability(currentAvailability => {
         const needsValidation = currentAvailability.some(day => day.enabled && day.timeRanges.length > 1);
@@ -420,7 +452,6 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
     );
 
     if (hasInvalidRanges) {
-      console.log('[VALIDATE] Skipping validation due to invalid time ranges');
       return;
     }
 
@@ -469,8 +500,6 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
 
   // Update time range
   const updateTimeRange = (dayIndex: number, rangeId: string, field: 'startTime' | 'endTime', value: string) => {
-    console.log(`[UPDATE] Updating ${field} to ${value} for range ${rangeId}`);
-
     // Round to nearest 15 minutes
     const roundedValue = roundToNearestQuarter(value);
 
@@ -512,7 +541,6 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
                   }
                 }
 
-                console.log(`[UPDATE] Final updated range:`, updated);
                 return updated;
               }
               return range;
@@ -607,11 +635,6 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
         if (deleteError) throw deleteError;
       }
 
-      // Log protected slots
-      if (protectedCount > 0) {
-        console.log(`Protected ${protectedCount} availability slots that have appointments booked`);
-      }
-
       // Get existing slots that have appointments (the ones we need to avoid conflicts with)
       const { data: bookedSlots, error: conflictError } = await supabase
         .from('appointment_availability')
@@ -639,63 +662,64 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
         original: slot
       }));
 
-      console.log(`Found ${existingBookedSlots.length} existing booked slots to check for conflicts`);
-
       // Prepare new slots to insert with recurring logic
       const slotsToInsert: any[] = [];
       const skippedConflicts: any[] = [];
-      const recurrenceId = uuidv4(); // Single recurrence ID for all slots from this save
-      const now = new Date();
 
-      // Start from tomorrow to create availability as soon as possible
-      const startDate = new Date(now);
-      startDate.setDate(now.getDate() + 1); // Start from tomorrow
-      startDate.setHours(0, 0, 0, 0);
+      // IMPORTANT: Work entirely in Eastern Time to avoid browser timezone issues
+      // Get current time in Eastern Time
+      const nowEastern = toEasternTime(new Date());
 
-      // Find the Monday of the week containing our start date
-      const startMonday = new Date(startDate);
-      const dayOfWeek = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday is 6 days from Monday
-      startMonday.setDate(startDate.getDate() - daysFromMonday);
+      // Start from tomorrow (in Eastern Time) to create availability as soon as possible
+      const startDateEastern = new Date(nowEastern);
+      startDateEastern.setDate(nowEastern.getDate() + 1); // Start from tomorrow in Eastern
+      startDateEastern.setHours(0, 0, 0, 0);
+
+      // Find the Monday of the week containing our start date (all in Eastern Time)
+      const startMonday = new Date(startDateEastern);
+      const dayOfWeek = startDateEastern.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysToGoBack = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday goes back 6, others go back (day - 1)
+      startMonday.setDate(startDateEastern.getDate() - daysToGoBack);
       startMonday.setHours(0, 0, 0, 0);
 
       availability.forEach(dayAvail => {
         if (dayAvail.enabled && dayAvail.timeRanges.length > 0) {
           dayAvail.timeRanges.forEach(range => {
-            // Create the first occurrence for this day/time combination
+            // Create a unique recurrence_id for each day+time pattern
+            const recurrenceId = uuidv4();
+
+            // Create the first occurrence for this day/time combination (in Eastern Time)
             const firstOccurrence = new Date(startMonday);
 
-            // Adjust for the specific day of week (0=Sunday, 1=Monday, etc.)
-            const dayOffset = dayAvail.dayIndex === 0 ? 6 : dayAvail.dayIndex - 1; // Convert to Monday=0 based
-            firstOccurrence.setDate(startMonday.getDate() + dayOffset);
+            // dayIndex: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+            // To get from Monday (startMonday) to the target day:
+            // Monday (1) -> 0 days, Tuesday (2) -> 1 day, Wednesday (3) -> 2 days, etc.
+            // Sunday (0) -> 6 days (go to next Sunday)
+            const daysFromMonday = dayAvail.dayIndex === 0 ? 6 : dayAvail.dayIndex - 1;
+            firstOccurrence.setDate(startMonday.getDate() + daysFromMonday);
 
-            // Skip this occurrence if it's before our minimum start date (tomorrow)
-            if (firstOccurrence < startDate) {
+            // Skip this occurrence if it's before our minimum start date (tomorrow in Eastern)
+            if (firstOccurrence < startDateEastern) {
               firstOccurrence.setDate(firstOccurrence.getDate() + 7); // Move to next week
             }
 
-            // Set the time
-            const [startHour, startMin] = range.startTime.split(':').map(Number);
-            const [endHour, endMin] = range.endTime.split(':').map(Number);
-
-            const startDateTime = new Date(firstOccurrence);
-            startDateTime.setHours(startHour, startMin, 0, 0);
-
-            const endDateTime = new Date(firstOccurrence);
-            endDateTime.setHours(endHour, endMin, 0, 0);
-
-            // Use RRule to generate recurring slots
+            // Use RRule to generate recurring DATES only (without times)
+            // Pass firstOccurrence directly to maintain Eastern Time context
             const rule = new RRule({
               freq: RRule.WEEKLY,
-              dtstart: startDateTime,
+              dtstart: firstOccurrence, // Use the Eastern Time date directly
               count: RECURRING_WEEKS, // Generate 12 weeks of slots
             });
 
-            const occurrences = rule.all();
+            const occurrenceDates = rule.all();
 
             // Add all occurrences to the insert batch, but skip conflicts
-            occurrences.forEach(occurrenceStart => {
-              const occurrenceEnd = new Date(occurrenceStart.getTime() + (endDateTime.getTime() - startDateTime.getTime()));
+            occurrenceDates.forEach(occurrenceDate => {
+              // createAvailabilityDateTime expects a Date where .getFullYear(), .getMonth(), .getDate()
+              // return Eastern Time values. Since we started with Eastern Time dates and RRule
+              // maintains the timezone context, this should work correctly.
+              const occurrenceStart = createAvailabilityDateTime(occurrenceDate, range.startTime);
+              const occurrenceEnd = createAvailabilityDateTime(occurrenceDate, range.endTime);
 
               // Check if this new slot overlaps with any existing booked slots
               const hasConflict = existingBookedSlots.some(existingSlot => {
@@ -705,18 +729,7 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
                 const existingStart = existingSlot.start.getTime();
                 const existingEnd = existingSlot.end.getTime();
 
-                const overlaps = newStart < existingEnd && existingStart < newEnd;
-
-                if (overlaps) {
-                  console.log(`Conflict detected:`, {
-                    new: `${occurrenceStart.toISOString()} - ${occurrenceEnd.toISOString()}`,
-                    existing: `${existingSlot.original.start_time} - ${existingSlot.original.end_time}`,
-                    day: dayAvail.day,
-                    timeRange: `${range.startTime}-${range.endTime}`
-                  });
-                }
-
-                return overlaps;
+                return newStart < existingEnd && existingStart < newEnd;
               });
 
               if (hasConflict) {
@@ -727,7 +740,6 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
                   day: dayAvail.day,
                   time_range: `${range.startTime}-${range.endTime}`
                 });
-                console.log(`Skipping conflicting slot: ${dayAvail.day} ${range.startTime}-${range.endTime} on ${occurrenceStart.toISOString()}`);
               } else {
                 // No conflict, add to insert batch
                 slotsToInsert.push({
@@ -1006,42 +1018,44 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
                         dayAvail.timeRanges.map((range) => {
                           const hasError = validationErrors[range.id];
                           return (
-                          <div key={range.id} className={`flex items-center gap-2 p-2 sm:p-3 rounded-lg ${
-                            hasError ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'
-                          }`}>
-                            <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
-                              <div className="relative flex-1 min-w-0">
-                                <CustomTimePicker
-                                  value={range.startTime}
-                                  onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', value)}
-                                  className="w-full"
-                                  maxTime="20:00" // Latest start time to allow 1 hour before 9 PM
-                                />
+                          <div key={range.id} className="space-y-2">
+                            <div className={`flex items-center gap-2 p-2 sm:p-3 rounded-lg ${
+                              hasError ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'
+                            }`}>
+                              <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
+                                <div className="relative flex-1 min-w-0">
+                                  <CustomTimePicker
+                                    value={range.startTime}
+                                    onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'startTime', value)}
+                                    className="w-full"
+                                    maxTime="20:00" // Latest start time to allow 1 hour before 9 PM
+                                  />
+                                </div>
+                                <span className="text-gray-500 flex-shrink-0 text-sm">to</span>
+                                <div className="relative flex-1 min-w-0">
+                                  <CustomTimePicker
+                                    value={range.endTime}
+                                    onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', value)}
+                                    className="w-full"
+                                    minTime={getMinimumEndTime(range.startTime)}
+                                  />
+                                </div>
                               </div>
-                              <span className="text-gray-500 flex-shrink-0 text-sm">to</span>
-                              <div className="relative flex-1 min-w-0">
-                                <CustomTimePicker
-                                  value={range.endTime}
-                                  onChange={(value) => updateTimeRange(dayAvail.dayIndex, range.id, 'endTime', value)}
-                                  className="w-full"
-                                  minTime={getMinimumEndTime(range.startTime)}
-                                />
-                              </div>
+
+                              {dayAvail.timeRanges.length > 1 && (
+                                <button
+                                  onClick={() => removeTimeRange(dayAvail.dayIndex, range.id)}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors flex-shrink-0"
+                                  title="Remove time range"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
 
-                            {dayAvail.timeRanges.length > 1 && (
-                              <button
-                                onClick={() => removeTimeRange(dayAvail.dayIndex, range.id)}
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors flex-shrink-0"
-                                title="Remove time range"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {/* Error message */}
+                            {/* Error message - now outside the flex container */}
                             {hasError && (
-                              <div className="w-full mt-2 text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                              <div className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded mx-2">
                                 {hasError}
                               </div>
                             )}
@@ -1105,34 +1119,7 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
     };
 
     const formatSlotTime = (startTime: string, endTime: string) => {
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-
-      // Use consistent timezone handling like the template input tab
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      // Create reference times using today's date but original UTC hours/minutes
-      const referenceStart = new Date();
-      referenceStart.setUTCHours(start.getUTCHours(), start.getUTCMinutes(), 0, 0);
-
-      const referenceEnd = new Date();
-      referenceEnd.setUTCHours(end.getUTCHours(), end.getUTCMinutes(), 0, 0);
-
-      const formattedStart = referenceStart.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: userTimezone
-      });
-
-      const formattedEnd = referenceEnd.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: userTimezone
-      });
-
-      return `${formattedStart} - ${formattedEnd}`;
+      return formatTimeRange(startTime, endTime);
     };
 
     const formatSlotDate = (dateString: string) => {

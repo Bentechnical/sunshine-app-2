@@ -1,32 +1,15 @@
+import { formatEmailDateTime } from './dateUtils';
+
 /**
  * Formats a date for email templates in a human-readable format
  * Example: "Tuesday, September 12th at 1:00 PM"
+ *
+ * @deprecated Use formatEmailDateTime from dateUtils.ts instead
+ * This function is replaced by the new timezone-aware implementation
  */
 export function formatAppointmentTime(date: Date): string {
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  };
-
-  // Format the base date
-  const formatted = date.toLocaleDateString('en-US', options);
-
-  // Add ordinal suffix to day (1st, 2nd, 3rd, 4th, etc.)
-  const day = date.getDate();
-  const ordinalSuffix = getOrdinalSuffix(day);
-
-  // Replace the day number with day + ordinal suffix
-  const withOrdinal = formatted.replace(
-    new RegExp(`\\b${day}\\b`),
-    `${day}${ordinalSuffix}`
-  );
-
-  // Replace "at" formatting for cleaner output
-  return withOrdinal.replace(/, (\d)/, ' at $1');
+  // Delegate to the new timezone-aware function
+  return formatEmailDateTime(date);
 }
 
 /**

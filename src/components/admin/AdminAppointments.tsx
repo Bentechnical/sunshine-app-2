@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { formatCardDate, formatCardTime } from '@/utils/timeZone';
 
 interface Appointment {
   id: number;
@@ -156,10 +157,9 @@ export default function AdminAppointments() {
   };
 
   const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-      time: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      date: formatCardDate(dateString),
+      time: formatCardTime(dateString)
     };
   };
 
