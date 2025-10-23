@@ -75,7 +75,7 @@ This document tracks the current database schema, relationships, and Row Level S
 | `start_time` | timestamp with time zone | NO | - | Appointment start time |
 | `end_time` | timestamp with time zone | NO | - | Appointment end time |
 | `status` | text | YES | 'pending' | Appointment status |
-| `availability_id` | text | NO | - | Reference to availability slot (TODO: Should be integer with foreign key constraint) |
+| `availability_id` | text | YES | - | Reference to availability slot (nullable to allow canceled appointments to persist after slot deletion) |
 | `cancellation_reason` | text | YES | - | Reason if cancelled |
 | `created_at` | timestamp with time zone | YES | CURRENT_TIMESTAMP | Record creation time |
 | `updated_at` | timestamp with time zone | YES | CURRENT_TIMESTAMP | Record update time |
@@ -246,6 +246,12 @@ This document tracks the current database schema, relationships, and Row Level S
 - Created comprehensive chat system documentation
 - Implemented connection management to optimize Stream Chat usage
 
+### 2025-01-XX - Availability Clearing with Canceled Appointments ✅ COMPLETED
+- **Modified `appointments.availability_id`**: Changed from NOT NULL to nullable
+- **Purpose**: Allows canceled appointments to persist for record-keeping after their availability slots are deleted
+- **Implementation**: When volunteers clear availability, canceled appointments have their `availability_id` set to NULL, breaking the foreign key relationship while preserving the appointment record
+- **Files Modified**: `src/components/availability/TemplateStyleAvailability.tsx`
+
 ## Notes for Development
 
 ### User Roles
@@ -256,7 +262,7 @@ This document tracks the current database schema, relationships, and Row Level S
 ### Status Values
 - **users.status**: 'pending', 'approved', 'denied'
 - **dogs.status**: 'pending', 'approved'
-- **appointments.status**: 'pending', 'confirmed', 'cancelled'
+- **appointments.status**: 'pending', 'confirmed', 'canceled' (American spelling)
 
 ### Location Data
 - `location_lat`/`location_lng` are populated via geocoding from `postal_code`

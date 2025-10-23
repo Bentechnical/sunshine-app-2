@@ -584,10 +584,8 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
       const getBookedAvailabilityIds = async (): Promise<Set<number>> => {
         const { data: appointments, error } = await supabase
           .from('appointments')
-          .select('availability_id')
+          .select('availability_id, status')
           .eq('volunteer_id', userId)
-          // Check for ALL appointment statuses, not just pending/confirmed
-          // This prevents foreign key violations from any referenced slots
           .not('availability_id', 'is', null);
 
         if (error) {
@@ -595,8 +593,11 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
           return new Set();
         }
 
+        // Only protect slots with ACTIVE appointments (pending/confirmed)
+        // Canceled appointments will have their availability_id nulled out below
         return new Set(
           (appointments || [])
+            .filter(apt => apt.status === 'pending' || apt.status === 'confirmed')
             .map(apt => {
               // Handle both string and number availability_id values
               const id = typeof apt.availability_id === 'string'
@@ -625,7 +626,23 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
       const deletedCount = deletableIds.length;
       const protectedCount = existingIds.length - deletableIds.length;
 
-      // Only delete availability slots that don't have appointments
+      // Before deleting availability slots, NULL out availability_id for any canceled appointments
+      // This breaks the foreign key relationship and allows us to delete the slots
+      if (deletableIds.length > 0) {
+        const { error: nullError } = await supabase
+          .from('appointments')
+          .update({ availability_id: null })
+          .eq('volunteer_id', userId)
+          .eq('status', 'canceled')
+          .in('availability_id', deletableIds);
+
+        if (nullError) {
+          console.error('Error nulling availability_id for canceled appointments:', nullError);
+          // Don't throw - continue with deletion attempt
+        }
+      }
+
+      // Only delete availability slots that don't have active appointments
       if (deletableIds.length > 0) {
         const { error: deleteError } = await supabase
           .from('appointment_availability')

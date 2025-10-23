@@ -31,6 +31,7 @@ export async function createAppointmentChat(
     individualName: string;
     volunteerName: string;
     location: string;
+    individualBio: string;
   }
 ) {
   const channelId = `appointment-${appointmentId}`;
@@ -64,16 +65,24 @@ export async function createAppointmentChat(
 
 **Appointment Details:**
 • **Date & Time:** ${formattedDateTime}
-• **Duration:** ${durationText}
+• **Duration:** Maximum ${durationText}
 • **Dog:** ${appointmentDetails.dogName}
 • **Location:** ${appointmentDetails.location}
+${appointmentDetails.individualBio ? `• **Reason for visit:** ${appointmentDetails.individualBio}` : ''}
 
-**Reminders:**
-• Please arrive 5-10 minutes early
-• Contact each other here if you need to make changes
-• This chat will close 6 hours after your appointment starts
+**Important Information:**
+• Please arrive 5-10 minutes early to your appointment
+• Use this chat to coordinate any last-minute details
+• If you can no longer make it, please cancel through the **My Visits** tab as soon as possible
+• This chat will automatically close 6 hours after your appointment begins
 
-Feel free to discuss any details about your upcoming visit!`,
+**For Future Visits:**
+• To book a follow-up appointment, please submit a new visit request through the app
+
+**Questions or Concerns?**
+• Contact us anytime at **info@sunshinetherapydogs.ca**
+
+We hope you have a wonderful visit together!`,
     user_id: 'system'
   };
 

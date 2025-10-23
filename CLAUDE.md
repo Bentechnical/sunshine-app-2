@@ -158,7 +158,8 @@ Critical environment variables needed:
 ### Availability System Debugging
 - **Timezone Issues**: Check browser timezone vs. appointment timezone conversion in console logs
 - **Pattern Conflicts**: Real-time validation shows red borders and prevents saves
-- **Protected Slots**: Booked appointments prevent deletion/modification of specific time slots
+- **Protected Slots**: Active appointments (pending/confirmed) prevent deletion/modification of specific time slots
+- **Canceled Appointments**: Slots with canceled appointments can be cleared; the appointment record persists with NULL availability_id
 - **RRule Generation**: Verify 12-week recurring pattern creation in database after saves
 - **Time Picker Constraints**: Start time limited to 8 PM, end time constrained to 1+ hours after start
 
@@ -168,6 +169,7 @@ Critical environment variables needed:
 - **Mobile PWA Issues**: Check manifest.json validity and icon file paths
 - **Authentication Failures**: Verify Clerk configuration and middleware setup
 - **Availability Save Failures**: Check console for overlap detection and protected slot conflicts
+- **Canceled Appointment Clearing**: When clearing availability, canceled appointments have their availability_id nulled to allow slot deletion while preserving appointment records
 
 ## Mobile Development Notes
 

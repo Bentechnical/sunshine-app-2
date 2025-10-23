@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createAppointmentChat } from '@/utils/stream-chat';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 
 export async function POST(request: NextRequest) {
@@ -29,7 +28,9 @@ export async function POST(request: NextRequest) {
         individual:users!appointments_individual_id_fkey (
           id,
           first_name,
-          last_name
+          last_name,
+          bio,
+          physical_address
         ),
         volunteer:users!appointments_volunteer_id_fkey (
           id,
@@ -68,33 +69,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Chat already exists for this appointment' }, { status: 409 });
     }
 
-    // Fetch availability separately (avoid failing join on some environments)
-    const availabilityId = typeof appointment.availability_id === 'number'
-      ? appointment.availability_id
-      : parseInt(String(appointment.availability_id), 10);
-    const { data: availability } = await supabase
-      .from('appointment_availability')
-      .select('start_time, end_time')
-      .eq('id', availabilityId)
-      .maybeSingle();
-
-    if (!availability) {
-      console.error('[Chat Create API] Availability not found for id:', availabilityId);
-      return NextResponse.json({ error: 'Availability not found' }, { status: 400 });
-    }
-
-    // Create Stream Chat channel
+    // Create Stream Chat channel using the appointment's actual start/end times
+    // (not the availability slot times, which may differ due to DST adjustments)
     const channel = await createAppointmentChat(
       appointmentId,
       (appointment as any).individual?.id || appointment.individual_id,
       (appointment as any).volunteer?.id || appointment.volunteer_id,
       {
-        startTime: availability.start_time,
-        endTime: availability.end_time,
+        startTime: appointment.start_time,
+        endTime: appointment.end_time,
         dogName: dogData?.dog_name || 'Unknown Dog',
         individualName: appointment.individual ? `${appointment.individual.first_name} ${appointment.individual.last_name}` : 'Individual',
         volunteerName: appointment.volunteer ? `${appointment.volunteer.first_name} ${appointment.volunteer.last_name}` : 'Volunteer',
-        location: (appointment as any).individual?.physical_address || 'Location to be discussed'
+        location: (appointment as any).individual?.physical_address || 'Location to be discussed',
+        individualBio: (appointment as any).individual?.bio || ''
       }
     );
 

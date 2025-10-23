@@ -176,10 +176,23 @@ export function getAppointmentDuration(startTime: Date | string, endTime: Date |
 /**
  * Format for email templates (with ordinal suffixes)
  * Replaces the existing formatAppointmentTime in dateFormat.ts
+ *
+ * IMPORTANT: Uses toZonedTime to ensure correct timezone conversion
+ * regardless of the server's local timezone. This is critical when
+ * running npm run dev from different timezones (e.g., Denmark while
+ * the app targets Eastern Time).
  */
 export function formatEmailDateTime(date: Date | string): string {
+  // Parse ISO string to Date object (this will be in UTC)
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return formatTz(dateObj, 'EEEE, MMMM do \'at\' h:mm a', { timeZone: EASTERN_TIMEZONE });
+
+  // Convert UTC date to Eastern Time perspective
+  // This ensures correct conversion regardless of server's local timezone
+  const easternDate = toZonedTime(dateObj, EASTERN_TIMEZONE);
+
+  // Format using regular date-fns format (not formatTz) since easternDate
+  // is already in the correct timezone perspective
+  return format(easternDate, 'EEEE, MMMM do \'at\' h:mm a');
 }
 
 /**
