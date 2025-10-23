@@ -37,9 +37,10 @@ export async function createAppointmentChat(
   const channelId = `appointment-${appointmentId}`;
   
   // Create the channel
+  // NOTE: Do NOT include created_by_id in channel data - it's a server-only field
+  // that causes client-side operations to fail with "server side auth" errors
   const channel = streamChatServer.channel('messaging', channelId, {
     members: [individualId, volunteerId],
-    created_by_id: 'system',
     ...{
       custom: {
         appointment_id: appointmentId,

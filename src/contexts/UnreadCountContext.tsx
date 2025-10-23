@@ -182,23 +182,38 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
               const data = await response.json();
               const channelsArray = Array.isArray(data.chats) ? data.chats : [];
 
-              // Get unread counts from Stream Chat for initial load
-              const unreadResponse = await newClient.getUnreadCount();
+              // Get unread counts from Stream Chat for initial load with increased timeout
+              try {
+                // Add a timeout wrapper to handle slow responses gracefully
+                const unreadResponse = await Promise.race([
+                  newClient.getUnreadCount(),
+                  new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Unread count timeout')), 10000)
+                  )
+                ]);
 
-              // Update channels with unread counts (same logic as MessagingTab)
-              const enrichedChannels = channelsArray.map((chat: any) => {
-                const channelId = chat.channelId?.split(':')[1] || chat.channelId;
-                const unreadChannel = unreadResponse.channels?.find((uc: any) =>
-                  uc.channel_id === channelId || uc.channel_id === chat.channelId
-                );
-                return {
+                // Update channels with unread counts (same logic as MessagingTab)
+                const enrichedChannels = channelsArray.map((chat: any) => {
+                  const channelId = chat.channelId?.split(':')[1] || chat.channelId;
+                  const unreadChannel = (unreadResponse as any).channels?.find((uc: any) =>
+                    uc.channel_id === channelId || uc.channel_id === chat.channelId
+                  );
+                  return {
+                    ...chat,
+                    unreadCount: unreadChannel?.unread_count || 0
+                  };
+                });
+
+                // Update context with initial unread state
+                updateUnreadFromChannels(enrichedChannels);
+              } catch (unreadError) {
+                console.warn('[UnreadCountContext] Failed to get unread counts, using defaults:', unreadError);
+                // Fall back to channels without unread counts
+                updateUnreadFromChannels(channelsArray.map((chat: any) => ({
                   ...chat,
-                  unreadCount: unreadChannel?.unread_count || 0
-                };
-              });
-
-              // Update context with initial unread state
-              updateUnreadFromChannels(enrichedChannels);
+                  unreadCount: 0
+                })));
+              }
             } else {
               console.error('[UnreadCountContext] Failed to load channels:', response.status);
             }

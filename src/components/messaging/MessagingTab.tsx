@@ -71,9 +71,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       let enrichedChannels = channelsArray;
       if (client && client.userID) {
         try {
-          // Use Stream Chat's official unread count API
-          const unreadResponse = await client.getUnreadCount();
-
+          // Use Stream Chat's official unread count API with timeout
+          const unreadResponse = await Promise.race([
+            client.getUnreadCount(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Unread count timeout')), 10000)
+            )
+          ]);
 
           // Update unread counts with official Stream Chat unread data
           enrichedChannels = channelsArray.map((chat: any) => {
@@ -81,7 +85,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             const channelId = chat.channelId?.split(':')[1] || chat.channelId;
 
             // Find matching channel in unread response
-            const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+            const unreadChannel = (unreadResponse as any).channels?.find((uc: any) =>
               uc.channel_id === channelId || uc.channel_id === chat.channelId
             );
 
@@ -91,8 +95,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             };
           });
         } catch (streamError) {
-          console.warn('[MessagingTab] Failed to get Stream Chat unread counts:', streamError);
-          // Fall back to API data if Stream Chat query fails
+          console.warn('[MessagingTab] Failed to get Stream Chat unread counts (using defaults):', streamError);
+          // Fall back to API data if Stream Chat query fails - use 0 for unread counts
+          enrichedChannels = channelsArray.map((chat: any) => ({
+            ...chat,
+            unreadCount: 0
+          }));
         }
       }
 

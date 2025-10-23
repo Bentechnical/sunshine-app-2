@@ -102,8 +102,6 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
 
       // Create chat channel via API (server-side only operation)
       try {
-        console.log('[MyVisits] Creating chat for appointment:', appointmentId);
-
         const chatResponse = await fetch('/api/chat/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -113,9 +111,6 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
         if (!chatResponse.ok) {
           const errorData = await chatResponse.json();
           console.error('[MyVisits] Chat creation failed:', errorData);
-        } else {
-          const chatData = await chatResponse.json();
-          console.log('[MyVisits] Chat created successfully:', chatData);
         }
       } catch (chatError) {
         console.error('[MyVisits] Error creating chat:', chatError);

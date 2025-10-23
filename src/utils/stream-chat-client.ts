@@ -91,7 +91,6 @@ export class StreamChatClientManager {
         this.hiddenDisconnectTimer = setTimeout(() => {
           // Only disconnect if still hidden and connected
           if (!this.isPageVisible && this.client && this.client.userID) {
-            console.log('[StreamChatManager] Tab hidden for 60s, disconnecting to save usage');
             this.disconnectUser();
           }
         }, this.hiddenDisconnectDelayMs);
@@ -112,14 +111,7 @@ export class StreamChatClientManager {
     // More reliable than beforeunload
     // Do not disconnect on pagehide; keep client alive
 
-    // Handle online/offline events
-    window.addEventListener('online', () => {
-      console.log('[StreamChatManager] Network online');
-    });
-
-    window.addEventListener('offline', () => {
-      console.log('[StreamChatManager] Network offline');
-    });
+    // Handle online/offline events (listeners set up, no logging)
 
     // Handle beforeunload as backup
     window.addEventListener('beforeunload', () => {
