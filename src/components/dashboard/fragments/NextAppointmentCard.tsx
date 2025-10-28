@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 import { Loader2 } from 'lucide-react';
+import { formatDashboardDate, formatDashboardTime } from '@/utils/timeZone';
 
 interface Props {
   role: 'individual' | 'volunteer';
@@ -94,16 +95,8 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
     volunteer_first_name,
   } = appointment;
 
-  const visitDate = new Date(start_time);
-  const formattedDate = visitDate.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-  const formattedTime = visitDate.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const formattedDate = formatDashboardDate(start_time);
+  const formattedTime = formatDashboardTime(start_time);
 
   const volunteerName = volunteer_first_name ?? 'Unknown';
 

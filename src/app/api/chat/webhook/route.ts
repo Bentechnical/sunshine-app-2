@@ -61,6 +61,12 @@ export async function POST(request: NextRequest) {
         });
 
         if (appointmentId && senderId && content) {
+          // Skip logging system/bot messages (no user ID in database)
+          if (senderId === 'system') {
+            console.log(`[Stream Chat Webhook] ⏭️  ${timestamp} - Skipping system message (no user in DB)`);
+            return NextResponse.json({ success: true, skipped: 'system message' });
+          }
+
           console.log(`[Stream Chat Webhook] 💾 ${timestamp} - Attempting database insert...`);
 
           const supabase = createSupabaseAdminClient();

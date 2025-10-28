@@ -3,9 +3,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 import { Button } from '@/components/ui/button';
+import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
 interface DogWithAvailability {
   id: number;
@@ -173,11 +175,15 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
   if (dogs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center px-4 py-8 space-y-4 bg-white rounded-lg shadow-inner">
-        <img
-          src="/images/missing_dog.png"
-          alt="No available therapy dogs"
-          className="w-32 h-32 object-contain opacity-80"
-        />
+        <div className="relative w-32 h-32">
+          <Image
+            src="/images/missing_dog.png"
+            alt="No available therapy dogs"
+            fill
+            sizes="128px"
+            className="object-contain opacity-80"
+          />
+        </div>
         <h3 className="text-lg font-semibold text-gray-800">
           No Therapy Dogs Available
         </h3>
@@ -202,12 +208,14 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
           >
             <div>
               <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-                <img
-                  src={dog.dog_picture_url || '/images/default_dog.png'}
+                <Image
+                  src={optimizeSupabaseImage(dog.dog_picture_url, { width: 600, quality: 80 })}
                   alt={dog.dog_name}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  fill
+                  sizes={getImageSizes('card')}
+                  className="object-cover"
+                  priority={false}
                 />
-
               </div>
 
               <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>

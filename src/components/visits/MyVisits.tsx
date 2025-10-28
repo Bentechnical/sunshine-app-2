@@ -46,7 +46,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           cancellation_reason,
           availability_id,
           individual:individual_id (
-            id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns
+            id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns, bio
           ),
           volunteer:volunteer_id (
             id, first_name, last_name, email, city, pronouns,
@@ -100,81 +100,21 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
         prev.map((apt) => apt.id === appointmentId ? { ...apt, status: 'confirmed' } : apt)
       );
 
-      // Create chat channel directly
+      // Create chat channel via API (server-side only operation)
       try {
-        console.log('[MyVisits] Creating chat for appointment:', appointmentId);
-        
-        // Check if chat already exists
-        const { data: existingChat } = await supabase
-          .from('appointment_chats')
-          .select('id')
-          .eq('appointment_id', appointmentId)
-          .maybeSingle();
-
-      if (existingChat) {
-        console.log('[MyVisits] Chat already exists for appointment:', appointmentId);
-        return;
-      }
-
-      // Get appointment details
-      const { data: appointment } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          individual:individual_id (first_name, last_name, pronouns),
-          volunteer:volunteer_id (first_name, last_name, pronouns),
-          availability:availability_id (start_time, end_time)
-        `)
-        .eq('id', appointmentId)
-        .single();
-
-      // Get dog details separately since the foreign key constraint doesn't exist
-      const { data: dogData } = await supabase
-        .from('dogs')
-        .select('dog_name')
-        .eq('volunteer_id', appointment.volunteer_id)
-        .single();
-
-      if (!appointment) {
-        console.error('[MyVisits] Could not fetch appointment details');
-        return;
-      }
-
-      // Create Stream Chat channel
-      const { createAppointmentChat } = await import('@/utils/stream-chat');
-      
-      const channel = await createAppointmentChat(
-        appointmentId,
-        appointment.individual_id,
-        appointment.volunteer_id,
-        {
-          startTime: appointment.availability?.start_time || appointment.start_time,
-          endTime: appointment.availability?.end_time || appointment.end_time,
-          dogName: dogData?.dog_name || 'Unknown Dog',
-          individualName: `${appointment.individual?.first_name} ${appointment.individual?.last_name}`,
-          volunteerName: `${appointment.volunteer?.first_name} ${appointment.volunteer?.last_name}`,
-          location: 'Location to be discussed'
-        }
-      );
-
-      // Store chat record in database
-      const { error: insertError } = await supabase
-        .from('appointment_chats')
-        .insert({
-          appointment_id: appointmentId,
-          stream_channel_id: channel.cid,
-          created_by: 'system'
+        const chatResponse = await fetch('/api/chat/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentId }),
         });
 
-      if (insertError) {
-        console.error('[MyVisits] Failed to save chat record:', insertError);
-      } else {
-        console.log('[MyVisits] Chat created successfully for appointment:', appointmentId);
+        if (!chatResponse.ok) {
+          const errorData = await chatResponse.json();
+          console.error('[MyVisits] Chat creation failed:', errorData);
+        }
+      } catch (chatError) {
+        console.error('[MyVisits] Error creating chat:', chatError);
       }
-
-    } catch (chatError) {
-      console.error('[MyVisits] Error creating chat:', chatError);
-    }
 
     // Still try to send confirmation emails via API
     try {

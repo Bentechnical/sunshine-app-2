@@ -1,4 +1,5 @@
 import { StreamChat } from 'stream-chat';
+import { formatEmailDateTime, getAppointmentDuration } from './dateUtils';
 
 // Stream Chat configuration
 export const STREAM_CHAT_API_KEY = process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!;
@@ -30,14 +31,17 @@ export async function createAppointmentChat(
     individualName: string;
     volunteerName: string;
     location: string;
+    individualBio: string;
   }
 ) {
   const channelId = `appointment-${appointmentId}`;
   
   // Create the channel
+  // NOTE: We use created_by (not created_by_id) with volunteer's ID
+  // Stream Chat requires this field when using server-side auth
   const channel = streamChatServer.channel('messaging', channelId, {
     members: [individualId, volunteerId],
-    created_by_id: 'system',
+    created_by: { id: volunteerId }, // Use volunteer as creator
     ...{
       custom: {
         appointment_id: appointmentId,
@@ -54,22 +58,33 @@ export async function createAppointmentChat(
 
   await channel.create();
 
-  // Send initial bot message
+  // Send initial bot message using clean date-fns formatting
+  const formattedDateTime = formatEmailDateTime(appointmentDetails.startTime);
+  const durationText = getAppointmentDuration(appointmentDetails.startTime, appointmentDetails.endTime);
+
   const botMessage = {
     text: `Welcome to your appointment chat! 🐕
 
 **Appointment Details:**
-• **Date & Time:** ${new Date(appointmentDetails.startTime).toLocaleString()}
-• **Duration:** ${new Date(appointmentDetails.endTime).getTime() - new Date(appointmentDetails.startTime).getTime() > 3600000 ? '1+ hours' : '1 hour'}
+• **Date & Time:** ${formattedDateTime}
+• **Duration:** Maximum ${durationText}
 • **Dog:** ${appointmentDetails.dogName}
 • **Location:** ${appointmentDetails.location}
+${appointmentDetails.individualBio ? `• **Reason for visit:** ${appointmentDetails.individualBio}` : ''}
 
-**Reminders:**
-• Please arrive 5-10 minutes early
-• Contact each other here if you need to make changes
-• This chat will close 6 hours after your appointment starts
+**Important Information:**
+• Please arrive 5-10 minutes early to your appointment
+• Use this chat to coordinate any last-minute details
+• If you can no longer make it, please cancel through the **My Visits** tab as soon as possible
+• This chat will automatically close 6 hours after your appointment begins
 
-Feel free to discuss any details about your upcoming visit!`,
+**For Future Visits:**
+• To book a follow-up appointment, please submit a new visit request through the app
+
+**Questions or Concerns?**
+• Contact us anytime at **info@sunshinetherapydogs.ca**
+
+We hope you have a wonderful visit together!`,
     user_id: 'system'
   };
 

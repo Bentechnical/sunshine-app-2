@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Mail, Dog, CheckCircle, XCircle, AlertCircle, MapPin, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, Mail, Dog, CheckCircle, XCircle, AlertCircle, MapPin, Loader2, MessageSquare } from 'lucide-react';
+import { formatCardDate, formatCardTime, isAppointmentPast } from '@/utils/timeZone';
 
 export interface Appointment {
   id: number;
@@ -38,6 +39,7 @@ export interface Appointment {
     dependant_name?: string;
     relationship_to_recipient?: string;
     pronouns?: string;
+    bio?: string;
   };
 }
 
@@ -52,19 +54,11 @@ interface AppointmentCardProps {
 }
 
 function formatDate(timeStr: string): string {
-  return new Date(timeStr).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatCardDate(timeStr);
 }
 
 function formatTime(timeStr: string): string {
-  return new Date(timeStr).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  return formatCardTime(timeStr);
 }
 
 function getStatusConfig(status: string) {
@@ -150,7 +144,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   let location: string | undefined = undefined;
   let dependantInfo: string | undefined = undefined;
 
-  const isPast = new Date(appointment.end_time) <= new Date();
+  const isPast = isAppointmentPast(appointment.end_time);
   const statusConfig = getStatusConfig(appointment.status);
   const StatusIcon = statusConfig.icon;
 
@@ -323,14 +317,43 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             {/* Location info */}
             {location && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center text-gray-700">
-                  <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                  <div>
+                <div className="text-gray-700">
+                  <div className="flex items-center mb-2">
+                    <MapPin className="w-4 h-4 mr-2 text-gray-500" />
                     <span className="text-sm font-medium text-gray-600">
                       {role === 'individual' ? 'Your Location' : 'Requester\'s Location'}:
                     </span>
-                    <span className="ml-2 text-sm">{location}</span>
                   </div>
+                  <p className="ml-6 text-sm text-gray-700">{location}</p>
+                </div>
+                {/* Reason for Visit */}
+                {appointment.individual?.bio && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-gray-700">
+                      <div className="flex items-center mb-2">
+                        <MessageSquare className="w-4 h-4 mr-2 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">
+                          {role === 'individual' ? 'Your Reason for Visit' : 'Reason for Visit'}:
+                        </span>
+                      </div>
+                      <p className="ml-6 text-sm text-gray-700">{appointment.individual.bio}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Reason for Visit - standalone section when no location */}
+            {!location && appointment.individual?.bio && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="text-gray-700">
+                  <div className="flex items-center mb-2">
+                    <MessageSquare className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-600">
+                      {role === 'individual' ? 'Your Reason for Visit' : 'Reason for Visit'}:
+                    </span>
+                  </div>
+                  <p className="ml-6 text-sm text-gray-700">{appointment.individual.bio}</p>
                 </div>
               </div>
             )}

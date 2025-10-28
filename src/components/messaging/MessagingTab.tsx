@@ -41,6 +41,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
   // UI state
   const [error, setError] = useState<string | null>(null);
+  const [loadingChannels, setLoadingChannels] = useState(true);
   
   // Mobile state
   const [isMobile, setIsMobile] = useState(false);
@@ -52,12 +53,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     setActiveChannelId(null);
     setChannels([]);
     setViewMode('channelList');
+    setLoadingChannels(false);
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
   // Load channels
   const loadChannels = useCallback(async () => {
     try {
+      setLoadingChannels(true);
       const response = await fetch('/api/chat/channels');
       if (!response.ok) throw new Error('Failed to fetch channels');
 
@@ -68,9 +71,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       let enrichedChannels = channelsArray;
       if (client && client.userID) {
         try {
-          // Use Stream Chat's official unread count API
-          const unreadResponse = await client.getUnreadCount();
-
+          // Use Stream Chat's official unread count API with timeout
+          const unreadResponse = await Promise.race([
+            client.getUnreadCount(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Unread count timeout')), 10000)
+            )
+          ]);
 
           // Update unread counts with official Stream Chat unread data
           enrichedChannels = channelsArray.map((chat: any) => {
@@ -78,7 +85,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             const channelId = chat.channelId?.split(':')[1] || chat.channelId;
 
             // Find matching channel in unread response
-            const unreadChannel = unreadResponse.channels?.find((uc: any) =>
+            const unreadChannel = (unreadResponse as any).channels?.find((uc: any) =>
               uc.channel_id === channelId || uc.channel_id === chat.channelId
             );
 
@@ -88,8 +95,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             };
           });
         } catch (streamError) {
-          console.warn('[MessagingTab] Failed to get Stream Chat unread counts:', streamError);
-          // Fall back to API data if Stream Chat query fails
+          console.warn('[MessagingTab] Failed to get Stream Chat unread counts (using defaults):', streamError);
+          // Fall back to API data if Stream Chat query fails - use 0 for unread counts
+          enrichedChannels = channelsArray.map((chat: any) => ({
+            ...chat,
+            unreadCount: 0
+          }));
         }
       }
 
@@ -108,6 +119,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       console.error('Failed to load channels:', err);
       setError('Failed to load conversations');
       setChannels([]);
+    } finally {
+      setLoadingChannels(false);
     }
   }, [activeChannelId, client, updateUnreadFromChannels]);
 
@@ -262,7 +275,18 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.length === 0 ? (
+              {loadingChannels ? (
+                // Loading state for mobile
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    Loading Messages...
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Please wait while we fetch your conversations.
+                  </p>
+                </div>
+              ) : channels.length === 0 ? (
                 // Empty state for mobile
                 <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
                   <div className="text-6xl mb-4">🐕</div>
@@ -385,7 +409,18 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
             </div>
             <div className={styles.channelListContent}>
-              {channels.length === 0 ? (
+              {loadingChannels ? (
+                // Loading state for desktop
+                <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    Loading Messages...
+                  </h3>
+                  <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+                    Please wait while we fetch your conversations.
+                  </p>
+                </div>
+              ) : channels.length === 0 ? (
                 // Empty state for desktop
                 <div className="flex flex-col items-center justify-center text-center px-6 py-12 h-full min-h-[400px]">
                   <div className="text-6xl mb-4">🐕</div>

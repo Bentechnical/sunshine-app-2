@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: individual, error: individualError } = await supabase
       .from('users')
-      .select('first_name, last_name, email')
+      .select('first_name, last_name, email, bio')
       .eq('id', appointment.individual_id)
       .maybeSingle();
 
@@ -176,7 +176,8 @@ export async function POST(req: NextRequest) {
           dogName: dog.dog_name,
           individualName: `${individual.first_name} ${individual.last_name}`,
           volunteerName: `${volunteer.first_name} ${volunteer.last_name}`,
-          location: 'Location to be discussed' // This could be enhanced later
+          location: 'Location to be discussed', // This could be enhanced later
+          individualBio: individual.bio || ''
         }
       );
 
