@@ -2,8 +2,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Calendar, Clock, User, Mail, Dog, CheckCircle, XCircle, AlertCircle, MapPin, Loader2, MessageSquare } from 'lucide-react';
 import { formatCardDate, formatCardTime, isAppointmentPast } from '@/utils/timeZone';
+import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
 export interface Appointment {
   id: number;
@@ -257,13 +259,13 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           {dogPictureUrl && (
             <div className="lg:order-2 lg:w-48 lg:flex-shrink-0">
               <div className="relative aspect-square w-40 h-40 mx-auto lg:w-full lg:h-auto overflow-hidden rounded-lg border border-gray-200">
-                <img
-                  src={dogPictureUrl || '/images/default_dog.png'}
+                <Image
+                  src={optimizeSupabaseImage(dogPictureUrl, { width: 400, quality: 80 })}
                   alt={dogName || 'Dog'}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/images/default_dog.png';
-                  }}
+                  fill
+                  sizes={getImageSizes('card')}
+                  className="object-cover"
+                  priority={false}
                 />
               </div>
             </div>
