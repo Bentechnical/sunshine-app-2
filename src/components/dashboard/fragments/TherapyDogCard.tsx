@@ -2,11 +2,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import EditDogProfile from '@/components/dog/EditDogProfile';
+import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
 interface Dog {
   dog_name: string;
@@ -73,11 +75,14 @@ export default function TherapyDogCard() {
     <div className="space-y-4 pt-1 px-2 flex flex-col lg:flex-1 pb-3">
       <h2 className="text-xl font-bold">Set Availability</h2>
       <div className="flex flex-col bg-white rounded-lg">
-        <div className="rounded-lg overflow-hidden shadow-md aspect-[4/3] md:aspect-video lg:aspect-square">
-          <img
-            src={dog?.dog_picture_url || '/images/default_dog.png'}
-            alt={dog?.dog_name}
-            className="w-full h-full object-cover"
+        <div className="relative rounded-lg overflow-hidden shadow-md aspect-[4/3] md:aspect-video lg:aspect-square">
+          <Image
+            src={optimizeSupabaseImage(dog?.dog_picture_url, { width: 600, quality: 80 })}
+            alt={dog?.dog_name || 'Therapy Dog'}
+            fill
+            sizes={getImageSizes('card')}
+            className="object-cover"
+            priority={false}
           />
         </div>
         <div className="pt-3 px-4">

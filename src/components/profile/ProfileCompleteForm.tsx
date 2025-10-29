@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
 import AvatarUpload from '@/components/profile/AvatarUpload';
@@ -357,10 +358,12 @@ export default function ProfileCompleteForm() {
                 >
                   <div className="flex flex-col items-center space-y-3">
                     <div className="relative w-24 h-40 md:w-32 md:h-32 overflow-hidden rounded-lg">
-                      <img
+                      <Image
                         src="/images/book-a-visit-dog.png"
                         alt="Visit with a therapy dog"
-                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 768px) 96px, 128px"
+                        className="object-contain transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
                     <div className="text-center">
@@ -380,10 +383,12 @@ export default function ProfileCompleteForm() {
                 >
                   <div className="flex flex-col items-center space-y-3">
                     <div className="relative w-24 h-40 md:w-32 md:h-32 overflow-hidden rounded-lg">
-                      <img
+                      <Image
                         src="/images/Volunteer-btn.png"
                         alt="Volunteer with my dog"
-                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 768px) 96px, 128px"
+                        className="object-contain transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
                     <div className="text-center">

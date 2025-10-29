@@ -33,7 +33,6 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
 
   const [dogs, setDogs] = useState<DogWithAvailability[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userAudienceCategories, setUserAudienceCategories] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchNearbyDogs = async () => {
@@ -77,7 +76,6 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
           userCategories = audienceData
             .map((tag: any) => tag.audience_categories?.name)
             .filter(Boolean);
-          setUserAudienceCategories(userCategories);
         }
       }
 
@@ -95,54 +93,24 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
 
 
 
-      // Step 3: Fetch audience preferences for each dog's volunteer
-      const dogsWithAudience = await Promise.all(
-        (data as any[]).map(async (dog) => {
-          
-          const { data: volunteerAudience, error: volunteerError } = await supabase
-            .from('volunteer_audience_preferences')
-            .select('category_id')
-            .eq('volunteer_id', dog.volunteer_id);
+      // Step 3: Process audience categories (now included in view - no extra queries!)
+      // The audience_categories column is now returned by the database view as JSONB
+      const dogsWithAudience = (data as any[]).map((dog) => {
+        // Extract category names from the JSONB array returned by the view
+        const volunteerCategories: string[] =
+          dog.audience_categories?.map((cat: any) => cat.name) || [];
 
-          if (volunteerError) {
-            console.error('Failed to fetch volunteer preferences:', volunteerError);
-            console.error('Volunteer ID:', dog.volunteer_id);
-            return {
-              ...dog,
-              audience_categories: [],
-              has_matching_categories: false
-            };
-          }
+        // Check for matching categories
+        const hasMatchingCategories = userCategories.length > 0 &&
+          volunteerCategories.length > 0 &&
+          userCategories.some(cat => volunteerCategories.includes(cat));
 
-          // Get category names from category IDs
-          let volunteerCategories: string[] = [];
-          if (volunteerAudience && volunteerAudience.length > 0) {
-            const categoryIds = volunteerAudience.map((pref: any) => pref.category_id);
-            
-            const { data: categoryData, error: categoryError } = await supabase
-              .from('audience_categories')
-              .select('name')
-              .in('id', categoryIds);
-
-            if (categoryError) {
-              console.error('Failed to fetch category names:', categoryError);
-            } else {
-              volunteerCategories = categoryData?.map((cat: any) => cat.name) || [];
-            }
-          }
-
-          // Check for matching categories
-          const hasMatchingCategories = userCategories.length > 0 && 
-            volunteerCategories.length > 0 &&
-            userCategories.some(cat => volunteerCategories.includes(cat));
-
-          return {
-            ...dog,
-            audience_categories: volunteerCategories,
-            has_matching_categories: hasMatchingCategories
-          };
-        })
-      );
+        return {
+          ...dog,
+          audience_categories: volunteerCategories,
+          has_matching_categories: hasMatchingCategories
+        };
+      });
 
       // Filter to only show matching dogs
       const matchingDogs = dogsWithAudience.filter(dog => dog.has_matching_categories);

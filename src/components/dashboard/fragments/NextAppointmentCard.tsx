@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 import { Loader2 } from 'lucide-react';
 import { formatDashboardDate, formatDashboardTime } from '@/utils/timeZone';
+import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
 interface Props {
   role: 'individual' | 'volunteer';
@@ -64,16 +66,20 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
   if (!appointment) {
   return (
     <div className="flex flex-col items-center justify-center text-center px-4 py-8 space-y-4 bg-white rounded-lg shadow-inner">
-      <img
-        src="/images/missing_dog.png"
-        alt="No upcoming visits"
-        className="w-32 h-32 object-contain opacity-80"
-      />
+      <div className="relative w-32 h-32">
+        <Image
+          src="/images/missing_dog.png"
+          alt="No upcoming visits"
+          fill
+          sizes="128px"
+          className="object-contain opacity-80"
+        />
+      </div>
       <h3 className="text-lg font-semibold text-gray-800">
         No Upcoming Visits
       </h3>
       <p className="text-sm text-gray-600 max-w-sm">
-        Looks like you don’t have any visits scheduled yet. Once you request or confirm a session, you’ll see it here!
+        Looks like you don't have any visits scheduled yet. Once you request or confirm a session, you'll see it here!
       </p>
       <button
         onClick={() => setActiveTab(role === 'individual' ? 'meet-with-dog' : 'my-visits')}
@@ -106,10 +112,13 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
 
       <div className="rounded-lg p-0 flex flex-col flex-1">
         <div className="relative w-full overflow-hidden rounded-lg aspect-[4/3] md:aspect-video lg:aspect-square">
-          <img
-            src={dog_picture_url || '/images/default_dog.png'}
+          <Image
+            src={optimizeSupabaseImage(dog_picture_url, { width: 600, quality: 80 })}
             alt={dog_name}
-            className="absolute inset-0 w-full h-full object-cover"
+            fill
+            sizes={getImageSizes('card')}
+            className="object-cover"
+            priority={false}
           />
         </div>
 

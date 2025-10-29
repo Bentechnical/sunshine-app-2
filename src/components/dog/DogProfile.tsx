@@ -2,10 +2,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 import { parseUserTimeInput } from '@/utils/dateUtils';
 import { formatAppointmentDate, formatAppointmentTime } from '@/utils/timeZone';
+import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
 interface Dog {
   id: number;
@@ -273,10 +275,13 @@ await fetch('/api/request', {
             </button>
           </div>
           <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-            <img
-              src={dog.dog_picture_url || '/images/default_dog.png'}
+            <Image
+              src={optimizeSupabaseImage(dog.dog_picture_url, { width: 600, quality: 80 })}
               alt={dog.dog_name}
-              className="absolute inset-0 w-full h-full object-cover"
+              fill
+              sizes={getImageSizes('profile')}
+              className="object-cover"
+              priority={false}
             />
           </div>
           <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
