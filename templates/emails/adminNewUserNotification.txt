@@ -1,13 +1,21 @@
 New User Registration - Sunshine Therapy Dogs
 
-A new user has completed their profile and is awaiting approval.
+A new user has completed their profile and is awaiting approval in the admin dashboard.
 
 Name: {{userName}}
 Type: {{userType}}
 
-Review in Admin Dashboard:
+Please review their profile and approve or deny their access to the platform.
+
+You can access the admin dashboard directly or use the link below:
 {{dashboardLink}}
+
+---
+
+This is an automated notification from the Sunshine Therapy Dogs platform.
+For questions, please contact: info@sunshinetherapydogs.ca
 
 ---
 © {{year}} Sunshine Therapy Dogs. All rights reserved.
 Visit our website: https://www.sunshinetherapydogs.ca
+Contact Support: info@sunshinetherapydogs.ca

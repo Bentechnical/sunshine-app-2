@@ -18,12 +18,14 @@
       <tr>
         <td style="padding: 30px;">
           <h2 style="color: #0e62ae; margin-bottom: 16px;">New User Registration</h2>
-          <p style="margin: 0 0 12px 0;">A new user has completed their profile and is awaiting approval.</p>
+          <p style="margin: 0 0 12px 0;">A new user has completed their profile and is awaiting approval in the admin dashboard.</p>
 
           <div style="margin: 20px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #f09f1a; border-radius: 4px;">
             <p style="margin: 0 0 8px 0;"><strong>Name:</strong> {{userName}}</p>
             <p style="margin: 0;"><strong>Type:</strong> {{userType}}</p>
           </div>
+
+          <p style="margin: 0 0 12px 0;">Please review their profile and approve or deny their access to the platform.</p>
 
           <p style="margin: 24px 0;">
             <a href="{{dashboardLink}}" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
@@ -31,7 +33,12 @@
             </a>
           </p>
 
-          <p style="margin: 0 0 12px 0; font-size: 14px; color: #6c757d;">Click the button above to review and approve this user.</p>
+          <p style="margin: 0 0 12px 0; font-size: 14px; color: #6c757d;">Click the button above or access the admin dashboard directly to review this user's application.</p>
+
+          <!-- No-Reply Notice -->
+          <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #0e62ae; border-radius: 4px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">This is an automated notification from the Sunshine Therapy Dogs platform. For questions, please contact <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a></p>
+          </div>
         </td>
       </tr>
 
@@ -39,7 +46,8 @@
       <tr>
         <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
           &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
-          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a> |
+          <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Contact Support</a>
         </td>
       </tr>
     </table>
