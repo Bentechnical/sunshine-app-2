@@ -1,0 +1,13 @@
+New User Registration - Sunshine Therapy Dogs
+
+A new user has completed their profile and is awaiting approval.
+
+Name: {{userName}}
+Type: {{userType}}
+
+Review in Admin Dashboard:
+{{dashboardLink}}
+
+---
+© {{year}} Sunshine Therapy Dogs. All rights reserved.
+Visit our website: https://www.sunshinetherapydogs.ca

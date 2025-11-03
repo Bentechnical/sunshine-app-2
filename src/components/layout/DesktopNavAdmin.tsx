@@ -20,7 +20,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, refreshTrigge
     { key: 'availabilities', label: 'View Availabilities' },
     { key: 'chats', label: 'Chat Management', showAlert: unreadCount > 0 },
     { key: 'welcome-messages', label: 'Welcome Messages' },
-    { key: 'email-testing', label: 'Email Testing' },
+    { key: 'email-testing', label: 'Email & Admin Settings' },
   ];
 
 

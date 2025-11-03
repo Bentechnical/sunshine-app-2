@@ -32,7 +32,7 @@ export default function MobileNavAdmin({
     { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} /> },
     { key: 'availabilities', label: 'Avail', icon: <Calendar size={20} /> },
     { key: 'welcome-messages', label: 'Messages', icon: <MessageSquare size={20} /> },
-    { key: 'email-testing', label: 'Email', icon: <Mail size={20} /> },
+    { key: 'email-testing', label: 'Settings', icon: <Mail size={20} /> },
   ];
 
   return (
