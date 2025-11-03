@@ -317,6 +317,23 @@ export default function ProfileCompleteForm() {
       }
 
       await geocodePostalCode(normalizePostalCode(postalCode), user.id);
+
+      // Send admin notification about new user signup
+      try {
+        await fetch('/api/admin/notify-new-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName: `${user.firstName} ${user.lastName}`,
+            userType: selectedRole,
+          }),
+        });
+        console.log('[ProfileComplete] Admin notification sent');
+      } catch (notifyError) {
+        // Log but don't block user flow if notification fails
+        console.error('[ProfileComplete] Failed to send admin notification:', notifyError);
+      }
+
       router.push('/dashboard');
     } catch (error: any) {
       setSubmitError(error.message || 'Something went wrong.');

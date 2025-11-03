@@ -223,12 +223,36 @@ export default function AdminEmailTesting() {
     }
   };
 
-  const successCount = results.filter(r => r.status === 'success').length;
-  const totalCount = results.length;
   const currentFields = selectedTemplate ? templateFields[selectedTemplate] || [] : [];
 
   return (
     <div className="space-y-6">
+      {/* Admin Notification Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Admin Notification Settings
+          </CardTitle>
+          <CardDescription>
+            Email addresses that receive notifications when new users complete their profiles.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-2">Configured Admin Email(s):</p>
+            <p className="text-sm text-gray-900 font-mono break-words">
+              {process.env.NEXT_PUBLIC_ADMIN_NOTIFICATION_EMAIL || 'Not configured (set ADMIN_NOTIFICATION_EMAIL in environment variables)'}
+            </p>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Note: This setting is configured via the ADMIN_NOTIFICATION_EMAIL environment variable.
+            Multiple emails can be separated by commas.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Email Template Testing */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
