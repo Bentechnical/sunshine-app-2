@@ -91,6 +91,21 @@ export async function POST(req: Request) {
           dependant_name: null,
         }]);
         if (error) throw error;
+
+        // Log role change to audit table
+        await supabase.from("role_change_audit").insert({
+          user_id: userId,
+          old_role: null,
+          new_role: role,
+          source: 'clerk_webhook_created',
+          metadata: {
+            email,
+            clerk_metadata_role: unsafe_metadata?.role || null,
+            defaulted: !unsafe_metadata?.role,
+            event_type: evt.type
+          }
+        });
+
         console.log(`Inserted user ${userId}`);
 
         // ✅ Send welcome email
@@ -113,7 +128,8 @@ export async function POST(req: Request) {
             first_name: first_name ?? null,
             last_name: last_name ?? null,
             email,
-            role,
+            // NOTE: Role is NOT updated here to prevent overwrites from Clerk metadata
+            // Role is managed exclusively through ProfileCompleteForm in Supabase
             bio: unsafe_metadata?.bio ?? null,
             updated_at: new Date(),
             profile_image: image_url ?? null,
