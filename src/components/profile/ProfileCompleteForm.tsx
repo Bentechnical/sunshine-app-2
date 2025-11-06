@@ -232,6 +232,15 @@ export default function ProfileCompleteForm() {
     setIsLoading(true);
 
     try {
+      // Fetch current role to track if it's changing
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      const oldRole = currentUser?.role || null;
+
       const updatePayload: any = {
         role: selectedRole,
         bio,
@@ -253,7 +262,7 @@ export default function ProfileCompleteForm() {
         updatePayload.additional_information = additionalInformation;
         updatePayload.liability_waiver_accepted = liabilityWaiverAccepted;
         updatePayload.liability_waiver_accepted_at = liabilityWaiverAccepted ? new Date().toISOString() : null;
-        
+
         // Add visit recipient fields
         updatePayload.visit_recipient_type = visitRecipientType;
         updatePayload.relationship_to_recipient = relationshipToRecipient;
@@ -263,6 +272,21 @@ export default function ProfileCompleteForm() {
       const { error: updateError } = await supabase.from('users').update(updatePayload).eq('id', user.id);
 
       if (updateError) throw new Error(updateError.message);
+
+      // Log role change to audit table (only if role actually changed)
+      if (oldRole !== selectedRole) {
+        await supabase.from('role_change_audit').insert({
+          user_id: user.id,
+          old_role: oldRole,
+          new_role: selectedRole,
+          source: 'profile_complete_form',
+          metadata: {
+            email: user.primaryEmailAddress?.emailAddress,
+            first_name: user.firstName,
+            last_name: user.lastName
+          }
+        });
+      }
 
       if (selectedRole === 'volunteer') {
         const { data: existingDog } = await supabase
