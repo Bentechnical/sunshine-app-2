@@ -342,6 +342,22 @@ export default function ProfileCompleteForm() {
 
       await geocodePostalCode(normalizePostalCode(postalCode), user.id);
 
+      // Send welcome email to user (profile under review)
+      try {
+        await fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user.primaryEmailAddress?.emailAddress,
+            firstName: user.firstName,
+          }),
+        });
+        console.log('[ProfileComplete] Welcome email sent');
+      } catch (emailError) {
+        // Log but don't block user flow if email fails
+        console.error('[ProfileComplete] Failed to send welcome email:', emailError);
+      }
+
       // Send admin notification about new user signup
       try {
         await fetch('/api/admin/notify-new-user', {

@@ -61,7 +61,8 @@ export async function GET() {
           category_id
         )
       `)
-      .eq('status', 'approved');
+      .eq('status', 'approved')
+      .eq('profile_complete', true);
 
     if (userErr || !userData) {
       console.error('[approved-users] Error fetching data:', userErr?.message);

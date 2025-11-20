@@ -108,18 +108,18 @@ export async function POST(req: Request) {
 
         console.log(`Inserted user ${userId}`);
 
-        // ✅ Send welcome email
+        // Send complete profile email
         if (email) {
           await sendTransactionalEmail({
             to: email,
-            subject: 'Welcome to Sunshine Therapy Dogs!',
-            templateName: 'welcome',
+            subject: 'Complete Your Profile - Sunshine Therapy Dogs',
+            templateName: 'completeProfile',
             data: {
               firstName: first_name ?? 'there',
               year: new Date().getFullYear(),
             },
           });
-          console.log(`[Resend] Welcome email sent to ${email}`);
+          console.log(`[Resend] Complete profile email sent to ${email}`);
         }
 
       } else if (evt.type === "user.updated") {
