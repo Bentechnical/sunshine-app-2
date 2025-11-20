@@ -212,6 +212,13 @@ src/
   - Performance optimization based on real usage data
   - Documentation updates for deployment and monitoring procedures
 
+## Native App Deployment Status (Capacitor)
+- ✅ Added Capacitor core/platform/plugin packages plus convenience scripts (`npm run cap:*`, `npm run native:*`).
+- ✅ Created `capacitor.config.ts` pointing shells at `https://sunshinedogs.app` with fallback `dist/` assets (placeholder offline message committed).
+- ✅ Initialized native projects via `npx cap add ios` and `npx cap add android`; Android sync completes successfully.
+- ⚠️ iOS sync currently blocked because Xcode + CocoaPods are not installed (Apple now requires Ruby ≥ 2.7 for CocoaPods). Need to install Xcode, set up a modern Ruby (Homebrew or rbenv), then `gem install cocoapods` before rerunning `npm run cap:sync`.
+- 🔜 Once sync succeeds, open the projects with `npm run cap:open:ios` / `npm run cap:open:android` to verify they load the hosted app, then continue with push notifications and store assets per `NATIVE_APP_DEPLOYMENT.md`.
+
 ## Recent Achievements
 - ✅ Comprehensive chat system with robust connection management
 - ✅ PWA manifest optimized for iOS/Android with app shortcuts

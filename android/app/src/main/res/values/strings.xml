@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sunshine Therapy Dogs</string>
+    <string name="title_activity_main">Sunshine Therapy Dogs</string>
+    <string name="package_name">com.sunshinetherapydogs.app</string>
+    <string name="custom_url_scheme">com.sunshinetherapydogs.app</string>
+</resources>

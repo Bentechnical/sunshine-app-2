@@ -17,7 +17,8 @@ export async function GET() {
         dog_name, dog_breed, dog_bio, dog_picture_url, dog_age, status
       )
     `)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .eq('profile_complete', true);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

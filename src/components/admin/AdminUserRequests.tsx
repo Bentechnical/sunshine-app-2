@@ -51,10 +51,20 @@ interface IndividualRequest {
   dependant_name?: string;
 }
 
+interface IncompleteSignup {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
 export default function UserRequestsTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer'>('individual');
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'incomplete'>('individual');
   const [volunteerRequests, setVolunteerRequests] = useState<VolunteerRequest[]>([]);
   const [individualRequests, setIndividualRequests] = useState<IndividualRequest[]>([]);
+  const [incompleteSignups, setIncompleteSignups] = useState<IncompleteSignup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,6 +141,16 @@ export default function UserRequestsTab() {
 
         setVolunteerRequests(volunteers);
         setIndividualRequests(individuals);
+
+        // Fetch incomplete signups
+        const incompleteRes = await fetch('/api/admin/incomplete-signups');
+        const incompleteJson = await incompleteRes.json();
+
+        if (incompleteRes.ok) {
+          setIncompleteSignups(incompleteJson.users || []);
+        } else {
+          console.error('[Admin] Error fetching incomplete signups:', incompleteJson.error);
+        }
       } catch (err) {
         console.error('[Admin] Error fetching pending users:', err);
         setError('Failed to load pending users');
@@ -178,6 +198,13 @@ export default function UserRequestsTab() {
             }`}
         >
           Volunteer Requests
+        </button>
+        <button
+          onClick={() => setActiveSubtab('incomplete')}
+          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'incomplete' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
+            }`}
+        >
+          Incomplete Signups {incompleteSignups.length > 0 && `(${incompleteSignups.length})`}
         </button>
       </div>
 
@@ -436,6 +463,43 @@ export default function UserRequestsTab() {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          )}
+
+          {/* Incomplete Signups */}
+          {activeSubtab === 'incomplete' && (
+            <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
+              {incompleteSignups.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No incomplete signups</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">Name</th>
+                      <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">Email</th>
+                      <th className="text-left px-6 py-3 text-sm font-semibold text-gray-700">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {incompleteSignups.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {user.first_name || user.last_name
+                            ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                            : <span className="text-gray-400 italic">No name</span>
+                          }
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           )}
