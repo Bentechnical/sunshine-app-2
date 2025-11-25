@@ -740,7 +740,7 @@ export default function ProfileCompleteForm() {
                   <label htmlFor="liabilityWaiverAccepted" className="text-sm font-semibold text-gray-700">
                     I have read and agree to the{' '}
                     <a 
-                      href="/liability-waiver.pdf" 
+                      href="https://www.sunshinetherapydogs.ca/terms-of-use" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
