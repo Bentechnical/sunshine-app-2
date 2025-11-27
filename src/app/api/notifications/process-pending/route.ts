@@ -90,12 +90,32 @@ export async function GET() {
             const channel = streamChatServer.channel('messaging', channelId.split(':')[1] || channelId);
             await channel.query({ state: true });
 
-            // Check unread count for this user
-            const unreadCount = await channel.countUnread(userId);
+            // Check if user has read all messages by comparing last_read timestamp with latest message
+            const channelState = channel.state;
+            const lastMessage = channelState?.messages?.[channelState.messages.length - 1];
+            const userReadState = channelState?.read?.[userId];
 
-            console.log(`[Notification Cron] 📊 ${timestamp} - Channel ${channelId} has ${unreadCount} unread messages for user ${userId}`);
+            let hasUnread = false;
+            if (lastMessage && userReadState) {
+              const lastMessageTime = new Date(lastMessage.created_at).getTime();
+              const lastReadTime = new Date(userReadState.last_read).getTime();
+              hasUnread = lastMessageTime > lastReadTime;
 
-            if (unreadCount > 0) {
+              console.log(`[Notification Cron] 📊 ${timestamp} - Channel ${channelId}:`, {
+                lastMessageTime: new Date(lastMessage.created_at).toISOString(),
+                lastReadTime: new Date(userReadState.last_read).toISOString(),
+                hasUnread,
+                lastMessageUser: lastMessage.user?.id
+              });
+            } else if (lastMessage && !userReadState) {
+              // No read state means user hasn't read anything
+              hasUnread = lastMessage.user?.id !== userId; // Only count as unread if message is from someone else
+              console.log(`[Notification Cron] 📊 ${timestamp} - Channel ${channelId}: No read state for user, hasUnread=${hasUnread}`);
+            } else {
+              console.log(`[Notification Cron] 📊 ${timestamp} - Channel ${channelId}: No messages found`);
+            }
+
+            if (hasUnread) {
               // Messages still unread - include in email
               const appointmentId = channelNotifications[0].appointment_id;
 
