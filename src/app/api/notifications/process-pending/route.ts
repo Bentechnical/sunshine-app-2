@@ -69,18 +69,20 @@ export async function GET() {
         console.log(`[Notification Cron] 📬 ${timestamp} - User ${userId} has ${allUserNotifications.length} total pending notifications`);
 
         // Step 4: Group by channel_id
+        type NotificationType = typeof allUserNotifications[number];
         const notificationsByChannel = allUserNotifications.reduce((acc, notification) => {
           if (!acc[notification.channel_id]) {
             acc[notification.channel_id] = [];
           }
           acc[notification.channel_id].push(notification);
           return acc;
-        }, {} as Record<string, typeof allUserNotifications>);
+        }, {} as Record<string, NotificationType[]>);
 
         const conversations = [];
 
         // Step 5: For each channel, check if messages are still unread
-        for (const [channelId, channelNotifications] of Object.entries(notificationsByChannel)) {
+        for (const [channelId, channelNotifs] of Object.entries(notificationsByChannel)) {
+          const channelNotifications = channelNotifs as NotificationType[];
           try {
             console.log(`[Notification Cron] 💬 ${timestamp} - Checking channel ${channelId} for ${channelNotifications.length} messages`);
 
@@ -125,8 +127,8 @@ export async function GET() {
                 const appointmentTime = formatEmailDateTime(appointment.start_time);
 
                 // Get latest message content
-                const latestNotification = channelNotifications.sort(
-                  (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                const latestNotification = [...channelNotifications].sort(
+                  (a: NotificationType, b: NotificationType) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                 )[0];
 
                 const { data: latestMessage } = await supabase
@@ -145,7 +147,7 @@ export async function GET() {
                 });
 
                 // Mark all notifications for this channel as sent
-                const notificationIds = channelNotifications.map((n: any) => n.id);
+                const notificationIds = channelNotifications.map((n: NotificationType) => n.id);
                 await supabase
                   .from('pending_email_notifications')
                   .update({ status: 'sent', sent_at: now.toISOString() })
@@ -155,7 +157,7 @@ export async function GET() {
               }
             } else {
               // Messages already read - cancel notifications
-              const notificationIds = channelNotifications.map((n: any) => n.id);
+              const notificationIds = channelNotifications.map((n: NotificationType) => n.id);
               await supabase
                 .from('pending_email_notifications')
                 .update({ status: 'canceled' })
