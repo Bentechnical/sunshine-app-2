@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
           // Create pending email notification for recipient
           // Determine recipient (the member who is NOT the sender)
-          const channelMembers = channel.members || [];
+          const channelMembers = Object.keys(channel.state?.members || {});
           const recipientId = channelMembers.find((memberId: string) => memberId !== senderId);
 
           if (recipientId) {
