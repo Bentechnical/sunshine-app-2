@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { EMAIL_NOTIFICATION_DELAY_MS } from '@/utils/notificationConfig';
 
 export async function POST(request: NextRequest) {
   const timestamp = new Date().toISOString();
@@ -99,6 +100,35 @@ export async function POST(request: NextRequest) {
           }
 
           console.log(`[Stream Chat Webhook] ✅ ${timestamp} - Successfully logged message ${messageId} for appointment ${appointmentId}:`, data);
+
+          // Create pending email notification for recipient
+          // Determine recipient (the member who is NOT the sender)
+          const channelMembers = channel.members || [];
+          const recipientId = channelMembers.find((memberId: string) => memberId !== senderId);
+
+          if (recipientId) {
+            const scheduledFor = new Date(Date.now() + EMAIL_NOTIFICATION_DELAY_MS);
+
+            const { error: notificationError } = await supabase
+              .from('pending_email_notifications')
+              .insert({
+                user_id: recipientId,
+                appointment_id: appointmentId,
+                stream_message_id: messageId,
+                channel_id: channel.id,
+                scheduled_for: scheduledFor.toISOString(),
+                status: 'pending'
+              });
+
+            if (notificationError) {
+              // Log error but don't fail the webhook - notification is nice-to-have
+              console.error(`[Stream Chat Webhook] ⚠️ ${timestamp} - Failed to create pending notification:`, notificationError);
+            } else {
+              console.log(`[Stream Chat Webhook] 📧 ${timestamp} - Created pending notification for ${recipientId}, scheduled for ${scheduledFor.toISOString()}`);
+            }
+          } else {
+            console.warn(`[Stream Chat Webhook] ⚠️ ${timestamp} - Could not determine recipient for notification`);
+          }
         } else {
           console.warn('[Stream Chat Webhook] Missing required fields:', {
             appointmentId: !!appointmentId,

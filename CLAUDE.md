@@ -57,6 +57,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Dog Profiles**: `dogs` table linked to volunteers
 - **Audience Matching**: `audience_categories` system for volunteer-individual matching
 - **Chat Integration**: `appointment_chats` and `chat_logs` for message tracking
+- **Email Notifications**: `pending_email_notifications` table for delayed notification delivery
 
 ### Availability Management System
 - **Template-Style Interface**: Weekly template system for volunteer availability (`TemplateStyleAvailability.tsx`)
@@ -72,6 +73,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Automatic Chat Creation**: Chats created when appointments confirmed
 - **Admin Monitoring**: Full chat oversight with unread alerts
 - **Performance Optimizations**: Token caching, activity-based management, connection health monitoring
+- **Email Notifications**: Automated unread message notifications with smart batching (1-hour delay, 30-min cron)
 - **Mobile PWA**: Optimized for iOS/Android with manifest and service worker support
 
 ### File Structure
