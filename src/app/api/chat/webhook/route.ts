@@ -103,12 +103,13 @@ export async function POST(request: NextRequest) {
 
           // Create pending email notification for recipient
           // Determine recipient (the member who is NOT the sender)
-          // Webhook payload includes members array directly in the channel object
+          // channel.members is an array of member objects with user_id property
           const channelMembers = channel.members || [];
-          const recipientId = channelMembers.find((memberId: string) => memberId !== senderId);
+          const recipientMember = channelMembers.find((member: any) => member.user_id !== senderId);
+          const recipientId = recipientMember?.user_id;
 
           console.log(`[Stream Chat Webhook] 🔍 ${timestamp} - Channel members debug:`, {
-            allMembers: channelMembers,
+            memberCount: channelMembers.length,
             senderId,
             recipientId
           });
