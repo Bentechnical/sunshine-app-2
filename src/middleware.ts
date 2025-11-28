@@ -32,6 +32,7 @@ const isBypassablePath = (path: string) =>
   path.startsWith('/api/webhooks') ||
   path.startsWith('/api/chat/webhook') ||  // ✅ Stream Chat webhook (no auth needed)
   path.startsWith('/api/stream-webhook') || // ✅ Temporary debug for wrong webhook URL
+  path.startsWith('/api/notifications/process-pending') || // ✅ Vercel Cron job (no auth needed)
   path.startsWith('/_next') ||             // ✅ Next.js assets (CSS, JS)
   path.startsWith('/favicon.ico') ||       // ✅ Favicon
   path.startsWith('/manifest.json') ||     // ✅ PWA Manifest (required for PWA functionality)
