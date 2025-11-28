@@ -360,7 +360,7 @@ export default function ProfileCompleteForm() {
 
       // Send admin notification about new user signup
       try {
-        await fetch('/api/admin/notify-new-user', {
+        const notifyResponse = await fetch('/api/admin/notify-new-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -368,10 +368,17 @@ export default function ProfileCompleteForm() {
             userType: selectedRole,
           }),
         });
-        console.log('[ProfileComplete] Admin notification sent');
-      } catch (notifyError) {
+
+        if (!notifyResponse.ok) {
+          const errorData = await notifyResponse.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(`Admin notification failed: ${notifyResponse.status} - ${errorData.error || 'Unknown error'}`);
+        }
+
+        const notifyData = await notifyResponse.json();
+        console.log('[ProfileComplete] Admin notification sent successfully:', notifyData);
+      } catch (notifyError: any) {
         // Log but don't block user flow if notification fails
-        console.error('[ProfileComplete] Failed to send admin notification:', notifyError);
+        console.error('[ProfileComplete] Failed to send admin notification:', notifyError.message || notifyError);
       }
 
       router.push('/dashboard');

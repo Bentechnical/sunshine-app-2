@@ -5,7 +5,7 @@ import { compileTemplate } from './templateHelper';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface TransactionalEmailOptions {
-  to: string;
+  to: string | string[];
   subject: string;
   templateName: string;
   data: Record<string, any>;

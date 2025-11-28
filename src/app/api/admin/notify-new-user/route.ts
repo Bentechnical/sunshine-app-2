@@ -4,11 +4,14 @@ import { sendTransactionalEmail } from '../../../utils/mailer';
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('[notify-new-user] 📥 Received request');
     const body = await req.json();
     const { userName, userType } = body;
 
+    console.log('[notify-new-user] Request data:', { userName, userType });
+
     if (!userName || !userType) {
-      console.error('[notify-new-user] Missing required fields:', body);
+      console.error('[notify-new-user] ❌ Missing required fields:', body);
       return NextResponse.json({ error: 'Missing userName or userType' }, { status: 400 });
     }
 
@@ -16,54 +19,73 @@ export async function POST(req: NextRequest) {
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAIL;
 
     if (!adminEmails) {
-      console.warn('[notify-new-user] ADMIN_NOTIFICATION_EMAIL not configured - skipping notification');
+      console.error('[notify-new-user] ⚠️ ADMIN_NOTIFICATION_EMAIL not configured - skipping notification');
       return NextResponse.json({
-        success: true,
-        message: 'No admin emails configured'
-      });
+        success: false,
+        error: 'No admin emails configured',
+        message: 'ADMIN_NOTIFICATION_EMAIL environment variable is not set'
+      }, { status: 500 });
     }
 
     // Split by comma and trim whitespace
     const emailList = adminEmails.split(',').map(email => email.trim()).filter(Boolean);
+    console.log('[notify-new-user] 📧 Target email(s):', emailList);
 
     if (emailList.length === 0) {
-      console.warn('[notify-new-user] No valid admin emails found');
+      console.error('[notify-new-user] ⚠️ No valid admin emails found after parsing');
       return NextResponse.json({
-        success: true,
-        message: 'No valid admin emails configured'
-      });
+        success: false,
+        error: 'No valid admin emails configured',
+        message: 'ADMIN_NOTIFICATION_EMAIL is empty or invalid'
+      }, { status: 500 });
     }
 
     // Format user type for display
     const formattedUserType = userType.charAt(0).toUpperCase() + userType.slice(1);
 
-    // Send email to each admin
-    for (const email of emailList) {
-      try {
-        await sendTransactionalEmail({
-          to: email,
-          subject: `New ${formattedUserType} Registration - Action Required`,
-          templateName: 'adminNewUserNotification',
-          data: {
-            userName,
-            userType: formattedUserType,
-            dashboardLink: 'https://sunshinedogs.app/dashboard/admin',
-            year: new Date().getFullYear(),
-          },
-        });
-        console.log(`[notify-new-user] Notification sent to ${email} for ${userName} (${userType})`);
-      } catch (emailError) {
-        console.error(`[notify-new-user] Failed to send to ${email}:`, emailError);
-        // Continue sending to other admins even if one fails
-      }
-    }
+    console.log('[notify-new-user] 📤 Attempting to send email to all admins...');
 
-    return NextResponse.json({
-      success: true,
-      emailsSent: emailList.length
-    });
+    // Send a single email to all admin addresses to avoid rate limiting
+    try {
+      console.log(`[notify-new-user] 📨 Sending to ${emailList.length} recipient(s): ${emailList.join(', ')}`);
+
+      await sendTransactionalEmail({
+        to: emailList, // Send to all admins in one email
+        subject: `Sunshine - New ${formattedUserType} Pending Review`,
+        templateName: 'adminNewUserNotification',
+        data: {
+          userName,
+          userType: formattedUserType,
+          dashboardLink: 'https://sunshinedogs.app/dashboard/admin',
+          year: new Date().getFullYear(),
+        },
+      });
+
+      console.log(`[notify-new-user] ✅ Notification sent successfully to all admins for ${userName} (${userType})`);
+
+      return NextResponse.json({
+        success: true,
+        emailsSent: emailList.length,
+        recipients: emailList
+      });
+    } catch (emailError: any) {
+      const errorMsg = emailError.message || String(emailError);
+      console.error(`[notify-new-user] ❌ Failed to send notification:`, emailError);
+
+      return NextResponse.json({
+        success: false,
+        error: 'Email notification failed',
+        message: errorMsg,
+        emailsSent: 0,
+        recipients: emailList
+      }, { status: 500 });
+    }
   } catch (err: any) {
-    console.error('[notify-new-user] Unexpected error:', err.message);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('[notify-new-user] ❌ Unexpected error:', err);
+    return NextResponse.json({
+      success: false,
+      error: 'Internal Server Error',
+      message: err.message || String(err)
+    }, { status: 500 });
   }
 }

@@ -240,14 +240,18 @@ export default function AdminEmailTesting() {
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">Configured Admin Email(s):</p>
-            <p className="text-sm text-gray-900 font-mono break-words">
-              {process.env.NEXT_PUBLIC_ADMIN_NOTIFICATION_EMAIL || 'Not configured (set ADMIN_NOTIFICATION_EMAIL in environment variables)'}
+            <p className="text-sm font-medium text-gray-700 mb-2">Environment Variable Status:</p>
+            <p className="text-xs text-gray-600 mb-2">
+              Note: ADMIN_NOTIFICATION_EMAIL is a server-side variable and cannot be displayed here.
+              Check Vercel dashboard → Settings → Environment Variables to verify it's set.
             </p>
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-xs font-medium text-blue-900">Expected Configuration:</p>
+              <p className="text-xs text-blue-800 font-mono mt-1">ADMIN_NOTIFICATION_EMAIL=ben@sunshinetherapydogs.ca,info@sunshinetherapydogs.ca</p>
+            </div>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Note: This setting is configured via the ADMIN_NOTIFICATION_EMAIL environment variable.
-            Multiple emails can be separated by commas.
+            Multiple emails can be separated by commas. All recipients will receive a single email (not separate emails).
           </p>
         </CardContent>
       </Card>
