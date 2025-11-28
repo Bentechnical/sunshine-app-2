@@ -120,7 +120,7 @@ export async function GET() {
               const appointmentId = channelNotifications[0].appointment_id;
 
               // Fetch appointment and user details
-              const { data: appointment } = await supabase
+              const { data: appointment, error: appointmentError } = await supabase
                 .from('appointments')
                 .select(`
                   *,
@@ -130,6 +130,11 @@ export async function GET() {
                 `)
                 .eq('id', appointmentId)
                 .single();
+
+              if (appointmentError) {
+                console.error(`[Notification Cron] ❌ ${timestamp} - Error fetching appointment ${appointmentId}:`, appointmentError);
+                continue;
+              }
 
               if (appointment) {
                 // Determine sender (the person who is NOT the recipient)
