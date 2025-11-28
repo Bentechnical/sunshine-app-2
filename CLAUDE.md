@@ -57,6 +57,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Dog Profiles**: `dogs` table linked to volunteers
 - **Audience Matching**: `audience_categories` system for volunteer-individual matching
 - **Chat Integration**: `appointment_chats` and `chat_logs` for message tracking
+- **Email Notifications**: `pending_email_notifications` table for delayed notification delivery
 
 ### Availability Management System
 - **Template-Style Interface**: Weekly template system for volunteer availability (`TemplateStyleAvailability.tsx`)
@@ -72,7 +73,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Automatic Chat Creation**: Chats created when appointments confirmed
 - **Admin Monitoring**: Full chat oversight with unread alerts
 - **Performance Optimizations**: Token caching, activity-based management, connection health monitoring
+- **Email Notifications**: Automated unread message notifications with smart batching (1-hour delay, 30-min cron)
 - **Mobile PWA**: Optimized for iOS/Android with manifest and service worker support
+
+### Email Notification System
+- **Smart Batching**: Look-ahead batching consolidates all pending notifications per user into one email
+- **Delayed Delivery**: 1-hour delay (configurable via `EMAIL_NOTIFICATION_DELAY_HOURS` in `utils/notificationConfig.ts`)
+- **Unread Verification**: Checks Stream Chat API before sending to avoid emails for already-read messages
+- **Automatic Cancellation**: Notifications canceled if user reads message before delivery
+- **Appointment Context**: Emails include appointment date/time, dog name, sender name, and message preview
+- **Cron Schedule**: Runs every 30 minutes via Vercel Cron (configurable in `vercel.json`)
+- **Database Tracking**: `pending_email_notifications` table tracks scheduled, sent, and canceled notifications
+- **Webhook Integration**: Notifications created automatically when messages arrive via Stream Chat webhook
 
 ### File Structure
 ```
@@ -154,6 +166,15 @@ Critical environment variables needed:
 - Use `npm run test-reconnection` to verify disconnection/reconnection flow
 - Check browser dev tools for WebSocket connection status
 - Admin chat logs available at `/dashboard/admin` for message history
+
+### Email Notification Debugging
+- **Vercel Logs**: View cron execution logs in Vercel Dashboard → Functions → `/api/notifications/process-pending`
+- **Database Inspection**: Query `pending_email_notifications` table to see scheduled/sent/canceled notifications
+- **Testing Delay**: Adjust `EMAIL_NOTIFICATION_DELAY_HOURS` in `utils/notificationConfig.ts` (e.g., 0.05 for 3 minutes)
+- **Testing Frequency**: Temporarily change cron schedule in `vercel.json` to `*/5 * * * *` for 5-minute intervals
+- **Webhook Logs**: Check webhook handler logs for notification creation (`[Stream Chat Webhook] 📧`)
+- **Email Delivery**: Monitor Resend dashboard for sent emails and delivery status
+- **Remember**: Reset to production values before deploying (delay: 1 hour, cron: 30 minutes)
 
 ### Availability System Debugging
 - **Timezone Issues**: Check browser timezone vs. appointment timezone conversion in console logs

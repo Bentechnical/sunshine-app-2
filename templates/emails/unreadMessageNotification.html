@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>You Have Unread Messages</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #e3f0f1; font-family: Arial, Helvetica, sans-serif;">
+    <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 6px; overflow: hidden;">
+      <!-- Header with Logo -->
+      <tr>
+        <td align="center" style="padding: 24px; background-color: #ffffff;">
+          <img src="https://rodqnqzfjixznlblnlpe.supabase.co/storage/v1/object/public/sunshine-pics/profile-pictures/assets/Sunshine-Therapy-Dogs-horiz.png"
+               alt="Sunshine Therapy Dogs" style="max-width: 250px; height: auto;" />
+        </td>
+      </tr>
+
+      <!-- Content -->
+      <tr>
+        <td style="padding: 30px;">
+          {{#if (eq conversationCount 1)}}
+            <!-- Single Conversation -->
+            <h2 style="color: #0e62ae; margin-bottom: 16px;">You Have Unread Messages</h2>
+            <p style="margin: 0 0 12px 0;">Hi {{recipientName}},</p>
+
+            <p style="margin: 0 0 12px 0;">You have {{conversations.0.messageCount}} unread message{{#if (gt conversations.0.messageCount 1)}}s{{/if}} from <strong>{{conversations.0.senderName}}</strong> about your upcoming appointment with <strong>{{conversations.0.dogName}}</strong>.</p>
+
+            <!-- Appointment Details -->
+            <div style="background-color: #f8f9fa; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
+              <p style="margin: 0; font-size: 14px; color: #6c757d;"><strong>Appointment:</strong> {{conversations.0.appointmentTime}}</p>
+            </div>
+
+            <!-- Message Preview -->
+            <div style="background-color: #f8f9fa; padding: 16px; border-left: 4px solid #0e62ae; border-radius: 4px; margin: 16px 0;">
+              <p style="margin: 0 0 8px 0; font-weight: bold; color: #495057;">{{#if (eq conversations.0.messageCount 1)}}Latest message:{{else}}Messages:{{/if}}</p>
+              <p style="margin: 0; font-style: italic; color: #495057; white-space: pre-line;">"{{conversations.0.latestMessage}}"</p>
+            </div>
+
+            <p style="margin: 24px 0;">
+              <a href="{{appUrl}}/dashboard?tab=messages" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+                View Message
+              </a>
+            </p>
+          {{else}}
+            <!-- Multiple Conversations -->
+            <h2 style="color: #0e62ae; margin-bottom: 16px;">You Have Unread Messages</h2>
+            <p style="margin: 0 0 12px 0;">Hi {{recipientName}},</p>
+
+            <p style="margin: 0 0 12px 0;">You have unread messages in <strong>{{conversationCount}} conversations</strong>:</p>
+
+            <!-- Conversation List -->
+            {{#each conversations}}
+              <div style="background-color: #f8f9fa; padding: 16px; border-left: 4px solid #0e62ae; border-radius: 4px; margin: 12px 0;">
+                <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">{{this.senderName}} ({{this.dogName}})</p>
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #6c757d;">Appointment: {{this.appointmentTime}}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6c757d;">{{this.messageCount}} new message{{#if (gt this.messageCount 1)}}s{{/if}}</p>
+                <p style="margin: 0; font-style: italic; color: #495057;">"{{this.latestMessage}}"</p>
+              </div>
+            {{/each}}
+
+            <p style="margin: 24px 0;">
+              <a href="{{appUrl}}/dashboard?tab=messages" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+                View All Messages
+              </a>
+            </p>
+          {{/if}}
+
+          <!-- Reminder -->
+          <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 0; font-size: 14px; color: #1565c0;">💬 <strong>Reminder:</strong> Use the Messages tab in your dashboard to stay connected and coordinate details for your upcoming visit. Quick responses help ensure everything goes smoothly!</p>
+          </div>
+
+          <!-- No-Reply Notice -->
+          <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #0e62ae; border-radius: 4px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">This email was sent from an unmonitored address. For support, please contact <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a></p>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
+          &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a> |
+          <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Contact Support</a>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
