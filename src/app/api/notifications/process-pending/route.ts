@@ -125,8 +125,7 @@ export async function GET() {
                 .select(`
                   *,
                   individual:users!appointments_individual_id_fkey(first_name, last_name, email),
-                  volunteer:users!appointments_volunteer_id_fkey(first_name, last_name, email),
-                  dog:dogs(name)
+                  volunteer:users!appointments_volunteer_id_fkey(first_name, last_name, email, dogs(dog_name))
                 `)
                 .eq('id', appointmentId)
                 .single();
@@ -146,7 +145,7 @@ export async function GET() {
                   ? `${volunteer.first_name} ${volunteer.last_name}`
                   : `${individual.first_name} ${individual.last_name}`;
 
-                const dogName = (appointment.dog as any)?.name || 'Unknown Dog';
+                const dogName = volunteer.dogs?.[0]?.dog_name || 'Unknown Dog';
 
                 // Format appointment time
                 const appointmentTime = formatEmailDateTime(appointment.start_time);
