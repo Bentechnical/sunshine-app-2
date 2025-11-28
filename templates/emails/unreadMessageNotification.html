@@ -31,7 +31,8 @@
 
             <!-- Message Preview -->
             <div style="background-color: #f8f9fa; padding: 16px; border-left: 4px solid #0e62ae; border-radius: 4px; margin: 16px 0;">
-              <p style="margin: 0; font-style: italic; color: #495057;">"{{conversations.0.latestMessage}}"</p>
+              <p style="margin: 0 0 8px 0; font-weight: bold; color: #495057;">{{#if (eq conversations.0.messageCount 1)}}Latest message:{{else}}Messages:{{/if}}</p>
+              <p style="margin: 0; font-style: italic; color: #495057; white-space: pre-line;">"{{conversations.0.latestMessage}}"</p>
             </div>
 
             <p style="margin: 24px 0;">

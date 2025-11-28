@@ -8,7 +8,7 @@ You have {{conversations.0.messageCount}} unread message{{#if (gt conversations.
 
 Appointment: {{conversations.0.appointmentTime}}
 
-Latest message:
+{{#if (eq conversations.0.messageCount 1)}}Latest message:{{else}}Messages:{{/if}}
 "{{conversations.0.latestMessage}}"
 
 View your message here:

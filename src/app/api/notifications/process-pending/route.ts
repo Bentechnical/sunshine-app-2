@@ -142,31 +142,34 @@ export async function GET() {
                 const isSenderVolunteer = volunteer.email !== (userId.includes('@') ? userId : undefined);
 
                 const senderName = isSenderVolunteer
-                  ? `${volunteer.first_name} ${volunteer.last_name}`
-                  : `${individual.first_name} ${individual.last_name}`;
+                  ? volunteer.first_name
+                  : individual.first_name;
 
                 const dogName = volunteer.dogs?.[0]?.dog_name || 'Unknown Dog';
 
                 // Format appointment time
                 const appointmentTime = formatEmailDateTime(appointment.start_time);
 
-                // Get latest message content
-                const latestNotification = [...channelNotifications].sort(
-                  (a: NotificationType, b: NotificationType) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                )[0];
-
-                const { data: latestMessage } = await supabase
+                // Get all message contents for this notification batch
+                const messageIds = channelNotifications.map((n: NotificationType) => n.stream_message_id);
+                const { data: messages } = await supabase
                   .from('chat_logs')
-                  .select('content')
-                  .eq('stream_message_id', latestNotification.stream_message_id)
-                  .single();
+                  .select('content, created_at, stream_message_id')
+                  .in('stream_message_id', messageIds)
+                  .order('created_at', { ascending: true });
+
+                // Format messages as a list
+                const messageList = messages?.map(msg => msg.content) || [];
+                const messagesText = messageList.length > 0
+                  ? messageList.join('\n\n')
+                  : 'New messages';
 
                 conversations.push({
                   senderName,
                   dogName,
                   appointmentTime,
                   messageCount: channelNotifications.length,
-                  latestMessage: latestMessage?.content || 'New message',
+                  latestMessage: messagesText,
                   appointmentId
                 });
 
