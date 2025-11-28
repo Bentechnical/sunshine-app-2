@@ -3,6 +3,15 @@ import fs from 'fs';
 import path from 'path';
 import Handlebars from 'handlebars';
 
+// Register Handlebars helpers
+Handlebars.registerHelper('eq', function(a, b) {
+  return a === b;
+});
+
+Handlebars.registerHelper('gt', function(a, b) {
+  return a > b;
+});
+
 export function compileTemplate(templateFileName: string, data: Record<string, any>): string {
   const filePath = path.join(process.cwd(), 'templates', 'emails', templateFileName);
 
