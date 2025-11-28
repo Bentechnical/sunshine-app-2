@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
       await sendTransactionalEmail({
         to: emailList, // Send to all admins in one email
-        subject: `New ${formattedUserType} Registration - Action Required`,
+        subject: `Sunshine - New ${formattedUserType} Pending Review`,
         templateName: 'adminNewUserNotification',
         data: {
           userName,
