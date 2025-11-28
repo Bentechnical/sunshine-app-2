@@ -121,6 +121,23 @@ This document tracks the current database schema, relationships, and Row Level S
 | `volunteer_id` | text | NO | - | Foreign key to users.id |
 | `category_id` | integer | NO | - | Foreign key to audience_categories.id |
 
+### `pending_email_notifications` Table
+**Pending email notifications for unread messages**
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | uuid | NO | gen_random_uuid() | Primary key |
+| `user_id` | text | NO | - | User to notify (email recipient) |
+| `appointment_id` | integer | NO | - | Foreign key to appointments.id |
+| `stream_message_id` | text | NO | - | Stream Chat message ID |
+| `channel_id` | text | NO | - | Stream Chat channel ID |
+| `scheduled_for` | timestamp with time zone | NO | - | When notification should be sent |
+| `created_at` | timestamp with time zone | YES | NOW() | When notification was created |
+| `status` | text | YES | 'pending' | Notification status (pending, sent, canceled) |
+| `sent_at` | timestamp with time zone | YES | - | When email was sent |
+
+**Unique Constraint**: (user_id, stream_message_id)
+
 ## Views
 
 ### `appointments_with_individuals`
@@ -251,6 +268,21 @@ This document tracks the current database schema, relationships, and Row Level S
 - **Purpose**: Allows canceled appointments to persist for record-keeping after their availability slots are deleted
 - **Implementation**: When volunteers clear availability, canceled appointments have their `availability_id` set to NULL, breaking the foreign key relationship while preserving the appointment record
 - **Files Modified**: `src/components/availability/TemplateStyleAvailability.tsx`
+
+### 2025-11-XX - Email Notification System ✅ COMPLETED
+- **Added `pending_email_notifications` table**: Tracks delayed email notifications for unread messages
+- **Purpose**: Smart batching system sends consolidated emails 1 hour after messages remain unread
+- **Features**:
+  - Automatic cancellation if messages are read before delivery
+  - Look-ahead batching consolidates all pending notifications per user into one email
+  - Includes appointment context (date/time, dog name, sender name, message content)
+  - Status tracking (pending, sent, canceled)
+- **Implementation**:
+  - Webhook creates notification when message arrives (`src/app/api/chat/webhook/route.ts`)
+  - Cron job processes notifications every 30 minutes (`src/app/api/notifications/process-pending/route.ts`)
+  - Vercel Cron configured in `vercel.json`
+  - Email templates use Handlebars (`templates/emails/unreadMessageNotification.html/txt`)
+  - Configurable delay via `src/utils/notificationConfig.ts`
 
 ## Notes for Development
 
