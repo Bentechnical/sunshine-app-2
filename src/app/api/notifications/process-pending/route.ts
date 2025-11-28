@@ -125,7 +125,7 @@ export async function GET() {
                 .select(`
                   *,
                   individual:users!appointments_individual_id_fkey(first_name, last_name, email),
-                  volunteer:users!appointments_volunteer_id_fkey(first_name, last_name, email, dogs(dog_name))
+                  volunteer:users!appointments_volunteer_id_fkey(first_name, last_name, email)
                 `)
                 .eq('id', appointmentId)
                 .single();
@@ -139,13 +139,20 @@ export async function GET() {
                 // Determine sender (the person who is NOT the recipient)
                 const individual = appointment.individual as any;
                 const volunteer = appointment.volunteer as any;
+
                 const isSenderVolunteer = volunteer.email !== (userId.includes('@') ? userId : undefined);
 
                 const senderName = isSenderVolunteer
                   ? volunteer.first_name
                   : individual.first_name;
 
-                const dogName = volunteer.dogs?.[0]?.dog_name || 'Unknown Dog';
+                // Fetch dog data separately (same pattern as other email endpoints)
+                const { data: dogs } = await supabase
+                  .from('dogs')
+                  .select('dog_name')
+                  .eq('volunteer_id', appointment.volunteer_id);
+
+                const dogName = dogs?.[0]?.dog_name || 'Unknown Dog';
 
                 // Format appointment time
                 const appointmentTime = formatEmailDateTime(appointment.start_time);
