@@ -151,23 +151,20 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
   // Load existing availability from database (recurring slots)
   const loadExistingAvailability = async () => {
     try {
+      console.log('[DEBUG 1] Starting loadExistingAvailability for userId:', userId);
+
       // Get one example of each recurring pattern by grouping by recurrence_id
       // This ensures we only get the template pattern, not all 12 weeks of instances
-      // Exclude slots that have appointments to avoid showing "cleared" availability
       const { data, error } = await supabase
         .from('appointment_availability')
-        .select(`
-          *,
-          appointments!left (
-            id,
-            status
-          )
-        `)
+        .select('*')
         .eq('volunteer_id', userId)
         .not('recurrence_id', 'is', null) // Only load recurring slots
         .gte('start_time', new Date().toISOString()) // Only load future slots
         .order('start_time')
         .limit(100); // Get more to ensure we capture all patterns
+
+      console.log('[DEBUG 2] Query result:', { dataCount: data?.length, hasError: !!error });
 
       if (error) {
         console.error('Error loading availability:', error);
@@ -175,14 +172,41 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
       }
 
       if (!data || data.length === 0) {
+        console.log('[DEBUG 3] No data - exiting early');
         return;
       }
 
+      // Get all appointments for this volunteer to check which slots have bookings
+      const slotIds = data.map(slot => slot.id);
+      const { data: appointments, error: appointmentsError} = await supabase
+        .from('appointments')
+        .select('availability_id, status')
+        .eq('volunteer_id', userId)
+        .in('availability_id', slotIds)
+        .in('status', ['pending', 'confirmed']);
+
+      console.log('[DEBUG 4] Appointments:', { count: appointments?.length });
+
+      if (appointmentsError) {
+        console.error('Error loading appointments:', appointmentsError);
+      }
+
+      // Create a set of availability IDs that have active appointments
+      const bookedAvailabilityIds = new Set(
+        (appointments || []).map(apt => {
+          const id = typeof apt.availability_id === 'string'
+            ? parseInt(apt.availability_id, 10)
+            : Number(apt.availability_id);
+          return id;
+        }).filter(id => Number.isFinite(id))
+      );
+
       // Filter out slots that have appointments (these are protected and shouldn't show in template)
       const availableSlots = data.filter(slot => {
-        const hasAppointments = slot.appointments && slot.appointments.length > 0;
-        return !hasAppointments;
+        return !bookedAvailabilityIds.has(slot.id);
       });
+
+      console.log('[DEBUG 5] After filtering:', { original: data.length, available: availableSlots.length });
 
       // Group by recurrence_id to get unique patterns, then take earliest occurrence of each
       const recurrenceGroups = new Map<string, any>();
@@ -202,6 +226,8 @@ export default function TemplateStyleAvailability({ userId }: TemplateStyleAvail
       });
 
       const uniquePatterns = Array.from(recurrenceGroups.values());
+
+      console.log('[DEBUG 6] Unique patterns:', { count: uniquePatterns.length, patterns: uniquePatterns });
 
       // Group by day of week and deduplicate time ranges
       const groupedByDay: { [key: number]: Set<string> } = {};
