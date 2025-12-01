@@ -57,6 +57,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
+  // Handle client disconnection - clear active channel to prevent stale references
+  useEffect(() => {
+    if (connectionStatus === 'disconnected' || connectionStatus === 'connecting') {
+      // Clear active channel when disconnected to prevent using channels from old client
+      if (activeChannel !== null) {
+        setActiveChannel(null);
+        setActiveChannelId(null);
+        setViewMode('channelList');
+        onActiveChatChange?.(false);
+      }
+    }
+  }, [connectionStatus, activeChannel, onActiveChatChange]);
+
   // Load channels
   const loadChannels = useCallback(async () => {
     try {
@@ -348,7 +361,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           </div>
         ) : (
           // Active Chat View
-          activeChannel && (
+          activeChannel && client && connectionStatus === 'connected' && (
             <Channel channel={activeChannel}>
               <div className={styles.mobileChatView}>
                 {/* Chat Header */}
@@ -360,12 +373,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     >
                       <ArrowLeft size={18} className="text-gray-600" />
                     </button>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         {channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage ? (
-                          <img 
-                            src={channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage} 
+                          <img
+                            src={channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage}
                             alt="Dog"
                             className="w-7 h-7 rounded-full object-cover"
                           />
@@ -482,7 +495,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
           {/* Chat Area */}
           <div className={styles.desktopChatArea}>
-            {activeChannel ? (
+            {activeChannel && client && connectionStatus === 'connected' ? (
               <Channel channel={activeChannel}>
                 <div className={styles.desktopChatContent}>
                   <MessageList />
@@ -491,7 +504,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               </Channel>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
-                Select a conversation to start messaging
+                {connectionStatus === 'connecting' ? 'Connecting...' : 'Select a conversation to start messaging'}
               </div>
             )}
           </div>
