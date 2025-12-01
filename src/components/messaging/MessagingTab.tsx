@@ -57,6 +57,56 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
+  // Track the channel ID that should be restored after reconnection
+  const [channelToRestore, setChannelToRestore] = React.useState<string | null>(null);
+
+  // Handle client disconnection - clear active channel to prevent stale references
+  useEffect(() => {
+    if (connectionStatus === 'disconnected' || connectionStatus === 'connecting') {
+      // Clear active channel when disconnected to prevent using channels from old client
+      if (activeChannel !== null) {
+        // Remember which channel was open so we can restore it after reconnection
+        if (activeChannelId) {
+          setChannelToRestore(activeChannelId);
+        }
+        setActiveChannel(null);
+        setActiveChannelId(null);
+        setViewMode('channelList');
+        onActiveChatChange?.(false);
+      }
+    }
+  }, [connectionStatus, activeChannel, activeChannelId, onActiveChatChange]);
+
+  // Restore previously open channel after successful reconnection
+  useEffect(() => {
+    if (connectionStatus === 'connected' && channelToRestore && client && !activeChannel) {
+      // Small delay to ensure client is fully ready
+      const timer = setTimeout(async () => {
+        try {
+          const channel = client.channel('messaging', channelToRestore);
+          await channel.watch();
+          setActiveChannel(channel);
+          setActiveChannelId(channelToRestore);
+
+          // On mobile, switch back to chat view
+          if (isMobile) {
+            setViewMode('activeChat');
+            onActiveChatChange?.(true);
+          }
+
+          // Clear the restoration flag
+          setChannelToRestore(null);
+        } catch (err) {
+          console.error('[MessagingTab] Failed to restore channel:', err);
+          // Clear the restoration flag on error
+          setChannelToRestore(null);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [connectionStatus, channelToRestore, client, activeChannel, isMobile, onActiveChatChange]);
+
   // Load channels
   const loadChannels = useCallback(async () => {
     try {
@@ -142,7 +192,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     };
 
     const handleClientReconnect = (event: CustomEvent) => {
-      const { channels: updatedChannels, client: reconnectedClient } = event.detail;
+      const { channels: updatedChannels } = event.detail;
 
       // Clear any error states
       setError(null);
@@ -150,20 +200,8 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       // Update channels from the reconnected state
       setChannels(updatedChannels);
 
-      // If we had an active channel, re-establish it with the new client
-      if (activeChannelId && reconnectedClient) {
-        const channel = reconnectedClient.channel('messaging', activeChannelId);
-        channel.watch().then(() => {
-          setActiveChannel(channel);
-        }).catch((err: any) => {
-          console.error('[MessagingTab] Failed to re-establish active channel:', err);
-          // Reset active channel if we can't re-establish it
-          setActiveChannel(null);
-          setActiveChannelId(null);
-          setViewMode('channelList');
-          onActiveChatChange?.(false);
-        });
-      }
+      // Channel restoration is now handled by the dedicated useEffect hook above
+      // which uses channelToRestore state
     };
 
     window.addEventListener('unreadCountUpdated', handleUnreadUpdate as EventListener);
@@ -348,7 +386,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
           </div>
         ) : (
           // Active Chat View
-          activeChannel && (
+          activeChannel && client && connectionStatus === 'connected' && (
             <Channel channel={activeChannel}>
               <div className={styles.mobileChatView}>
                 {/* Chat Header */}
@@ -360,12 +398,12 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     >
                       <ArrowLeft size={18} className="text-gray-600" />
                     </button>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         {channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage ? (
-                          <img 
-                            src={channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage} 
+                          <img
+                            src={channels.find(chat => chat.channelId === activeChannel?.id)?.dogImage}
                             alt="Dog"
                             className="w-7 h-7 rounded-full object-cover"
                           />
@@ -482,7 +520,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
           {/* Chat Area */}
           <div className={styles.desktopChatArea}>
-            {activeChannel ? (
+            {activeChannel && client && connectionStatus === 'connected' ? (
               <Channel channel={activeChannel}>
                 <div className={styles.desktopChatContent}>
                   <MessageList />
