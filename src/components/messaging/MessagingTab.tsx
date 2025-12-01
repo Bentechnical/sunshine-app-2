@@ -504,7 +504,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
               </Channel>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
-                {connectionStatus === 'connecting' ? 'Connecting...' : 'Select a conversation to start messaging'}
+                Select a conversation to start messaging
               </div>
             )}
           </div>
