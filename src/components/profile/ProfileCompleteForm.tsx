@@ -744,18 +744,14 @@ export default function ProfileCompleteForm() {
                     disabled={isLoading}
                     required
                   />
-                  <label htmlFor="liabilityWaiverAccepted" className="text-sm font-semibold text-gray-700">
-                    I have read and agree to the{' '}
-                    <a 
-                      href="https://www.sunshinetherapydogs.ca/terms-of-use" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      liability waiver
-                    </a>
-                    {' '}and understand the terms and conditions.
-                  </label>
+                  <div>
+                    <label htmlFor="liabilityWaiverAccepted" className="text-sm font-semibold text-gray-700">
+                      I agree to terms of use <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      I release Sunshine Therapy Dogs from any liability due to any accident, incident, injury or other adverse impact that may be incurred on a comfort visit. I understand the risks involved with this service and wish to proceed with these comfort visits.
+                    </p>
+                  </div>
                 </div>
               </div>
 
