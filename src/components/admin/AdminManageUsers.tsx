@@ -239,11 +239,6 @@ export default function ManageUsersTab() {
 
   // Handle archive user action
   const handleArchiveUser = async (userId: string, userName: string) => {
-    // Simple confirmation first
-    if (!confirm(`Are you sure you want to archive ${userName}?`)) {
-      return;
-    }
-
     setUserToArchive({ id: userId, name: userName });
     setArchiving(false);
 
@@ -258,7 +253,7 @@ export default function ManageUsersTab() {
       const result = await res.json();
 
       if (result.requires_confirmation) {
-        // Show modal with appointment warnings
+        // Show modal with appointment warnings (or empty if no appointments)
         setArchiveWarning({ appointments: result.active_appointments });
         setArchiveModalOpen(true);
       } else if (result.success) {
@@ -795,82 +790,130 @@ export default function ManageUsersTab() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-start mb-4">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="ml-3 flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Warning: This user has {archiveWarning.appointments.length} active appointment{archiveWarning.appointments.length !== 1 ? 's' : ''}
-                  </h3>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Archiving this user will automatically cancel the following appointments:
+              {archiveWarning.appointments.length === 0 ? (
+                // Simple confirmation when no appointments
+                <>
+                  <div className="flex items-start mb-4">
+                    <div className="flex-shrink-0">
+                      <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Archive User
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-700">
+                        Are you sure you want to archive <span className="font-semibold">{userToArchive.name}</span>?
+                      </p>
+                      <p className="mt-2 text-sm text-gray-600">
+                        They will no longer be able to access the platform or book appointments.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-3 mt-6">
+                    <button
+                      onClick={() => {
+                        setArchiveModalOpen(false);
+                        setUserToArchive(null);
+                        setArchiveWarning(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                      disabled={archiving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmArchive}
+                      disabled={archiving}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition disabled:opacity-50"
+                    >
+                      {archiving ? 'Archiving...' : 'Archive User'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // Warning when there are appointments
+                <>
+                  <div className="flex items-start mb-4">
+                    <div className="flex-shrink-0">
+                      <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Warning: This user has {archiveWarning.appointments.length} active appointment{archiveWarning.appointments.length !== 1 ? 's' : ''}
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-600">
+                        Archiving this user will automatically cancel the following appointments:
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Confirmed Appointments */}
+                  {archiveWarning.appointments.filter(a => a.status === 'confirmed').length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-red-700 mb-2">Confirmed Appointments ({archiveWarning.appointments.filter(a => a.status === 'confirmed').length}):</h4>
+                      <ul className="space-y-2 ml-4">
+                        {archiveWarning.appointments.filter(a => a.status === 'confirmed').map((appt) => (
+                          <li key={appt.id} className="text-sm text-gray-700">
+                            • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
+                            {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Pending Appointments */}
+                  {archiveWarning.appointments.filter(a => a.status === 'pending').length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-orange-700 mb-2">Pending Appointments ({archiveWarning.appointments.filter(a => a.status === 'pending').length}):</h4>
+                      <ul className="space-y-2 ml-4">
+                        {archiveWarning.appointments.filter(a => a.status === 'pending').map((appt) => (
+                          <li key={appt.id} className="text-sm text-gray-700">
+                            • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
+                            {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                    <p className="text-sm text-yellow-800">
+                      The other parties will be notified via email that their appointments were canceled by a Sunshine administrator.
+                    </p>
+                  </div>
+
+                  <p className="text-sm text-gray-700 mb-6">
+                    Are you sure you want to archive <span className="font-semibold">{userToArchive.name}</span> and cancel their appointments?
                   </p>
-                </div>
-              </div>
 
-              {/* Confirmed Appointments */}
-              {archiveWarning.appointments.filter(a => a.status === 'confirmed').length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-red-700 mb-2">Confirmed Appointments ({archiveWarning.appointments.filter(a => a.status === 'confirmed').length}):</h4>
-                  <ul className="space-y-2 ml-4">
-                    {archiveWarning.appointments.filter(a => a.status === 'confirmed').map((appt) => (
-                      <li key={appt.id} className="text-sm text-gray-700">
-                        • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
-                        {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setArchiveModalOpen(false);
+                        setUserToArchive(null);
+                        setArchiveWarning(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                      disabled={archiving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmArchive}
+                      disabled={archiving}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition disabled:opacity-50"
+                    >
+                      {archiving ? 'Archiving...' : 'Archive & Cancel Appointments'}
+                    </button>
+                  </div>
+                </>
               )}
-
-              {/* Pending Appointments */}
-              {archiveWarning.appointments.filter(a => a.status === 'pending').length > 0 && (
-                <div className="mb-4">
-                  <h4 className="font-semibold text-orange-700 mb-2">Pending Appointments ({archiveWarning.appointments.filter(a => a.status === 'pending').length}):</h4>
-                  <ul className="space-y-2 ml-4">
-                    {archiveWarning.appointments.filter(a => a.status === 'pending').map((appt) => (
-                      <li key={appt.id} className="text-sm text-gray-700">
-                        • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
-                        {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                <p className="text-sm text-yellow-800">
-                  The other parties will be notified via email that their appointments were canceled by a Sunshine administrator.
-                </p>
-              </div>
-
-              <p className="text-sm text-gray-700 mb-6">
-                Are you sure you want to archive <span className="font-semibold">{userToArchive.name}</span> and cancel their appointments?
-              </p>
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setArchiveModalOpen(false);
-                    setUserToArchive(null);
-                    setArchiveWarning(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                  disabled={archiving}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmArchive}
-                  disabled={archiving}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition disabled:opacity-50"
-                >
-                  {archiving ? 'Archiving...' : 'Archive & Cancel Appointments'}
-                </button>
-              </div>
             </div>
           </div>
         </div>

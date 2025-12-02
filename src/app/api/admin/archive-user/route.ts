@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User is already archived' }, { status: 400 });
     }
 
-    // Check for active appointments (pending or confirmed)
+    // Check for active appointments (pending or confirmed) in the future
+    const now = new Date().toISOString();
     const { data: appointments, error: appointmentsError } = await supabase
       .from('appointments')
       .select(`
@@ -59,59 +60,64 @@ export async function POST(req: NextRequest) {
         volunteer_id
       `)
       .or(`individual_id.eq.${user_id},volunteer_id.eq.${user_id}`)
-      .in('status', ['pending', 'confirmed']);
+      .in('status', ['pending', 'confirmed'])
+      .gt('start_time', now);
 
     if (appointmentsError) {
       console.error('[archive-user] Failed to fetch appointments:', appointmentsError.message);
       return NextResponse.json({ error: 'Failed to check appointments' }, { status: 500 });
     }
 
-    // If there are active appointments and not confirmed yet, return them
-    if (appointments && appointments.length > 0 && !confirmed) {
-      console.log(`[archive-user] Found ${appointments.length} active appointments`);
+    // If not confirmed yet, return appointment info (even if empty) to show modal
+    if (!confirmed) {
+      console.log(`[archive-user] Found ${appointments?.length || 0} active appointments`);
 
-      // Fetch other user details for each appointment
-      const activeAppointments: ActiveAppointment[] = await Promise.all(
-        appointments.map(async (appt) => {
-          const otherUserId = appt.individual_id === user_id ? appt.volunteer_id : appt.individual_id;
+      let activeAppointments: ActiveAppointment[] = [];
 
-          const { data: otherUser } = await supabase
-            .from('users')
-            .select('first_name, last_name, email')
-            .eq('id', otherUserId)
-            .single();
+      // Fetch other user details for each appointment if there are any
+      if (appointments && appointments.length > 0) {
+        activeAppointments = await Promise.all(
+          appointments.map(async (appt) => {
+            const otherUserId = appt.individual_id === user_id ? appt.volunteer_id : appt.individual_id;
 
-          // If user is volunteer, get dog name
-          let dogName: string | undefined;
-          if (user.role === 'volunteer') {
-            const { data: dog } = await supabase
-              .from('dogs')
-              .select('dog_name')
-              .eq('volunteer_id', user_id)
+            const { data: otherUser } = await supabase
+              .from('users')
+              .select('first_name, last_name, email')
+              .eq('id', otherUserId)
               .single();
-            dogName = dog?.dog_name;
-          } else {
-            // If user is individual, get volunteer's dog name
-            const { data: dog } = await supabase
-              .from('dogs')
-              .select('dog_name')
-              .eq('volunteer_id', appt.volunteer_id)
-              .single();
-            dogName = dog?.dog_name;
-          }
 
-          return {
-            id: appt.id,
-            start_time: appt.start_time,
-            end_time: appt.end_time,
-            status: appt.status as 'pending' | 'confirmed',
-            other_user_id: otherUserId,
-            other_user_name: otherUser ? `${otherUser.first_name} ${otherUser.last_name}` : 'Unknown User',
-            other_user_email: otherUser?.email || '',
-            dog_name: dogName,
-          };
-        })
-      );
+            // If user is volunteer, get dog name
+            let dogName: string | undefined;
+            if (user.role === 'volunteer') {
+              const { data: dog } = await supabase
+                .from('dogs')
+                .select('dog_name')
+                .eq('volunteer_id', user_id)
+                .single();
+              dogName = dog?.dog_name;
+            } else {
+              // If user is individual, get volunteer's dog name
+              const { data: dog } = await supabase
+                .from('dogs')
+                .select('dog_name')
+                .eq('volunteer_id', appt.volunteer_id)
+                .single();
+              dogName = dog?.dog_name;
+            }
+
+            return {
+              id: appt.id,
+              start_time: appt.start_time,
+              end_time: appt.end_time,
+              status: appt.status as 'pending' | 'confirmed',
+              other_user_id: otherUserId,
+              other_user_name: otherUser ? `${otherUser.first_name} ${otherUser.last_name}` : 'Unknown User',
+              other_user_email: otherUser?.email || '',
+              dog_name: dogName,
+            };
+          })
+        );
+      }
 
       return NextResponse.json({
         success: false,
