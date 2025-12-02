@@ -295,8 +295,6 @@ export default function ManageUsersTab() {
         setArchiveModalOpen(false);
         setUserToArchive(null);
         setArchiveWarning(null);
-
-        alert(`User archived successfully. ${result.canceled_appointments_count} appointment(s) canceled.`);
       } else {
         alert(`Failed to archive user: ${result.error}`);
       }
