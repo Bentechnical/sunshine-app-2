@@ -86,6 +86,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Database Tracking**: `pending_email_notifications` table tracks scheduled, sent, and canceled notifications
 - **Webhook Integration**: Notifications created automatically when messages arrive via Stream Chat webhook
 
+### User Archive System
+- **Purpose**: Allows admins to archive stagnant/inactive accounts without permanent deletion
+- **Archive Process**:
+  - Admin clicks "Archive User" button in Manage Users interface (Individual or Volunteer tabs)
+  - System checks for active appointments (pending or confirmed status)
+  - If appointments exist, modal shows warning with breakdown of confirmed vs pending
+  - Admin can cancel or proceed with archiving
+  - If confirmed, all active appointments are canceled automatically
+  - Cancellation emails sent to other parties with reason: "Canceled by Sunshine Administrator"
+  - Pending email notifications are canceled
+  - Active chats are closed
+  - For volunteers, associated dog is also archived
+  - User status set to 'archived', `archived_at` timestamp recorded
+- **Archived User Experience**:
+  - Cannot log into dashboard (shows "Account Archived" message with contact info)
+  - Hidden from all search results (RLS policies filter by `status='approved'`)
+  - Cannot create or confirm appointments (API validation checks)
+  - Existing appointment history preserved (not deleted)
+- **Unarchive Process**:
+  - Admin navigates to "Archived Users" tab
+  - Clicks "Unarchive" button next to user
+  - User status restored to 'approved', `archived_at` set to NULL
+  - For volunteers, dog status also restored to 'approved'
+  - User can immediately access platform again
+- **Implementation**:
+  - Database: `archived_at` timestamp column in `users` table
+  - API: `/api/admin/archive-user`, `/api/admin/unarchive-user`, `/api/admin/archived-users`
+  - Frontend: [AdminManageUsers.tsx](src/components/admin/AdminManageUsers.tsx) with new "Archived Users" tab
+  - Dashboard: [dashboard/page.tsx](src/app/(pages)/dashboard/page.tsx) intercepts archived status
+  - Migration: `scripts/addArchivedStatus.sql`
+
 ### File Structure
 ```
 src/

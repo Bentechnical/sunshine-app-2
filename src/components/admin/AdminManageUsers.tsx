@@ -54,14 +54,42 @@ interface IndividualUser {
   dependant_name?: string;
 }
 
+interface ArchivedUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: 'individual' | 'volunteer';
+  phone: string;
+  city: string;
+  archived_at: string;
+  dog?: DogProfile | null;
+}
+
+interface ActiveAppointment {
+  id: number;
+  start_time: string;
+  end_time: string;
+  status: 'pending' | 'confirmed';
+  other_user_name: string;
+  dog_name?: string;
+}
+
 export default function ManageUsersTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer'>('individual');
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'archived'>('individual');
   const [volunteers, setVolunteers] = useState<VolunteerUser[]>([]);
   const [individuals, setIndividuals] = useState<IndividualUser[]>([]);
+  const [archivedUsers, setArchivedUsers] = useState<ArchivedUser[]>([]);
   const [expandedUserIds, setExpandedUserIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Archive modal state
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [userToArchive, setUserToArchive] = useState<{id: string, name: string} | null>(null);
+  const [archiveWarning, setArchiveWarning] = useState<{appointments: ActiveAppointment[]} | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   const allCategories = ['Young Kids', 'Teens/Young Adults', 'Adults', 'Seniors'];
 
@@ -156,6 +184,165 @@ export default function ManageUsersTab() {
 
     fetchUsers();
   }, []);
+
+  // Fetch archived users when archived tab is selected
+  useEffect(() => {
+    const fetchArchivedUsers = async () => {
+      if (activeSubtab !== 'archived') return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch('/api/admin/archived-users');
+        const json = await res.json();
+
+        if (!res.ok) {
+          console.error('[Admin fetch archived error]', json.error || 'Unknown error');
+          setError(json.error || 'Failed to load archived users');
+          return;
+        }
+
+        const sortedArchived = json.users.map((u: any) => ({
+          id: u.id,
+          first_name: u.first_name,
+          last_name: u.last_name,
+          email: u.email,
+          role: u.role,
+          phone: u.phone_number,
+          city: u.city,
+          archived_at: u.archived_at,
+          dog: u.dogs
+            ? {
+                dog_name: u.dogs.dog_name,
+                dog_breed: u.dogs.dog_breed,
+                dog_bio: u.dogs.dog_bio,
+                dog_picture_url: u.dogs.dog_picture_url,
+                dog_age: u.dogs.dog_age,
+              }
+            : null,
+        })).sort((a: ArchivedUser, b: ArchivedUser) =>
+          new Date(b.archived_at).getTime() - new Date(a.archived_at).getTime()
+        );
+
+        setArchivedUsers(sortedArchived);
+      } catch (err) {
+        console.error('[Admin] Error fetching archived users:', err);
+        setError('Failed to load archived users');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArchivedUsers();
+  }, [activeSubtab]);
+
+  // Handle archive user action
+  const handleArchiveUser = async (userId: string, userName: string) => {
+    // Simple confirmation first
+    if (!confirm(`Are you sure you want to archive ${userName}?`)) {
+      return;
+    }
+
+    setUserToArchive({ id: userId, name: userName });
+    setArchiving(false);
+
+    // First call to check for active appointments
+    try {
+      const res = await fetch('/api/admin/archive-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      const result = await res.json();
+
+      if (result.requires_confirmation) {
+        // Show modal with appointment warnings
+        setArchiveWarning({ appointments: result.active_appointments });
+        setArchiveModalOpen(true);
+      } else if (result.success) {
+        // No appointments, archiving succeeded
+        // Refresh user lists
+        setVolunteers(prev => prev.filter(u => u.id !== userId));
+        setIndividuals(prev => prev.filter(u => u.id !== userId));
+        alert('User archived successfully');
+      } else {
+        alert(`Failed to archive user: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('[Admin] Error archiving user:', err);
+      alert('Failed to archive user');
+    }
+  };
+
+  // Confirm archive with appointments
+  const confirmArchive = async () => {
+    if (!userToArchive) return;
+
+    setArchiving(true);
+
+    try {
+      const res = await fetch('/api/admin/archive-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userToArchive.id, confirmed: true }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        // Remove from current lists
+        setVolunteers(prev => prev.filter(u => u.id !== userToArchive.id));
+        setIndividuals(prev => prev.filter(u => u.id !== userToArchive.id));
+
+        // Close modal
+        setArchiveModalOpen(false);
+        setUserToArchive(null);
+        setArchiveWarning(null);
+
+        alert(`User archived successfully. ${result.canceled_appointments_count} appointment(s) canceled.`);
+      } else {
+        alert(`Failed to archive user: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('[Admin] Error confirming archive:', err);
+      alert('Failed to archive user');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  // Handle unarchive user action
+  const handleUnarchiveUser = async (userId: string, userName: string) => {
+    if (!confirm(`Restore ${userName}'s account? They will be able to access the platform again.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/unarchive-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        // Remove from archived list
+        setArchivedUsers(prev => prev.filter(u => u.id !== userId));
+        alert('User unarchived successfully');
+
+        // Optionally refresh the approved users list
+        // For now, admin can just switch tabs to see the restored user
+      } else {
+        alert(`Failed to unarchive user: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('[Admin] Error unarchiving user:', err);
+      alert('Failed to unarchive user');
+    }
+  };
 
   const updateAudience = async (
     userId: string,
@@ -254,6 +441,12 @@ export default function ManageUsersTab() {
       .includes(searchQuery.toLowerCase())
   );
 
+  const filteredArchivedUsers = archivedUsers.filter((u) =>
+    `${u.first_name} ${u.last_name} ${u.email} ${u.city}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="px-4 py-4">
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
@@ -279,6 +472,16 @@ export default function ManageUsersTab() {
               }`}
             >
               Volunteer Users
+            </button>
+            <button
+              onClick={() => setActiveSubtab('archived')}
+              className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                activeSubtab === 'archived'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-200 text-gray-800'
+              }`}
+            >
+              Archived Users
             </button>
           </div>
           <input
@@ -389,6 +592,16 @@ export default function ManageUsersTab() {
                             )}
                           </div>
                           {renderAudienceCheckboxes(user.id, 'volunteer', user.audience_categories, setVolunteers)}
+
+                          {/* Archive Button */}
+                          <div className="mt-6 pt-4 border-t border-gray-200">
+                            <button
+                              onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
+                            >
+                              Archive User
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -517,8 +730,18 @@ export default function ManageUsersTab() {
                               </div>
                             </div>
                           </div>
-                          
+
                           {renderAudienceCheckboxes(user.id, 'individual', user.audience_categories, setIndividuals)}
+
+                          {/* Archive Button */}
+                          <div className="mt-6 pt-4 border-t border-gray-200">
+                            <button
+                              onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
+                            >
+                              Archive User
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -528,9 +751,130 @@ export default function ManageUsersTab() {
             </tbody>
           </table>
         )}
+
+        {/* Archived Users Table */}
+        {activeSubtab === 'archived' && (
+          <table className="w-full text-sm border border-gray-200 rounded-md">
+            <thead className="bg-gray-100 text-left">
+              <tr>
+                <th className="px-4 py-2">Name</th>
+                <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Role</th>
+                <th className="px-4 py-2">City</th>
+                <th className="px-4 py-2">Archived Date</th>
+                <th className="px-4 py-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredArchivedUsers.map((user) => (
+                <tr key={user.id} className="border-t hover:bg-gray-50">
+                  <td className="px-4 py-2">{user.first_name} {user.last_name}</td>
+                  <td className="px-4 py-2">{user.email}</td>
+                  <td className="px-4 py-2 capitalize">{user.role}</td>
+                  <td className="px-4 py-2">{user.city}</td>
+                  <td className="px-4 py-2">{new Date(user.archived_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-2">
+                    <button
+                      onClick={() => handleUnarchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition"
+                    >
+                      Unarchive
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
           </>
         )}
       </div>
+
+      {/* Archive Confirmation Modal */}
+      {archiveModalOpen && userToArchive && archiveWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-start mb-4">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Warning: This user has {archiveWarning.appointments.length} active appointment{archiveWarning.appointments.length !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Archiving this user will automatically cancel the following appointments:
+                  </p>
+                </div>
+              </div>
+
+              {/* Confirmed Appointments */}
+              {archiveWarning.appointments.filter(a => a.status === 'confirmed').length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-semibold text-red-700 mb-2">Confirmed Appointments ({archiveWarning.appointments.filter(a => a.status === 'confirmed').length}):</h4>
+                  <ul className="space-y-2 ml-4">
+                    {archiveWarning.appointments.filter(a => a.status === 'confirmed').map((appt) => (
+                      <li key={appt.id} className="text-sm text-gray-700">
+                        • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
+                        {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Pending Appointments */}
+              {archiveWarning.appointments.filter(a => a.status === 'pending').length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-semibold text-orange-700 mb-2">Pending Appointments ({archiveWarning.appointments.filter(a => a.status === 'pending').length}):</h4>
+                  <ul className="space-y-2 ml-4">
+                    {archiveWarning.appointments.filter(a => a.status === 'pending').map((appt) => (
+                      <li key={appt.id} className="text-sm text-gray-700">
+                        • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
+                        {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p className="text-sm text-yellow-800">
+                  The other parties will be notified via email that their appointments were canceled by a Sunshine administrator.
+                </p>
+              </div>
+
+              <p className="text-sm text-gray-700 mb-6">
+                Are you sure you want to archive <span className="font-semibold">{userToArchive.name}</span> and cancel their appointments?
+              </p>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setArchiveModalOpen(false);
+                    setUserToArchive(null);
+                    setArchiveWarning(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                  disabled={archiving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmArchive}
+                  disabled={archiving}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition disabled:opacity-50"
+                >
+                  {archiving ? 'Archiving...' : 'Archive & Cancel Appointments'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

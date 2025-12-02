@@ -72,8 +72,40 @@ export default function DashboardPage() {
   // Show nothing while loading
   if (!user || loading) return null;
 
-  // Block access if user is pending or denied
+  // Block access if user is pending, denied, or archived
   if (status !== 'approved' || role === null) {
+    // Different message for archived users
+    if (status === 'archived') {
+      return (
+        <div className="min-h-[100dvh] flex items-center justify-center p-4 bg-gray-50">
+          <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg text-center border-t-4 border-orange-500">
+            <div className="mb-4">
+              <svg className="mx-auto h-16 w-16 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-3 text-gray-900">Account Archived</h2>
+            <p className="text-gray-700 mb-6">
+              Your profile is no longer active and you cannot book or receive appointment requests.
+            </p>
+            <p className="text-gray-600 text-sm mb-6">
+              If you believe this is an error or would like to reactivate your account,
+              please contact our support team at{' '}
+              <a href="mailto:info@sunshinetherapydogs.ca" className="text-blue-600 hover:underline font-medium">
+                info@sunshinetherapydogs.ca
+              </a>
+            </p>
+            <SignOutButton>
+              <button className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors">
+                Log Out
+              </button>
+            </SignOutButton>
+          </div>
+        </div>
+      );
+    }
+
+    // Default message for pending/denied users
     return (
       <div className="min-h-[100dvh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white p-6 rounded-lg shadow text-center">
