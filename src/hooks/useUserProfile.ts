@@ -8,7 +8,7 @@ export function useUserProfile() {
   const { user } = useUser();
   const supabase = useSupabaseClient();
   const [role, setRole] = useState<'admin' | 'volunteer' | 'individual' | null>(null);
-  const [status, setStatus] = useState<'pending' | 'approved' | 'denied' | null>(null);
+  const [status, setStatus] = useState<'pending' | 'approved' | 'denied' | 'archived' | null>(null);
   const [profileComplete, setProfileComplete] = useState(false);
   const [loading, setLoading] = useState(true);
 

@@ -24,9 +24,10 @@ This document tracks the current database schema, relationships, and Row Level S
 | `location_lat` | double precision | YES | - | Latitude coordinate |
 | `location_lng` | double precision | YES | - | Longitude coordinate |
 | `travel_distance_km` | integer | YES | - | Max travel distance (volunteers only) |
-| `status` | text | YES | 'pending' | User approval status |
+| `status` | text | YES | 'pending' | User approval status (pending, approved, denied, archived) |
 | `city` | text | YES | - | City name |
 | `profile_complete` | boolean | YES | false | Profile completion flag |
+| `archived_at` | timestamp with time zone | YES | - | When user was archived (NULL = active) |
 
 #### Individual User Fields
 | Column | Type | Nullable | Default | Description |
@@ -284,6 +285,27 @@ This document tracks the current database schema, relationships, and Row Level S
   - Email templates use Handlebars (`templates/emails/unreadMessageNotification.html/txt`)
   - Configurable delay via `src/utils/notificationConfig.ts`
 
+### 2025-12-XX - User Archive System ✅ COMPLETED
+- **Added `archived_at` column**: Tracks when user was archived (NULL = active)
+- **Updated `users.status`**: Now accepts 'archived' in addition to 'pending', 'approved', 'denied'
+- **Purpose**: Allows admins to archive stagnant/inactive accounts without deletion
+- **Features**:
+  - Admin can archive users from Manage Users interface
+  - Archived users cannot access dashboard (shown "Account Archived" message)
+  - Archived users don't appear in search results (RLS filtering by status='approved')
+  - Archive process automatically cancels all active appointments (pending/confirmed)
+  - Cancellation emails sent to other parties with reason: "Canceled by Sunshine Administrator"
+  - Pending email notifications canceled when user is archived
+  - Active chats closed when user is archived
+  - Volunteer's dog also archived (status set to 'archived')
+  - Admin sees warning modal if user has active appointments before archiving
+  - Unarchive functionality restores user to 'approved' status
+- **Implementation**:
+  - API endpoints: `/api/admin/archive-user`, `/api/admin/unarchive-user`, `/api/admin/archived-users`
+  - Frontend: New "Archived Users" tab in Admin Manage Users
+  - Status validation: Appointment confirmation and request APIs check both users are 'approved'
+  - SQL migration: `scripts/addArchivedStatus.sql`
+
 ## Notes for Development
 
 ### User Roles
@@ -292,8 +314,8 @@ This document tracks the current database schema, relationships, and Row Level S
 - **admin**: Platform administrators
 
 ### Status Values
-- **users.status**: 'pending', 'approved', 'denied'
-- **dogs.status**: 'pending', 'approved'
+- **users.status**: 'pending', 'approved', 'denied', 'archived'
+- **dogs.status**: 'pending', 'approved', 'archived'
 - **appointments.status**: 'pending', 'confirmed', 'canceled' (American spelling)
 
 ### Location Data

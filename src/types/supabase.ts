@@ -133,6 +133,7 @@ export type Database = {
           status: string | null
           city: string | null
           profile_complete: boolean | null
+          archived_at: string | null
           // New individual user fields
           pronouns: string | null
           birthday: number | null
@@ -166,6 +167,7 @@ export type Database = {
           status?: string | null
           city?: string | null
           profile_complete?: boolean | null
+          archived_at?: string | null
           // New individual user fields
           pronouns?: string | null
           birthday?: number | null
@@ -199,6 +201,7 @@ export type Database = {
           status?: string | null
           city?: string | null
           profile_complete?: boolean | null
+          archived_at?: string | null
           // New individual user fields
           pronouns?: string | null
           birthday?: number | null

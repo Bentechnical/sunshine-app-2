@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     // --- Fetch individual user ---
     const { data: individual, error: individualError } = await supabase
       .from('users')
-      .select('first_name, email')
+      .select('first_name, email, status')
       .eq('id', appointment.individual_id)
       .maybeSingle();
 
@@ -87,13 +87,25 @@ export async function POST(req: NextRequest) {
     // --- Fetch volunteer user ---
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('first_name, email')
+      .select('first_name, email, status')
       .eq('id', appointment.volunteer_id)
       .maybeSingle();
 
     if (volunteerError) throw new Error('Could not fetch volunteer details.');
     if (!volunteer) {
       return NextResponse.json({ success: false, error: 'Volunteer user not found.' }, { status: 404 });
+    }
+
+    // Check that both users are still approved (not archived, denied, or pending)
+    if (individual.status !== 'approved' || volunteer.status !== 'approved') {
+      console.error('Cannot create appointment request: One or both users are not approved', {
+        individual_status: individual.status,
+        volunteer_status: volunteer.status
+      });
+      return NextResponse.json(
+        { success: false, error: 'Cannot create appointment request. One or both users are no longer active.' },
+        { status: 400 }
+      );
     }
 
     // --- Build email content ---

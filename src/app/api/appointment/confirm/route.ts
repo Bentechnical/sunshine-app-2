@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: individual, error: individualError } = await supabase
       .from('users')
-      .select('first_name, last_name, email, bio')
+      .select('first_name, last_name, email, bio, status')
       .eq('id', appointment.individual_id)
       .maybeSingle();
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('first_name, last_name, email')
+      .select('first_name, last_name, email, status')
       .eq('id', appointment.volunteer_id)
       .maybeSingle();
 
@@ -68,6 +68,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Volunteer user not found.' },
         { status: 404 }
+      );
+    }
+
+    // Check that both users are still approved (not archived, denied, or pending)
+    if (individual.status !== 'approved' || volunteer.status !== 'approved') {
+      console.error('Cannot confirm appointment: One or both users are not approved', {
+        individual_status: individual.status,
+        volunteer_status: volunteer.status
+      });
+      return NextResponse.json(
+        { success: false, error: 'Cannot confirm appointment. One or both users are no longer active.' },
+        { status: 400 }
       );
     }
 
