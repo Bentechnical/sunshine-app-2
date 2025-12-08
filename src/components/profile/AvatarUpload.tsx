@@ -154,6 +154,7 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          capture="user"
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
