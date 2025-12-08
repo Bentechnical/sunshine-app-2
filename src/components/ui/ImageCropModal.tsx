@@ -57,23 +57,23 @@ export default function ImageCropModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-75 sm:p-4">
-      <div className="bg-white rounded-t-lg sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] mb-0 sm:mb-auto">
+    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black bg-opacity-75 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] mt-auto sm:mt-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Crop Image</h2>
+        <div className="flex items-center justify-between px-4 py-3 sm:p-4 border-b shrink-0">
+          <h2 className="text-base sm:text-xl font-semibold text-gray-800">Crop Image</h2>
           <button
             type="button"
             onClick={onCancel}
-            className="text-gray-500 hover:text-gray-700 transition"
+            className="text-gray-500 hover:text-gray-700 transition -mr-1"
             disabled={isProcessing}
           >
-            <X size={24} />
+            <X size={22} className="sm:w-6 sm:h-6" />
           </button>
         </div>
 
         {/* Cropper Area */}
-        <div className="relative flex-1 bg-gray-100 min-h-[250px] sm:min-h-[400px] md:min-h-[500px] overflow-hidden">
+        <div className="relative flex-1 bg-gray-100 overflow-hidden touch-none">
           <Cropper
             image={imageSrc}
             crop={crop}
