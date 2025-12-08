@@ -117,6 +117,7 @@ export default function ImageCropModal({
           {/* Action Buttons */}
           <div className="flex gap-3 justify-end">
             <button
+              type="button"
               onClick={onCancel}
               className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
               disabled={isProcessing}
@@ -124,6 +125,7 @@ export default function ImageCropModal({
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleSave}
               className="px-4 py-2 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isProcessing}

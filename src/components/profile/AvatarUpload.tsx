@@ -170,6 +170,7 @@ export default function AvatarUpload({
 
               <div className="space-y-3">
                 <button
+                  type="button"
                   onClick={handleCameraClick}
                   className="w-full flex items-center gap-3 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                 >
@@ -178,6 +179,7 @@ export default function AvatarUpload({
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleGalleryClick}
                   className="w-full flex items-center gap-3 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                 >
@@ -187,6 +189,7 @@ export default function AvatarUpload({
               </div>
 
               <button
+                type="button"
                 onClick={() => setShowSourceModal(false)}
                 className="w-full mt-4 py-2 text-gray-600 hover:text-gray-800 transition"
               >
