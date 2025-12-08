@@ -58,20 +58,28 @@ export default function AvatarUpload({
     );
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Show loading state
+    setIsUploading(true);
+
+    // Small delay to allow UI to update
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Validate the file
     const validationError = validateImageFile(file, 10);
     if (validationError) {
       alert(validationError);
+      setIsUploading(false);
       return;
     }
 
     // Create a preview URL and open the crop modal
     const imageUrl = URL.createObjectURL(file);
     setSelectedImageSrc(imageUrl);
+    setIsUploading(false);
 
     // Reset the file input so the same file can be selected again
     if (fileInputRef.current) {
@@ -130,15 +138,17 @@ export default function AvatarUpload({
       <div
         className="relative group cursor-pointer"
         style={{ width: size, height: size }}
-        onClick={handleClick}
+        onClick={isUploading ? undefined : handleClick}
       >
         <img
           src={previewUrl}
           alt={altText}
           className="object-cover w-full h-full transition-opacity group-hover:opacity-60 border"
         />
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm">
-          {isUploading ? 'Uploading...' : 'Change'}
+        <div className={`absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm transition-opacity ${
+          isUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}>
+          {isUploading ? 'Processing...' : 'Change'}
         </div>
 
         {/* Hidden file inputs */}
