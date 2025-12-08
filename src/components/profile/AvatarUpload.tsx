@@ -31,11 +31,30 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
   const [previewUrl, setPreviewUrl] = useState<string>(initialUrl || fallbackUrl || '');
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showSourceModal, setShowSourceModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Detect if user is on Android
+  const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
 
   const handleClick = () => {
-    // Always open file picker directly (works on all platforms)
-    fileInputRef.current?.click();
+    // On Android, show custom source selection modal
+    // On iOS/Desktop, use native file picker
+    if (isAndroid) {
+      setShowSourceModal(true);
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleSourceSelect = (source: 'camera' | 'gallery') => {
+    setShowSourceModal(false);
+    if (source === 'camera') {
+      cameraInputRef.current?.click();
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   // Expose handleClick to parent component via ref
@@ -149,16 +168,57 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
           {isUploading ? 'Processing...' : 'Change'}
         </div>
 
-        {/* Hidden file input - allows both camera and gallery on mobile */}
+        {/* Gallery input - used on all platforms */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="user"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+
+        {/* Camera input - used only on Android for direct camera access */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
       </div>
+
+      {/* Android Source Selection Modal */}
+      {showSourceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Choose Image Source</h3>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleSourceSelect('camera')}
+                className="w-full px-4 py-3 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition text-center"
+              >
+                Take Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSourceSelect('gallery')}
+                className="w-full px-4 py-3 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition text-center"
+              >
+                Choose from Gallery
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSourceModal(false)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition text-center"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Image Crop Modal */}
       {selectedImageSrc && (
