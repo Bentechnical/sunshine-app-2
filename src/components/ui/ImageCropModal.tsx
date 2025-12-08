@@ -57,12 +57,13 @@ export default function ImageCropModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-75 sm:p-4">
+      <div className="bg-white rounded-t-lg sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] mb-0 sm:mb-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold text-gray-800">Crop Image</h2>
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Crop Image</h2>
           <button
+            type="button"
             onClick={onCancel}
             className="text-gray-500 hover:text-gray-700 transition"
             disabled={isProcessing}
@@ -72,7 +73,7 @@ export default function ImageCropModal({
         </div>
 
         {/* Cropper Area */}
-        <div className="relative flex-1 bg-gray-100 min-h-[400px] md:min-h-[500px]">
+        <div className="relative flex-1 bg-gray-100 min-h-[250px] sm:min-h-[400px] md:min-h-[500px] overflow-hidden">
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -91,10 +92,10 @@ export default function ImageCropModal({
         </div>
 
         {/* Controls */}
-        <div className="p-4 border-t bg-white">
+        <div className="p-3 sm:p-4 border-t bg-white shrink-0">
           {/* Zoom Slider */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="mb-3">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Zoom
             </label>
             <input
@@ -109,17 +110,17 @@ export default function ImageCropModal({
             />
           </div>
 
-          {/* Instructions */}
-          <p className="text-sm text-gray-600 mb-4">
+          {/* Instructions - Hidden on mobile for space */}
+          <p className="hidden sm:block text-sm text-gray-600 mb-4">
             Drag to reposition, use the slider to zoom, then click Save to crop your image.
           </p>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-2 sm:gap-3 justify-end">
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition"
               disabled={isProcessing}
             >
               Cancel
@@ -127,10 +128,10 @@ export default function ImageCropModal({
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 sm:px-4 py-2 bg-[#0e62ae] text-white rounded-md text-sm sm:text-base hover:bg-[#094e8b] transition disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isProcessing}
             >
-              {isProcessing ? 'Processing...' : 'Save & Upload'}
+              {isProcessing ? 'Processing...' : 'Save'}
             </button>
           </div>
         </div>
