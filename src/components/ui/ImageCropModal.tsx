@@ -58,7 +58,7 @@ export default function ImageCropModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black bg-opacity-75 sm:p-4 pb-0 sm:pb-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[calc(100vh-80px)] sm:h-auto sm:max-h-[90vh] mb-[80px] sm:mb-0">
+      <div className="bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[calc(100vh-100px)] sm:h-auto sm:max-h-[90vh] mb-[100px] sm:mb-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:p-4 border-b shrink-0">
           <h2 className="text-base sm:text-xl font-semibold text-gray-800">Crop Image</h2>

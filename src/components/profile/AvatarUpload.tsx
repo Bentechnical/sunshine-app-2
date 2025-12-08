@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useRef, useState, ChangeEvent } from 'react';
+import React, { useRef, useState, ChangeEvent, useImperativeHandle, forwardRef } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { validateImageFile } from '@/utils/imageCrop';
@@ -16,13 +16,17 @@ interface AvatarUploadProps {
   altText?: string;
 }
 
-export default function AvatarUpload({
+export interface AvatarUploadHandle {
+  triggerClick: () => void;
+}
+
+const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
   initialUrl,
   fallbackUrl,
   onUpload,
   size = 100,
   altText = 'Avatar',
-}: AvatarUploadProps) {
+}, ref) => {
   const supabase = useSupabaseClient();
 
   const [previewUrl, setPreviewUrl] = useState<string>(initialUrl || fallbackUrl || '');
@@ -41,6 +45,11 @@ export default function AvatarUpload({
       fileInputRef.current?.click();
     }
   };
+
+  // Expose handleClick to parent component via ref
+  useImperativeHandle(ref, () => ({
+    triggerClick: handleClick
+  }));
 
   const handleCameraClick = () => {
     setShowSourceModal(false);
@@ -65,9 +74,6 @@ export default function AvatarUpload({
     // Show loading state
     setIsUploading(true);
 
-    // Small delay to allow UI to update
-    await new Promise(resolve => setTimeout(resolve, 100));
-
     // Validate the file
     const validationError = validateImageFile(file, 10);
     if (validationError) {
@@ -76,9 +82,15 @@ export default function AvatarUpload({
       return;
     }
 
+    // Small delay to show loading state before modal opens
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     // Create a preview URL and open the crop modal
     const imageUrl = URL.createObjectURL(file);
     setSelectedImageSrc(imageUrl);
+
+    // Keep uploading state until modal is fully opened
+    await new Promise(resolve => setTimeout(resolve, 100));
     setIsUploading(false);
 
     // Reset the file input so the same file can be selected again
@@ -126,11 +138,13 @@ export default function AvatarUpload({
     } finally {
       setIsUploading(false);
       setSelectedImageSrc(null);
+      setShowSourceModal(false); // Ensure source modal stays closed
     }
   };
 
   const handleCropCancel = () => {
     setSelectedImageSrc(null);
+    // Don't reopen source modal on cancel
   };
 
   return (
@@ -221,4 +235,8 @@ export default function AvatarUpload({
       )}
     </>
   );
-}
+});
+
+AvatarUpload.displayName = 'AvatarUpload';
+
+export default AvatarUpload;

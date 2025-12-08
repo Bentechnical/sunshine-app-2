@@ -3,7 +3,7 @@
 'use client';
 
 import React, { FormEvent, useRef, useState } from 'react';
-import AvatarUpload from '@/components/profile/AvatarUpload';
+import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpload';
 
 interface EditProfileFormProps {
   initialBio?: string | null;
@@ -158,11 +158,14 @@ export default function EditProfileForm({
     );
   };
 
+  const avatarUploadRef = useRef<AvatarUploadHandle>(null);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="relative w-24 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
           <AvatarUpload
+            ref={avatarUploadRef}
             initialUrl={previewAvatarUrl}
             fallbackUrl="https://via.placeholder.com/100"
             onUpload={(url: string) => {
@@ -173,7 +176,12 @@ export default function EditProfileForm({
             altText="Profile Picture"
           />
         </div>
-        <span className="font-medium">Change Profile Picture</span>
+        <span
+          className="font-medium text-blue-600 cursor-pointer hover:text-blue-700 hover:underline"
+          onClick={() => avatarUploadRef.current?.triggerClick()}
+        >
+          Change Profile Picture
+        </span>
       </div>
 
       <div>
