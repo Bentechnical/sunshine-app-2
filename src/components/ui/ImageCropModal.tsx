@@ -39,7 +39,10 @@ export default function ImageCropModal({
     []
   );
 
-  const handleSave = async () => {
+  const handleSave = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (!croppedAreaPixels) return;
 
     setIsProcessing(true);
@@ -119,7 +122,11 @@ export default function ImageCropModal({
           <div className="flex gap-2 sm:gap-3 justify-end">
             <button
               type="button"
-              onClick={onCancel}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancel();
+              }}
               className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition"
               disabled={isProcessing}
             >
