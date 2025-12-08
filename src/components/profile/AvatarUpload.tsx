@@ -6,7 +6,6 @@ import React, { useRef, useState, ChangeEvent, useImperativeHandle, forwardRef }
 import { useSupabaseClient } from '@/utils/supabase/client';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { validateImageFile } from '@/utils/imageCrop';
-import { Camera, Image as ImageIcon } from 'lucide-react';
 
 interface AvatarUploadProps {
   initialUrl?: string;
@@ -32,40 +31,17 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
   const [previewUrl, setPreviewUrl] = useState<string>(initialUrl || fallbackUrl || '');
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [showSourceModal, setShowSourceModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleClick = () => {
-    // On mobile, show modal to choose between camera and photo library
-    if (isMobileDevice()) {
-      setShowSourceModal(true);
-    } else {
-      // On desktop, just open file picker
-      fileInputRef.current?.click();
-    }
+    // Always open file picker directly (works on all platforms)
+    fileInputRef.current?.click();
   };
 
   // Expose handleClick to parent component via ref
   useImperativeHandle(ref, () => ({
     triggerClick: handleClick
   }));
-
-  const handleCameraClick = () => {
-    setShowSourceModal(false);
-    cameraInputRef.current?.click();
-  };
-
-  const handleGalleryClick = () => {
-    setShowSourceModal(false);
-    fileInputRef.current?.click();
-  };
-
-  const isMobileDevice = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
-  };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,6 +95,8 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
       if (error) {
         console.error('Upload error:', error.message);
         alert('Failed to upload image. Please try again.');
+        // Revoke the blob URL on error
+        URL.revokeObjectURL(localPreviewUrl);
         return;
       }
 
@@ -127,10 +105,14 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
         .getPublicUrl(filePath);
 
       if (publicUrlData?.publicUrl) {
+        // Revoke the blob URL now that we have the real URL
+        URL.revokeObjectURL(localPreviewUrl);
         onUpload(publicUrlData.publicUrl);
       } else {
         console.error('Failed to get public URL after upload.');
         alert('Failed to get image URL. Please try again.');
+        // Revoke the blob URL on error
+        URL.revokeObjectURL(localPreviewUrl);
       }
     } catch (error) {
       console.error('Error uploading cropped image:', error);
@@ -138,13 +120,15 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
     } finally {
       setIsUploading(false);
       setSelectedImageSrc(null);
-      setShowSourceModal(false); // Ensure source modal stays closed
     }
   };
 
   const handleCropCancel = () => {
+    // Clean up blob URL before closing
+    if (selectedImageSrc) {
+      URL.revokeObjectURL(selectedImageSrc);
+    }
     setSelectedImageSrc(null);
-    // Don't reopen source modal on cancel
   };
 
   return (
@@ -165,16 +149,9 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
           {isUploading ? 'Processing...' : 'Change'}
         </div>
 
-        {/* Hidden file inputs */}
+        {/* Hidden file input - allows both camera and gallery on mobile */}
         <input
           ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-        <input
-          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
@@ -182,47 +159,6 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
           onChange={handleFileChange}
         />
       </div>
-
-      {/* Source Selection Modal (Mobile Only) */}
-      {showSourceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Choose Image Source
-              </h3>
-
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleCameraClick}
-                  className="w-full flex items-center gap-3 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  <Camera size={24} className="text-gray-600" />
-                  <span className="text-gray-800 font-medium">Take Photo</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleGalleryClick}
-                  className="w-full flex items-center gap-3 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                >
-                  <ImageIcon size={24} className="text-gray-600" />
-                  <span className="text-gray-800 font-medium">Choose from Gallery</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowSourceModal(false)}
-                className="w-full mt-4 py-2 text-gray-600 hover:text-gray-800 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Image Crop Modal */}
       {selectedImageSrc && (
