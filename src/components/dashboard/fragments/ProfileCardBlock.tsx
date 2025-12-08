@@ -48,6 +48,9 @@ export default function ProfileCardBlock() {
   useEffect(() => {
     if (!user?.id) return;
 
+    // Don't reload profile if edit form is open (prevents data loss during editing)
+    if (showEditForm) return;
+
     let isMounted = true;
 
     const loadProfile = async () => {
@@ -74,7 +77,7 @@ export default function ProfileCardBlock() {
     return () => {
       isMounted = false;
     };
-  }, [user?.id]);
+  }, [user?.id, showEditForm]);
 
   const handleUpdateProfile = async (
     bio: string,
