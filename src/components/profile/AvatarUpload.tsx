@@ -6,6 +6,7 @@ import React, { useRef, useState, ChangeEvent } from 'react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { validateImageFile } from '@/utils/imageCrop';
+import { Camera, Image as ImageIcon } from 'lucide-react';
 
 interface AvatarUploadProps {
   initialUrl?: string;
@@ -27,10 +28,34 @@ export default function AvatarUpload({
   const [previewUrl, setPreviewUrl] = useState<string>(initialUrl || fallbackUrl || '');
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showSourceModal, setShowSourceModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleClick = () => {
+    // On mobile, show modal to choose between camera and photo library
+    if (isMobileDevice()) {
+      setShowSourceModal(true);
+    } else {
+      // On desktop, just open file picker
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleCameraClick = () => {
+    setShowSourceModal(false);
+    cameraInputRef.current?.click();
+  };
+
+  const handleGalleryClick = () => {
+    setShowSourceModal(false);
     fileInputRef.current?.click();
+  };
+
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +140,8 @@ export default function AvatarUpload({
         <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm">
           {isUploading ? 'Uploading...' : 'Change'}
         </div>
+
+        {/* Hidden file inputs */}
         <input
           ref={fileInputRef}
           type="file"
@@ -122,7 +149,53 @@ export default function AvatarUpload({
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
       </div>
+
+      {/* Source Selection Modal (Mobile Only) */}
+      {showSourceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Choose Image Source
+              </h3>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleCameraClick}
+                  className="w-full flex items-center gap-3 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  <Camera size={24} className="text-gray-600" />
+                  <span className="text-gray-800 font-medium">Take Photo</span>
+                </button>
+
+                <button
+                  onClick={handleGalleryClick}
+                  className="w-full flex items-center gap-3 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  <ImageIcon size={24} className="text-gray-600" />
+                  <span className="text-gray-800 font-medium">Choose from Gallery</span>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowSourceModal(false)}
+                className="w-full mt-4 py-2 text-gray-600 hover:text-gray-800 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Image Crop Modal */}
       {selectedImageSrc && (
