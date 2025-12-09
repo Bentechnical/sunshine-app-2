@@ -161,13 +161,32 @@ export default function EditProfileForm({
   const avatarUploadRef = useRef<AvatarUploadHandle>(null);
   const formTopRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top when component mounts
+  // Scroll parent container to top when component mounts
   React.useEffect(() => {
-    formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Find the scrollable parent container
+    const scrollToTop = () => {
+      const formElement = formTopRef.current;
+      if (formElement) {
+        // Scroll the element into view
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Also try to scroll parent containers
+        let parent = formElement.parentElement;
+        while (parent) {
+          if (parent.scrollTop > 0) {
+            parent.scrollTop = 0;
+          }
+          parent = parent.parentElement;
+        }
+      }
+    };
+
+    // Small delay to ensure DOM is ready
+    setTimeout(scrollToTop, 100);
   }, []);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-24 lg:pb-4">
       {/* Scroll anchor */}
       <div ref={formTopRef} className="h-0" />
       <div className="flex items-center gap-4">
@@ -451,16 +470,14 @@ export default function EditProfileForm({
 
       {error && <p className="text-red-600 mt-2">{error}</p>}
 
-      {/* Sticky Submit Button - Fixed at bottom on mobile */}
-      <div className="fixed bottom-0 left-0 right-0 lg:relative lg:bottom-auto lg:left-auto lg:right-auto bg-white border-t lg:border-t-0 shadow-lg lg:shadow-none p-4 lg:p-0 z-40">
-        <div className="max-w-7xl mx-auto">
-          <button
-            type="submit"
-            className="w-full py-3 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition font-semibold shadow-md lg:shadow-none"
-          >
-            Save Changes
-          </button>
-        </div>
+      {/* Sticky Submit Button - Fixed at bottom on mobile, above bottom nav */}
+      <div className="fixed bottom-[72px] left-0 right-0 lg:relative lg:bottom-auto bg-white border-t lg:border-t-0 shadow-2xl lg:shadow-none p-4 lg:p-0 z-30">
+        <button
+          type="submit"
+          className="w-full py-3 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition font-semibold"
+        >
+          Save Changes
+        </button>
       </div>
     </form>
   );

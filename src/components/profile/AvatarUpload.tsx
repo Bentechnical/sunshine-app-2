@@ -215,46 +215,19 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
           onClick={handleBackdropClick}
         >
-          <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm animate-slide-up"
-            onTouchStart={(e) => {
-              const touch = e.touches[0];
-              (e.currentTarget as any).touchStartY = touch.clientY;
-            }}
-            onTouchMove={(e) => {
-              const touch = e.touches[0];
-              const startY = (e.currentTarget as any).touchStartY;
-              const currentY = touch.clientY;
-              const diff = currentY - startY;
-
-              // Only allow downward swipes
-              if (diff > 0) {
-                e.currentTarget.style.transform = `translateY(${diff}px)`;
-                e.currentTarget.style.transition = 'none';
-              }
-            }}
-            onTouchEnd={(e) => {
-              const startY = (e.currentTarget as any).touchStartY;
-              const endY = e.changedTouches[0].clientY;
-              const diff = endY - startY;
-
-              // If swiped down more than 100px, close the modal
-              if (diff > 100) {
-                handleSourceCancel();
-              } else {
-                // Reset position
-                e.currentTarget.style.transform = '';
-                e.currentTarget.style.transition = 'transform 0.3s ease-out';
-              }
-            }}
-          >
-            {/* Drag Handle */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
-            </div>
-
-            {/* Header */}
-            <div className="px-6 pt-2 pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm animate-slide-up">
+            {/* Header with Close Button */}
+            <div className="relative px-6 pt-6 pb-4 border-b border-gray-100">
+              <button
+                type="button"
+                onClick={handleSourceCancel}
+                className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 transition"
+                aria-label="Close"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
               <h3 className="text-xl font-semibold text-gray-900 text-center">Upload Photo</h3>
               <p className="text-sm text-gray-500 text-center mt-1">Choose a source for your image</p>
             </div>
