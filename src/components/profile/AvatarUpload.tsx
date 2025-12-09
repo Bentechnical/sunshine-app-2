@@ -35,13 +35,13 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Detect if user is on Android
-  const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
+  // Detect if user is on mobile (iOS or Android)
+  const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const handleClick = () => {
-    // On Android, show custom source selection modal
-    // On iOS/Desktop, use native file picker
-    if (isAndroid) {
+    // On mobile (iOS/Android), show custom source selection modal
+    // On desktop, use native file picker
+    if (isMobile) {
       setShowSourceModal(true);
     } else {
       fileInputRef.current?.click();
@@ -200,7 +200,7 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
         />
       </div>
 
-      {/* Android Source Selection Modal */}
+      {/* Mobile Source Selection Modal */}
       {showSourceModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm animate-slide-up">

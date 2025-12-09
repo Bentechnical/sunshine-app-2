@@ -45,6 +45,7 @@ export default function ImageCropModal({
 
     if (!croppedAreaPixels) {
       console.error('No cropped area pixels available');
+      alert('Crop area not set. Please try again.');
       return;
     }
 
@@ -59,8 +60,11 @@ export default function ImageCropModal({
       if (error instanceof Error) {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
+        alert(`Failed to crop image: ${error.message}`);
+      } else {
+        console.error('Unknown error type:', typeof error, error);
+        alert(`Failed to crop image. Please try again. Error: ${String(error)}`);
       }
-      alert(`Failed to crop image. Please try again. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -70,7 +74,7 @@ export default function ImageCropModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black bg-opacity-75 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[calc(100vh-120px)] sm:max-h-none sm:h-[600px] mb-[120px] sm:mb-0">
+      <div className="bg-white rounded-t-none sm:rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[calc(100vh-120px)] sm:max-h-none sm:h-[600px] mb-[120px] sm:mb-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:p-4 border-b shrink-0">
           <h2 className="text-base sm:text-xl font-semibold text-gray-800">Crop Image</h2>
@@ -110,7 +114,7 @@ export default function ImageCropModal({
             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Zoom
             </label>
-            <div className="px-2 sm:px-0">
+            <div className="px-4 sm:px-0">
               <input
                 type="range"
                 min={1}
