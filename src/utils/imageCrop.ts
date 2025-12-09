@@ -89,9 +89,22 @@ export async function getCroppedImg(
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous');
+
+    image.addEventListener('load', () => {
+      console.log('Image loaded successfully:', { width: image.naturalWidth, height: image.naturalHeight });
+      resolve(image);
+    });
+
+    image.addEventListener('error', (error) => {
+      console.error('Image load error:', error);
+      reject(new Error(`Failed to load image: ${url.substring(0, 50)}...`));
+    });
+
+    // For blob URLs, don't set crossOrigin as it can cause issues
+    if (!url.startsWith('blob:')) {
+      image.setAttribute('crossOrigin', 'anonymous');
+    }
+
     image.src = url;
   });
 }
