@@ -166,8 +166,22 @@ export default function EditProfileForm({
     const scrollToTop = () => {
       const formElement = formTopRef.current;
       if (formElement) {
-        // Desktop: scroll within the scrollable container
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        const isMobile = window.innerWidth < 768; // md breakpoint
+
+        if (isMobile) {
+          // Mobile: manually scroll with offset to account for fixed header
+          const rect = formElement.getBoundingClientRect();
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          const targetY = rect.top + scrollTop - 60; // 48px header + 12px padding
+
+          window.scrollTo({
+            top: targetY,
+            behavior: 'smooth'
+          });
+        } else {
+          // Desktop: scroll within the scrollable container
+          formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        }
       }
     };
 
@@ -176,7 +190,7 @@ export default function EditProfileForm({
   }, []);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pb-24 lg:pb-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-24 md:pb-20">
       {/* Scroll anchor */}
       <div ref={formTopRef} className="h-0" />
       <div className="flex items-center gap-4">
