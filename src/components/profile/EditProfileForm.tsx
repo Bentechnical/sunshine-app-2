@@ -166,22 +166,8 @@ export default function EditProfileForm({
     const scrollToTop = () => {
       const formElement = formTopRef.current;
       if (formElement) {
-        // On mobile, we need to account for the fixed header height (~48px)
-        const isMobile = window.innerWidth < 768; // md breakpoint
-
-        if (isMobile) {
-          // Get the element's position and scroll to it with offset
-          const elementPosition = formElement.getBoundingClientRect().top + window.scrollY;
-          const offsetPosition = elementPosition - 56; // 48px header + 8px padding
-
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: 'smooth'
-          });
-        } else {
-          // Desktop: scroll within container
-          formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-        }
+        // Desktop: scroll within the scrollable container
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
       }
     };
 
@@ -475,7 +461,7 @@ export default function EditProfileForm({
       {error && <p className="text-red-600 mt-2">{error}</p>}
 
       {/* Sticky Submit Button - Fixed at bottom on mobile, sticky within container on desktop */}
-      <div className="fixed lg:sticky bottom-[72px] lg:bottom-0 left-0 right-0 lg:left-auto lg:right-auto bg-white border-t shadow-2xl lg:shadow-md p-4 z-30">
+      <div className="md:sticky md:bottom-0 fixed bottom-[72px] left-0 right-0 md:left-auto md:right-auto bg-white border-t shadow-2xl md:shadow-md p-4 z-30">
         <button
           type="submit"
           className="w-full py-3 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition font-semibold"
