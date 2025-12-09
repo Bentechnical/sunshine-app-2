@@ -161,23 +161,13 @@ export default function EditProfileForm({
   const avatarUploadRef = useRef<AvatarUploadHandle>(null);
   const formTopRef = useRef<HTMLDivElement>(null);
 
-  // Scroll parent container to top when component mounts
+  // Scroll to top of form when component mounts
   React.useEffect(() => {
-    // Find the scrollable parent container
     const scrollToTop = () => {
       const formElement = formTopRef.current;
       if (formElement) {
-        // Scroll the element into view
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Also try to scroll parent containers
-        let parent = formElement.parentElement;
-        while (parent) {
-          if (parent.scrollTop > 0) {
-            parent.scrollTop = 0;
-          }
-          parent = parent.parentElement;
-        }
+        // Scroll just the form into view at the top of its container
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
       }
     };
 
@@ -470,8 +460,8 @@ export default function EditProfileForm({
 
       {error && <p className="text-red-600 mt-2">{error}</p>}
 
-      {/* Sticky Submit Button - Fixed at bottom on mobile, above bottom nav */}
-      <div className="fixed bottom-[72px] left-0 right-0 lg:relative lg:bottom-auto bg-white border-t lg:border-t-0 shadow-2xl lg:shadow-none p-4 lg:p-0 z-30">
+      {/* Sticky Submit Button - Fixed at bottom on mobile, sticky within container on desktop */}
+      <div className="fixed lg:sticky bottom-[72px] lg:bottom-0 left-0 right-0 bg-white border-t shadow-2xl lg:shadow-md p-4 z-30">
         <button
           type="submit"
           className="w-full py-3 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition font-semibold"
