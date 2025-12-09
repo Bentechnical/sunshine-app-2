@@ -59,10 +59,19 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
     }
   };
 
-  const handleSourceCancel = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleSourceCancel = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setShowSourceModal(false);
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close if clicking the backdrop itself, not the modal content
+    if (e.target === e.currentTarget) {
+      handleSourceCancel();
+    }
   };
 
   // Expose handleClick to parent component via ref
@@ -202,10 +211,50 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
 
       {/* Mobile Source Selection Modal */}
       {showSourceModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm animate-slide-up">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+          onClick={handleBackdropClick}
+        >
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm animate-slide-up"
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              (e.currentTarget as any).touchStartY = touch.clientY;
+            }}
+            onTouchMove={(e) => {
+              const touch = e.touches[0];
+              const startY = (e.currentTarget as any).touchStartY;
+              const currentY = touch.clientY;
+              const diff = currentY - startY;
+
+              // Only allow downward swipes
+              if (diff > 0) {
+                e.currentTarget.style.transform = `translateY(${diff}px)`;
+                e.currentTarget.style.transition = 'none';
+              }
+            }}
+            onTouchEnd={(e) => {
+              const startY = (e.currentTarget as any).touchStartY;
+              const endY = e.changedTouches[0].clientY;
+              const diff = endY - startY;
+
+              // If swiped down more than 100px, close the modal
+              if (diff > 100) {
+                handleSourceCancel();
+              } else {
+                // Reset position
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.transition = 'transform 0.3s ease-out';
+              }
+            }}
+          >
+            {/* Drag Handle */}
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
+            </div>
+
             {/* Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+            <div className="px-6 pt-2 pb-4 border-b border-gray-100">
               <h3 className="text-xl font-semibold text-gray-900 text-center">Upload Photo</h3>
               <p className="text-sm text-gray-500 text-center mt-1">Choose a source for your image</p>
             </div>
