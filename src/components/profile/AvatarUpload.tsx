@@ -107,6 +107,7 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
 
   const handleCropComplete = async (croppedFile: File) => {
     setIsUploading(true);
+    setShowSourceModal(false); // Close source modal on Android
 
     try {
       // Create a local preview immediately
@@ -201,28 +202,58 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
 
       {/* Android Source Selection Modal */}
       {showSourceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">Choose Image Source</h3>
-            <div className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm animate-slide-up">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+              <h3 className="text-xl font-semibold text-gray-900 text-center">Upload Photo</h3>
+              <p className="text-sm text-gray-500 text-center mt-1">Choose a source for your image</p>
+            </div>
+
+            {/* Options */}
+            <div className="p-6 space-y-3">
               <button
                 type="button"
                 onClick={(e) => handleSourceSelect(e, 'camera')}
-                className="w-full px-4 py-3 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition text-center"
+                className="w-full flex items-center gap-4 px-5 py-4 bg-gradient-to-r from-[#0e62ae] to-[#0a4d8a] text-white rounded-xl hover:from-[#094e8b] hover:to-[#073a6a] active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30"
               >
-                Take Photo
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <div className="flex-1 text-left">
+                  <div className="font-semibold text-base">Take Photo</div>
+                  <div className="text-xs text-blue-100 mt-0.5">Use your camera</div>
+                </div>
+                <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
+
               <button
                 type="button"
                 onClick={(e) => handleSourceSelect(e, 'gallery')}
-                className="w-full px-4 py-3 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition text-center"
+                className="w-full flex items-center gap-4 px-5 py-4 bg-white border-2 border-gray-200 text-gray-800 rounded-xl hover:border-[#0e62ae] hover:bg-blue-50 active:scale-[0.98] transition-all"
               >
-                Choose from Gallery
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <div className="flex-1 text-left">
+                  <div className="font-semibold text-base">Choose from Gallery</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Select existing photo</div>
+                </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
+            </div>
+
+            {/* Cancel Button */}
+            <div className="px-6 pb-6">
               <button
                 type="button"
                 onClick={handleSourceCancel}
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition text-center"
+                className="w-full px-4 py-3 text-gray-600 font-medium hover:bg-gray-50 active:bg-gray-100 rounded-xl transition-colors"
               >
                 Cancel
               </button>
@@ -230,6 +261,23 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes slide-up {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
 
       {/* Image Crop Modal */}
       {selectedImageSrc && (
