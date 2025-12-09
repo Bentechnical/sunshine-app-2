@@ -48,13 +48,21 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
     }
   };
 
-  const handleSourceSelect = (source: 'camera' | 'gallery') => {
+  const handleSourceSelect = (e: React.MouseEvent, source: 'camera' | 'gallery') => {
+    e.preventDefault();
+    e.stopPropagation();
     setShowSourceModal(false);
     if (source === 'camera') {
       cameraInputRef.current?.click();
     } else {
       fileInputRef.current?.click();
     }
+  };
+
+  const handleSourceCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowSourceModal(false);
   };
 
   // Expose handleClick to parent component via ref
@@ -88,9 +96,12 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
     await new Promise(resolve => setTimeout(resolve, 100));
     setIsUploading(false);
 
-    // Reset the file input so the same file can be selected again
+    // Reset both file inputs so the same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
     }
   };
 
@@ -196,21 +207,21 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => handleSourceSelect('camera')}
+                onClick={(e) => handleSourceSelect(e, 'camera')}
                 className="w-full px-4 py-3 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition text-center"
               >
                 Take Photo
               </button>
               <button
                 type="button"
-                onClick={() => handleSourceSelect('gallery')}
+                onClick={(e) => handleSourceSelect(e, 'gallery')}
                 className="w-full px-4 py-3 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition text-center"
               >
                 Choose from Gallery
               </button>
               <button
                 type="button"
-                onClick={() => setShowSourceModal(false)}
+                onClick={handleSourceCancel}
                 className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition text-center"
               >
                 Cancel

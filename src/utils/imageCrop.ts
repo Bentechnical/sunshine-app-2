@@ -21,61 +21,66 @@ export async function getCroppedImg(
   pixelCrop: CroppedArea,
   maxWidth: number = 1000
 ): Promise<File> {
-  const image = await createImage(imageSrc);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  try {
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
-  if (!ctx) {
-    throw new Error('Could not get canvas context');
-  }
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
 
-  // Calculate dimensions maintaining aspect ratio
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
+    // Calculate dimensions maintaining aspect ratio
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
 
-  // Set canvas size to the cropped area
-  const cropWidth = pixelCrop.width * scaleX;
-  const cropHeight = pixelCrop.height * scaleY;
+    // Set canvas size to the cropped area
+    const cropWidth = pixelCrop.width * scaleX;
+    const cropHeight = pixelCrop.height * scaleY;
 
-  // Scale down if needed
-  const scale = Math.min(maxWidth / cropWidth, 1);
-  canvas.width = cropWidth * scale;
-  canvas.height = cropHeight * scale;
+    // Scale down if needed
+    const scale = Math.min(maxWidth / cropWidth, 1);
+    canvas.width = cropWidth * scale;
+    canvas.height = cropHeight * scale;
 
-  // Draw the cropped image
-  ctx.drawImage(
-    image,
-    pixelCrop.x * scaleX,
-    pixelCrop.y * scaleY,
-    cropWidth,
-    cropHeight,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-  // Convert canvas to blob then to File
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error('Canvas is empty'));
-          return;
-        }
-
-        // Create a File object from the blob
-        const file = new File([blob], `cropped-${Date.now()}.jpg`, {
-          type: 'image/jpeg',
-          lastModified: Date.now(),
-        });
-
-        resolve(file);
-      },
-      'image/jpeg',
-      0.92 // Quality
+    // Draw the cropped image
+    ctx.drawImage(
+      image,
+      pixelCrop.x * scaleX,
+      pixelCrop.y * scaleY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      canvas.width,
+      canvas.height
     );
-  });
+
+    // Convert canvas to blob then to File
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Canvas is empty'));
+            return;
+          }
+
+          // Create a File object from the blob
+          const file = new File([blob], `cropped-${Date.now()}.jpg`, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+
+          resolve(file);
+        },
+        'image/jpeg',
+        0.92 // Quality
+      );
+    });
+  } catch (error) {
+    console.error('Error in getCroppedImg:', error);
+    throw error;
+  }
 }
 
 /**

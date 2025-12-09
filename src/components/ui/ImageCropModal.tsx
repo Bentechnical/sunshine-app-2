@@ -43,15 +43,24 @@ export default function ImageCropModal({
     e.preventDefault();
     e.stopPropagation();
 
-    if (!croppedAreaPixels) return;
+    if (!croppedAreaPixels) {
+      console.error('No cropped area pixels available');
+      return;
+    }
 
     setIsProcessing(true);
     try {
+      console.log('Starting crop with:', { imageSrc, croppedAreaPixels });
       const croppedFile = await getCroppedImg(imageSrc, croppedAreaPixels);
+      console.log('Crop successful, file size:', croppedFile.size);
       onCropComplete(croppedFile);
     } catch (error) {
       console.error('Error cropping image:', error);
-      alert('Failed to crop image. Please try again.');
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      alert(`Failed to crop image. Please try again. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
