@@ -172,7 +172,7 @@ export default function EditProfileForm({
           // Mobile: manually scroll with offset to account for fixed header
           const rect = formElement.getBoundingClientRect();
           const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-          const targetY = rect.top + scrollTop - 100; // Offset to show form top below header
+          const targetY = rect.top + scrollTop - 10; // Offset to show form top below header
 
           window.scrollTo({
             top: targetY,

@@ -95,6 +95,7 @@ export default function ImageCropModal({
             crop={crop}
             zoom={zoom}
             aspect={1}
+            showGrid={false}
             onCropChange={onCropChange}
             onZoomChange={onZoomChange}
             onCropComplete={onCropCompleteCallback}
