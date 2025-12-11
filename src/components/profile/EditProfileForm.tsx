@@ -186,7 +186,7 @@ export default function EditProfileForm({
         scrollContainer = document.documentElement;
       }
 
-      const headerOffset = isMobile ? 60 : 20;
+      const headerOffset = isMobile ? 100 : 20;
 
       // iOS Safari requires special handling due to buggy getBoundingClientRect and scrollTo
       if (isIOS && isMobile) {
