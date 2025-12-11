@@ -104,6 +104,9 @@ export default function ImageCropModal({
                 width: '100%',
                 height: '100%',
               },
+              mediaStyle: {
+                opacity: 0.4,
+              },
             }}
           />
         </div>
@@ -112,10 +115,10 @@ export default function ImageCropModal({
         <div className="p-3 sm:p-4 border-t bg-white shrink-0">
           {/* Zoom Slider */}
           <div className="mb-3">
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-2">
               Zoom
             </label>
-            <div className="px-4 sm:px-0">
+            <div className="px-6 py-4 sm:px-0 sm:py-0">
               <input
                 type="range"
                 min={1}
@@ -123,7 +126,7 @@ export default function ImageCropModal({
                 step={0.1}
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                className="w-full h-3 sm:h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider touch-none"
                 disabled={isProcessing}
               />
             </div>
@@ -162,22 +165,41 @@ export default function ImageCropModal({
 
       {/* Custom styles for the slider */}
       <style jsx>{`
+        .slider {
+          touch-action: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+
         .slider::-webkit-slider-thumb {
           appearance: none;
-          width: 20px;
-          height: 20px;
+          width: 28px;
+          height: 28px;
           background: #0e62ae;
           cursor: pointer;
           border-radius: 50%;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
         }
 
         .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
+          width: 28px;
+          height: 28px;
           background: #0e62ae;
           cursor: pointer;
           border-radius: 50%;
           border: none;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (min-width: 640px) {
+          .slider::-webkit-slider-thumb {
+            width: 20px;
+            height: 20px;
+          }
+
+          .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+          }
         }
       `}</style>
     </div>
