@@ -165,28 +165,52 @@ export default function EditProfileForm({
   React.useEffect(() => {
     const scrollToTop = () => {
       const formElement = formTopRef.current;
-      if (formElement) {
-        const isMobile = window.innerWidth < 768; // md breakpoint
+      if (!formElement) return;
 
-        if (isMobile) {
-          // Mobile: manually scroll with offset to account for fixed header
-          const rect = formElement.getBoundingClientRect();
-          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-          const targetY = rect.top + scrollTop - 10; // Offset to show form top below header
-
-          window.scrollTo({
-            top: targetY,
-            behavior: 'smooth'
-          });
-        } else {
-          // Desktop: scroll within the scrollable container
-          formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      // Find the scrollable parent container (the main element with overflow-y-auto)
+      let scrollContainer: HTMLElement | null = formElement.parentElement;
+      while (scrollContainer) {
+        const overflowY = window.getComputedStyle(scrollContainer).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') {
+          break;
         }
+        scrollContainer = scrollContainer.parentElement;
+      }
+
+      // If no scrollable parent found, fall back to scrolling the window/document
+      if (!scrollContainer || scrollContainer === document.body || scrollContainer === document.documentElement) {
+        scrollContainer = document.documentElement;
+      }
+
+      const isMobile = window.innerWidth < 768; // md breakpoint
+      const headerOffset = isMobile ? 60 : 20; // Mobile: offset for fixed header (48px) + breathing room
+
+      if (isMobile) {
+        // Mobile: calculate position within the scroll container
+        const formRect = formElement.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const relativeTop = formRect.top - containerRect.top;
+        const targetScrollTop = scrollContainer.scrollTop + relativeTop - headerOffset;
+
+        scrollContainer.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
+      } else {
+        // Desktop: use scrollIntoView with offset
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+
+        // Apply additional offset
+        setTimeout(() => {
+          if (scrollContainer) {
+            scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - headerOffset);
+          }
+        }, 300); // Wait for smooth scroll to start
       }
     };
 
     // Small delay to ensure DOM is ready
-    setTimeout(scrollToTop, 100);
+    setTimeout(scrollToTop, 150);
   }, []);
 
   return (

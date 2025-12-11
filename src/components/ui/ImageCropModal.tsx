@@ -104,9 +104,6 @@ export default function ImageCropModal({
                 width: '100%',
                 height: '100%',
               },
-              mediaStyle: {
-                opacity: 0.4,
-              },
             }}
           />
         </div>
