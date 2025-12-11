@@ -167,6 +167,10 @@ export default function EditProfileForm({
       const formElement = formTopRef.current;
       if (!formElement) return;
 
+      // Detect iOS
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isMobile = window.innerWidth < 768;
+
       // Find the scrollable parent container (the main element with overflow-y-auto)
       let scrollContainer: HTMLElement | null = formElement.parentElement;
       while (scrollContainer) {
@@ -182,11 +186,31 @@ export default function EditProfileForm({
         scrollContainer = document.documentElement;
       }
 
-      const isMobile = window.innerWidth < 768; // md breakpoint
-      const headerOffset = isMobile ? 60 : 20; // Mobile: offset for fixed header (48px) + breathing room
+      const headerOffset = isMobile ? 60 : 20;
 
-      if (isMobile) {
-        // Mobile: calculate position within the scroll container
+      // iOS Safari requires special handling due to buggy getBoundingClientRect and scrollTo
+      if (isIOS && isMobile) {
+        // Force a reflow to get accurate measurements
+        void formElement.offsetHeight;
+
+        // Use requestAnimationFrame to ensure layout is complete
+        requestAnimationFrame(() => {
+          const formRect = formElement.getBoundingClientRect();
+          const containerRect = scrollContainer!.getBoundingClientRect();
+          const currentScrollTop = scrollContainer!.scrollTop;
+
+          // Calculate absolute position
+          const relativeTop = formRect.top - containerRect.top;
+          const targetScrollTop = currentScrollTop + relativeTop - headerOffset;
+
+          // iOS: Use instant scroll (smooth is buggy on iOS)
+          scrollContainer!.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'auto' // Use 'auto' instead of 'smooth' on iOS
+          });
+        });
+      } else if (isMobile) {
+        // Android and other mobile browsers
         const formRect = formElement.getBoundingClientRect();
         const containerRect = scrollContainer.getBoundingClientRect();
         const relativeTop = formRect.top - containerRect.top;
@@ -200,17 +224,17 @@ export default function EditProfileForm({
         // Desktop: use scrollIntoView with offset
         formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
 
-        // Apply additional offset
         setTimeout(() => {
           if (scrollContainer) {
             scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - headerOffset);
           }
-        }, 300); // Wait for smooth scroll to start
+        }, 300);
       }
     };
 
-    // Small delay to ensure DOM is ready
-    setTimeout(scrollToTop, 150);
+    // iOS needs more time for DOM to settle after component mount
+    const delay = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 250 : 150;
+    setTimeout(scrollToTop, delay);
   }, []);
 
   return (
