@@ -15,6 +15,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing userName or userType' }, { status: 400 });
     }
 
+    // Only send notifications on production site
+    const host = req.headers.get('host') || '';
+    const isProduction = host === 'sunshinedogs.app' || host === 'www.sunshinedogs.app';
+
+    if (!isProduction) {
+      console.log('[notify-new-user] 🚫 Skipping notification - not production environment (host:', host, ')');
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'Not production environment',
+        host
+      });
+    }
+
     // Get admin notification email(s) from environment variable
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAIL;
 

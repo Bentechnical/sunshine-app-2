@@ -3,7 +3,7 @@
 'use client';
 
 import React, { FormEvent, useRef, useState } from 'react';
-import AvatarUpload from '@/components/profile/AvatarUpload';
+import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpload';
 
 interface EditProfileFormProps {
   initialBio?: string | null;
@@ -158,11 +158,93 @@ export default function EditProfileForm({
     );
   };
 
+  const avatarUploadRef = useRef<AvatarUploadHandle>(null);
+  const formTopRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top of form when component mounts
+  React.useEffect(() => {
+    const scrollToTop = () => {
+      const formElement = formTopRef.current;
+      if (!formElement) return;
+
+      // Detect iOS
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isMobile = window.innerWidth < 768;
+
+      // Find the scrollable parent container (the main element with overflow-y-auto)
+      let scrollContainer: HTMLElement | null = formElement.parentElement;
+      while (scrollContainer) {
+        const overflowY = window.getComputedStyle(scrollContainer).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') {
+          break;
+        }
+        scrollContainer = scrollContainer.parentElement;
+      }
+
+      // If no scrollable parent found, fall back to scrolling the window/document
+      if (!scrollContainer || scrollContainer === document.body || scrollContainer === document.documentElement) {
+        scrollContainer = document.documentElement;
+      }
+
+      const headerOffset = isMobile ? 100 : 20;
+
+      // iOS Safari requires special handling due to buggy getBoundingClientRect and scrollTo
+      if (isIOS && isMobile) {
+        // Force a reflow to get accurate measurements
+        void formElement.offsetHeight;
+
+        // Use requestAnimationFrame to ensure layout is complete
+        requestAnimationFrame(() => {
+          const formRect = formElement.getBoundingClientRect();
+          const containerRect = scrollContainer!.getBoundingClientRect();
+          const currentScrollTop = scrollContainer!.scrollTop;
+
+          // Calculate absolute position
+          const relativeTop = formRect.top - containerRect.top;
+          const targetScrollTop = currentScrollTop + relativeTop - headerOffset;
+
+          // iOS: Use instant scroll (smooth is buggy on iOS)
+          scrollContainer!.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'auto' // Use 'auto' instead of 'smooth' on iOS
+          });
+        });
+      } else if (isMobile) {
+        // Android and other mobile browsers
+        const formRect = formElement.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const relativeTop = formRect.top - containerRect.top;
+        const targetScrollTop = scrollContainer.scrollTop + relativeTop - headerOffset;
+
+        scrollContainer.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
+      } else {
+        // Desktop: use scrollIntoView with offset
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+
+        setTimeout(() => {
+          if (scrollContainer) {
+            scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - headerOffset);
+          }
+        }, 300);
+      }
+    };
+
+    // iOS needs more time for DOM to settle after component mount
+    const delay = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 250 : 150;
+    setTimeout(scrollToTop, delay);
+  }, []);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-24 md:pb-20">
+      {/* Scroll anchor */}
+      <div ref={formTopRef} className="h-0" />
       <div className="flex items-center gap-4">
         <div className="relative w-24 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
           <AvatarUpload
+            ref={avatarUploadRef}
             initialUrl={previewAvatarUrl}
             fallbackUrl="https://via.placeholder.com/100"
             onUpload={(url: string) => {
@@ -173,7 +255,12 @@ export default function EditProfileForm({
             altText="Profile Picture"
           />
         </div>
-        <span className="font-medium">Change Profile Picture</span>
+        <span
+          className="font-medium text-blue-600 cursor-pointer hover:text-blue-700 hover:underline"
+          onClick={() => avatarUploadRef.current?.triggerClick()}
+        >
+          Change Profile Picture
+        </span>
       </div>
 
       <div>
@@ -433,14 +520,17 @@ export default function EditProfileForm({
         </label>
       </div>
 
-      <button
-        type="submit"
-        className="w-full py-2 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition"
-      >
-        Save Changes
-      </button>
-
       {error && <p className="text-red-600 mt-2">{error}</p>}
+
+      {/* Sticky Submit Button - Fixed at bottom on mobile, sticky within container on desktop */}
+      <div className="md:sticky md:bottom-0 fixed bottom-[72px] left-0 right-0 md:left-auto md:right-auto bg-white border-t shadow-2xl md:shadow-md p-4 z-30">
+        <button
+          type="submit"
+          className="w-full py-3 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition font-semibold"
+        >
+          Save Changes
+        </button>
+      </div>
     </form>
   );
 }

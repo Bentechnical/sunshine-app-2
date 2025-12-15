@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import AvatarUpload from '@/components/profile/AvatarUpload';
+import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpload';
 
 interface EditDogProfileProps {
   onSaveComplete?: () => void;
@@ -27,6 +27,7 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const hasFetchedDog = useRef(false);
+  const avatarUploadRef = useRef<AvatarUploadHandle>(null);
 
   useEffect(() => {
     if (!userId || hasFetchedDog.current) return;
@@ -124,6 +125,7 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
         <div className="flex items-center gap-4">
           <div className="relative w-24 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
             <AvatarUpload
+              ref={avatarUploadRef}
               initialUrl={form.dog_picture_url}
               fallbackUrl="/images/default_dog.png"
               altText="Dog Profile Picture"
@@ -133,7 +135,12 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
               }}
             />
           </div>
-          <span className="font-medium">Change Dog Picture</span>
+          <span
+          className="font-medium text-blue-600 cursor-pointer hover:text-blue-700 hover:underline"
+          onClick={() => avatarUploadRef.current?.triggerClick()}
+        >
+          Change Dog Picture
+        </span>
         </div>
 
         <div>
@@ -174,7 +181,8 @@ export default function EditDogProfile({ onSaveComplete }: EditDogProfileProps) 
 
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          className="w-full py-3 px-4 bg-[#0e62ae] text-white rounded-md hover:bg-[#094e8b] transition font-semibold"
+
           disabled={isUploading}
         >
           {isUploading ? 'Uploading...' : 'Save Dog Profile'}

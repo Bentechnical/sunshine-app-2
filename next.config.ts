@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    domains: ['img.clerk.com', 'rodqnqzfjixznlblnlpe.supabase.co'],
+    domains: ['img.clerk.com', 'rodqnqzfjixznlblnlpe.supabase.co', 'gwuqfhpkncwzykhlcvcp.supabase.co'],
   },
   webpack: (config) => {
     // Suppress known dev-only warnings from supabase realtime client
