@@ -7,6 +7,22 @@
 
 ---
 
+## Architectural Decisions Log
+
+Decisions made during pre-implementation review (March 2026):
+
+| Decision | Detail |
+|----------|--------|
+| Channel ID storage | `channel_id` stored directly on `chat_requests` — no separate conversations table |
+| `appointment_chats` fate | Retired for new chats. Existing rows kept as read-only historical data. Admin oversight migrated to query `chat_requests` |
+| `dog_id` on chat requests | Always populated. Volunteer-initiated requests auto-populate from volunteer's dog profile |
+| Appointment cancellation | Does NOT close the Stream channel. Chat stays open for rescheduling |
+| Duplicate chat prevention | DB constraint (same-direction pending) + application-layer check (both directions, including accepted) |
+| 30-day decline hide | UI filter only. `responded_at` WHERE `status='declined'` serves as the timestamp |
+| Branch strategy | Entire implementation on `chat-based-scheduling` branch. No partial deploys to production |
+
+---
+
 ## Executive Summary
 
 This document outlines the complete migration from availability-based appointment scheduling to a chat-based, bidirectional matching system. The redesign removes the rigid 12-week recurring availability system in favor of flexible, conversational coordination between volunteers and individuals.
@@ -121,20 +137,46 @@ DROP COLUMN is_browsable;
 
 #### Script 2: Create Chat Requests Table
 
+**Architectural note:** This table serves as the single source of truth for the entire
+conversation lifecycle — from initial request through active chat to appointment scheduling.
+It replaces the role previously played by `appointment_chats` for new-style chats.
+`appointment_chats` is retired for new records (kept as read-only historical data).
+
 ```sql
 -- File: scripts/migration_02_create_chat_requests.sql
 
 CREATE TABLE chat_requests (
+
+  -- Identity
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+  -- Participants
   requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   dog_id UUID REFERENCES dogs(id) ON DELETE SET NULL,
+  -- dog_id is always populated in practice (derived from volunteer profile if volunteer initiates).
+  -- Nullable at DB level only for safety during edge cases in profile setup.
+
+  -- Request state
   status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'declined')) DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   responded_at TIMESTAMPTZ,
+  -- responded_at doubles as the decline timestamp for 30-day search hiding (WHERE status='declined')
 
-  -- Prevent duplicate pending requests
-  CONSTRAINT unique_pending_request UNIQUE (requester_id, recipient_id, status)
+  -- Stream Chat channel (populated when request is accepted)
+  channel_id TEXT,
+  channel_created_at TIMESTAMPTZ,
+  channel_closed_at TIMESTAMPTZ,
+  -- channel_closed_at is NOT set on appointment cancellation — chat stays open for rescheduling.
+  -- Only set when both parties are done, or an admin closes the chat.
+
+  -- Admin monitoring (updated by Stream webhook on each incoming message)
+  last_message_at TIMESTAMPTZ,
+  message_count INTEGER DEFAULT 0,
+  unread_count_admin INTEGER DEFAULT 0,
+
+  -- Prevent duplicate pending requests between the same two users (either direction checked at app layer)
+  CONSTRAINT unique_pending_request UNIQUE (requester_id, recipient_id)
     WHERE status = 'pending'
 );
 
@@ -142,16 +184,32 @@ CREATE TABLE chat_requests (
 CREATE INDEX idx_chat_requests_recipient ON chat_requests(recipient_id, status);
 CREATE INDEX idx_chat_requests_requester ON chat_requests(requester_id, status);
 CREATE INDEX idx_chat_requests_created ON chat_requests(created_at DESC);
+CREATE INDEX idx_chat_requests_channel ON chat_requests(channel_id) WHERE channel_id IS NOT NULL;
 
 -- Comments
 COMMENT ON TABLE chat_requests IS
-  'Tracks chat connection requests between users (bidirectional: individual→volunteer or volunteer→individual)';
-COMMENT ON COLUMN chat_requests.requester_id IS
-  'User who initiated the chat request';
-COMMENT ON COLUMN chat_requests.recipient_id IS
-  'User who needs to accept/decline the request';
+  'Single source of truth for the conversation lifecycle: request → accepted chat → appointment scheduling. Replaces appointment_chats for new chats.';
 COMMENT ON COLUMN chat_requests.dog_id IS
-  'Optional: if request is about a specific dog (null if volunteer initiates)';
+  'The dog involved. Always populated: set to the clicked dog (individual-initiated) or the volunteer''s dog (volunteer-initiated).';
+COMMENT ON COLUMN chat_requests.responded_at IS
+  'When the request was accepted or declined. Used as decline timestamp for 30-day search hiding.';
+COMMENT ON COLUMN chat_requests.channel_id IS
+  'Stream Chat channel ID. Null until request is accepted.';
+COMMENT ON COLUMN chat_requests.channel_closed_at IS
+  'Set only when conversation is fully closed. Appointment cancellation does NOT close the channel.';
+```
+
+**Application-layer duplicate check (enforced in `/api/chat/request`):**
+Before inserting, verify no record exists in either direction with `status IN ('pending', 'accepted')`:
+```sql
+SELECT id FROM chat_requests
+WHERE status IN ('pending', 'accepted')
+  AND (
+    (requester_id = $user_a AND recipient_id = $user_b)
+    OR
+    (requester_id = $user_b AND recipient_id = $user_a)
+  )
+LIMIT 1;
 ```
 
 **Rollback:**
@@ -457,14 +515,27 @@ COMMENT ON FUNCTION get_dogs_for_individual IS
 3. Delete availability-related components:
    - `src/components/availability/TemplateStyleAvailability.tsx`
    - `src/components/availability/CustomTimePicker.tsx`
+   - `src/components/availability/VolunteerAvailability.tsx`
+   - `src/components/admin/AdminAvailabilities.tsx`
+   - `src/components/messaging/MessagingTabOld.tsx` (already orphaned)
 4. Delete availability-related API routes:
    - `src/app/api/admin/availabilities/route.ts`
-5. Remove availability management from volunteer dashboard:
+5. Remove availability-related navigation entries:
+   - Remove `'availabilities'` from `src/types/navigation.ts`
+   - Remove "Manage Availability" tab from volunteer dashboard nav
+6. Remove unused packages (run after confirming no other usage):
+   - `npm uninstall @fullcalendar/react @fullcalendar/daygrid @fullcalendar/timegrid @fullcalendar/interaction`
+   - `npm uninstall rrule`
+   - (~800kb bundle reduction)
+7. Remove availability management from volunteer dashboard:
    - Edit `src/components/dashboard/DashboardHomeVolunteer.tsx`
-   - Remove "Manage Availability" tab
-6. Update `src/components/dog/DogProfile.tsx`:
+8. Update `src/components/dog/DogProfile.tsx`:
    - Remove booking modal logic (~150 lines)
    - Keep component shell for Phase 2
+9. Retire `appointment_chats` for new records:
+   - No schema changes needed — existing rows preserved as historical data
+   - Update `AdminChats.tsx` to query `chat_requests WHERE status='accepted'` instead
+   - Update Stream webhook to write monitoring fields to `chat_requests` instead of `appointment_chats`
 
 **Testing:**
 - [ ] No TypeScript errors after deletions
