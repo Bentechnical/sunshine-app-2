@@ -254,7 +254,7 @@ DROP TABLE appointment_availability;
 ---
 
 ### Script 06 — Add snooze columns + create new search functions
-**Status:** [ ] Dev  [ ] Prod
+**Status:** [x] Dev  [ ] Prod
 
 Adds the `snoozed_by` / `snoozed_until` columns for the unified snooze system, then creates both search functions with 30-day decline hiding **and** snooze filtering built in.
 

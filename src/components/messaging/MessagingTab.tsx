@@ -379,18 +379,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   };
 
 
-  // Render loading state
-  if (connectionStatus === 'connecting') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Connecting to chat...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Render error state
   if (error) {
     return (
@@ -410,9 +398,16 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     );
   }
 
-  // If we don't have a client yet, don't render anything
-  if (!client) {
-    return null;
+  // Show spinner whenever the client isn't ready yet (connecting, disconnected, or not yet initialized)
+  if (!client || connectionStatus !== 'connected') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Connecting to chat...</p>
+        </div>
+      </div>
+    );
   }
 
   const chatContent = (
