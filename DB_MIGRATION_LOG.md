@@ -715,7 +715,7 @@ ALTER TABLE chat_requests
 | 02 | Create chat_requests table | [x] | [ ] |
 | 03 | Modify appointments table | [x] | [ ] |
 | 04 | RLS policies for chat_requests | [x] | [ ] |
-| 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [ ] | [ ] |
+| 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [x] | [ ] |
 | 07 | Fix unique constraint (allow re-requesting) | [ ] | [ ] |
 | 08 | Fix RLS policies (auth.jwt instead of auth.uid) | [x] | [ ] |
 | 05 | **DESTRUCTIVE** — Remove appointment_availability table | [ ] | [ ] |

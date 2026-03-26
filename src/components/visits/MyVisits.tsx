@@ -47,6 +47,8 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
           availability_id,
           location_type,
           location_details,
+          notes,
+          chat_request_id,
           individual:individual_id (
             id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns, bio
           ),
