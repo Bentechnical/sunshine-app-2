@@ -50,6 +50,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for active snooze between these two users (either direction)
+    const { data: snoozeCheck } = await supabase
+      .from('chat_requests')
+      .select('id')
+      .or(
+        `and(requester_id.eq.${userId},recipient_id.eq.${recipient_id}),and(requester_id.eq.${recipient_id},recipient_id.eq.${userId})`
+      )
+      .gt('snoozed_until', new Date().toISOString())
+      .limit(1);
+
+    if (snoozeCheck && snoozeCheck.length > 0) {
+      return NextResponse.json(
+        { error: 'You cannot send a chat request to this user at this time.' },
+        { status: 403 }
+      );
+    }
+
     // Check for existing pending or active requests in either direction
     const [fwd, rev] = await Promise.all([
       supabase

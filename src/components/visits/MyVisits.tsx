@@ -37,14 +37,16 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
       let query = supabase
         .from('appointments')
         .select(`
-          id, 
-          individual_id, 
-          volunteer_id, 
-          start_time, 
-          end_time, 
-          status, 
+          id,
+          individual_id,
+          volunteer_id,
+          start_time,
+          end_time,
+          status,
           cancellation_reason,
           availability_id,
+          location_type,
+          location_details,
           individual:individual_id (
             id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns, bio
           ),

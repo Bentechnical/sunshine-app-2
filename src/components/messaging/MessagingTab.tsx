@@ -8,11 +8,86 @@ import {
   MessageList,
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft, X, AlertTriangle } from 'lucide-react';
 import { useUnreadCount } from '@/contexts/UnreadCountContext';
 import { useUser } from '@clerk/nextjs';
 import AppointmentPanel from '@/components/appointments/AppointmentPanel';
 import styles from './MessagingTab.module.css';
+
+interface CloseChatModalProps {
+  onClose: () => void;
+  onConfirm: (snooze: boolean) => void;
+  loading: boolean;
+}
+
+function CloseChatModal({ onClose, onConfirm, loading }: CloseChatModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <AlertTriangle size={16} className="text-gray-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Close Conversation</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Choose how to close this chat</p>
+            </div>
+          </div>
+          <button onClick={onClose} disabled={loading} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <p className="text-sm text-gray-600">
+            This will archive the conversation. Either of you can start a new chat request at any time to reconnect.
+          </p>
+
+          {/* Close only */}
+          <button
+            onClick={() => onConfirm(false)}
+            disabled={loading}
+            className="w-full flex items-start gap-3 px-4 py-3 border border-gray-200 rounded-xl text-left hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <div className="mt-0.5 w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <X size={11} className="text-gray-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Close Chat</p>
+              <p className="text-xs text-gray-500 mt-0.5">Archive this conversation. The other person can still send a new request.</p>
+            </div>
+          </button>
+
+          {/* Close and snooze */}
+          <button
+            onClick={() => onConfirm(true)}
+            disabled={loading}
+            className="w-full flex items-start gap-3 px-4 py-3 border border-orange-200 rounded-xl text-left hover:bg-orange-50 disabled:opacity-50 transition-colors"
+          >
+            <div className="mt-0.5 w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+              <AlertTriangle size={11} className="text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Close & Snooze for 30 Days</p>
+              <p className="text-xs text-gray-500 mt-0.5">Closes the chat and hides this person from your search results. They will not be able to send you new chat requests for 30 days.</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface ChatData {
   appointmentId: number;
@@ -43,6 +118,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [activeChatRequestId, setActiveChatRequestId] = useState<string | null>(null);
   const [closingChat, setClosingChat] = useState(false);
+  const [showCloseChatModal, setShowCloseChatModal] = useState(false);
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -166,12 +242,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       // Update shared context with reliable MessagingTab data
       updateUnreadFromChannels(enrichedChannels);
 
-      // Restore active channel if it exists
-      if (activeChannelId && client) {
-        const channel = client.channel('messaging', activeChannelId);
-        await channel.watch();
-        setActiveChannel(channel);
-      }
     } catch (err) {
       console.error('Failed to load channels:', err);
       setError('Failed to load conversations');
@@ -266,25 +336,29 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
 
-  // Close a chat_request channel
-  const handleCloseChat = useCallback(async () => {
+  // Open the close chat modal
+  const handleCloseChat = useCallback(() => {
     if (!activeChatRequestId) return;
-    if (!window.confirm('Close this conversation? Either participant can start a new chat request to reconnect.')) return;
+    setShowCloseChatModal(true);
+  }, [activeChatRequestId]);
 
+  // Called from the modal with snooze flag
+  const handleCloseChatConfirm = useCallback(async (snooze: boolean) => {
+    if (!activeChatRequestId) return;
     setClosingChat(true);
     try {
       const res = await fetch('/api/chat-request/close', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_request_id: activeChatRequestId }),
+        body: JSON.stringify({ chat_request_id: activeChatRequestId, snooze }),
       });
       if (res.ok) {
+        setShowCloseChatModal(false);
         setActiveChannel(null);
         setActiveChannelId(null);
         setActiveChatRequestId(null);
         setViewMode('channelList');
         onActiveChatChange?.(false);
-        // Reload channel list
         loadChannels();
       }
     } catch (err) {
@@ -606,6 +680,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   return (
     <Chat client={client}>
       {chatContent}
+      {showCloseChatModal && (
+        <CloseChatModal
+          onClose={() => setShowCloseChatModal(false)}
+          onConfirm={handleCloseChatConfirm}
+          loading={closingChat}
+        />
+      )}
     </Chat>
   );
 }

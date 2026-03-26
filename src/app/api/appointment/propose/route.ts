@@ -120,13 +120,10 @@ export async function POST(request: NextRequest) {
     if (chatRequest.channel_id) {
       try {
         const proposerName = userId === requester.id ? requester.first_name : recipient.first_name;
-        const date = new Date(start_time);
-        const dateStr = date.toLocaleDateString('en-US', {
-          weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-        });
-        const timeStr = date.toLocaleTimeString('en-US', {
-          hour: 'numeric', minute: '2-digit', hour12: true
-        });
+        const tz = 'America/New_York';
+        const d = new Date(start_time);
+        const dateStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(d);
+        const timeStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
 
         const locationLabel =
           location_type === 'individual_address' ? "Individual's home" :

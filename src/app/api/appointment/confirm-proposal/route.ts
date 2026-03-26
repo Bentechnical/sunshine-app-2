@@ -73,13 +73,10 @@ export async function POST(request: NextRequest) {
     // Post system message to Stream channel
     if (chatRequest.channel_id) {
       try {
-        const date = new Date(appointment.start_time);
-        const dateStr = date.toLocaleDateString('en-US', {
-          weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-        });
-        const timeStr = date.toLocaleTimeString('en-US', {
-          hour: 'numeric', minute: '2-digit', hour12: true
-        });
+        const tz = 'America/New_York';
+        const d = new Date(appointment.start_time);
+        const dateStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(d);
+        const timeStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
 
         const channel = streamChatServer.channel('messaging', chatRequest.channel_id);
         await channel.sendMessage({

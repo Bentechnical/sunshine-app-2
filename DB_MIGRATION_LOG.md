@@ -253,8 +253,33 @@ DROP TABLE appointment_availability;
 
 ---
 
-### Script 06 — Create new search functions
+### Script 06 — Add snooze columns + create new search functions
 **Status:** [ ] Dev  [ ] Prod
+
+Adds the `snoozed_by` / `snoozed_until` columns for the unified snooze system, then creates both search functions with 30-day decline hiding **and** snooze filtering built in.
+
+**Testing — inspect active snoozes:**
+```sql
+SELECT id, requester_id, recipient_id, snoozed_by, snoozed_until
+FROM chat_requests WHERE snoozed_until > NOW();
+```
+**Testing — remove a snooze (by chat_request id):**
+```sql
+UPDATE chat_requests SET snoozed_until = NULL, snoozed_by = NULL
+WHERE id = '<chat_request_id>';
+```
+
+```sql
+-- Add snooze columns first (functions below reference them)
+ALTER TABLE chat_requests
+  ADD COLUMN IF NOT EXISTS snoozed_by TEXT,
+  ADD COLUMN IF NOT EXISTS snoozed_until TIMESTAMPTZ;
+
+COMMENT ON COLUMN chat_requests.snoozed_by IS
+  'User ID of the participant who triggered the snooze.';
+COMMENT ON COLUMN chat_requests.snoozed_until IS
+  'Timestamp when the snooze expires. While active, the other party is hidden from search and blocked from new chat requests.';
+```
 
 ```sql
 -- Function: volunteers browse individuals
@@ -316,13 +341,20 @@ BEGIN
         AND status = 'declined'
         AND responded_at > NOW() - INTERVAL '30 days'
     )
+    -- Exclude individuals with an active snooze (either direction)
+    AND u.id NOT IN (
+      SELECT CASE WHEN requester_id = volunteer_user_id THEN recipient_id ELSE requester_id END
+      FROM chat_requests
+      WHERE (requester_id = volunteer_user_id OR recipient_id = volunteer_user_id)
+        AND snoozed_until > NOW()
+    )
   GROUP BY u.id, v.location_lng, v.location_lat
   ORDER BY distance_km ASC;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 COMMENT ON FUNCTION get_individuals_for_volunteer IS
-  'Returns individuals matching volunteer audience preferences within distance. Excludes recently declined users.';
+  'Returns individuals matching volunteer audience preferences within distance. Excludes recently declined and snoozed users.';
 
 ---
 
@@ -394,19 +426,29 @@ BEGIN
         AND status = 'declined'
         AND responded_at > NOW() - INTERVAL '30 days'
     )
+    -- Exclude volunteers with an active snooze (either direction)
+    AND v.id NOT IN (
+      SELECT CASE WHEN requester_id = individual_user_id THEN recipient_id ELSE requester_id END
+      FROM chat_requests
+      WHERE (requester_id = individual_user_id OR recipient_id = individual_user_id)
+        AND snoozed_until > NOW()
+    )
   GROUP BY d.id, v.id, u.location_lng, u.location_lat
   ORDER BY distance_km ASC;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 COMMENT ON FUNCTION get_dogs_for_individual IS
-  'Returns dogs matching individual audience categories within distance. No availability check. Excludes recently declined volunteers.';
+  'Returns dogs matching individual audience categories within distance. No availability check. Excludes recently declined and snoozed volunteers.';
 ```
 
 **Rollback:**
 ```sql
-DROP FUNCTION IF EXISTS get_individuals_for_volunteer(UUID, FLOAT);
-DROP FUNCTION IF EXISTS get_dogs_for_individual(UUID, FLOAT);
+DROP FUNCTION IF EXISTS get_individuals_for_volunteer(TEXT, FLOAT);
+DROP FUNCTION IF EXISTS get_dogs_for_individual(TEXT, FLOAT);
+ALTER TABLE chat_requests
+  DROP COLUMN IF EXISTS snoozed_by,
+  DROP COLUMN IF EXISTS snoozed_until;
 ```
 
 ---
@@ -471,6 +513,200 @@ WITH CHECK (
 
 ---
 
+### ~~Script 09~~ — Folded into Script 06
+**Status:** [ ] Dev  [ ] Prod
+
+Adds `snoozed_by` and `snoozed_until` columns to `chat_requests`, and updates both search functions to exclude snoozed users. This is the single snooze mechanism used by all hiding triggers (close-and-snooze, and future: decline-and-snooze).
+
+**Semantics:** Either participant can snooze the other. While a snooze is active, the snoozed party is hidden from the snoozer's search results, and cannot send new chat requests to the snoozer.
+
+**Testing — inspect active snoozes:**
+```sql
+SELECT id, requester_id, recipient_id, snoozed_by, snoozed_until
+FROM chat_requests
+WHERE snoozed_until > NOW();
+```
+
+**Testing — remove a snooze:**
+```sql
+UPDATE chat_requests
+SET snoozed_until = NULL, snoozed_by = NULL
+WHERE id = '<chat_request_id>';
+```
+
+```sql
+-- 1. Add columns
+ALTER TABLE chat_requests
+  ADD COLUMN IF NOT EXISTS snoozed_by TEXT,
+  ADD COLUMN IF NOT EXISTS snoozed_until TIMESTAMPTZ;
+
+COMMENT ON COLUMN chat_requests.snoozed_by IS
+  'User ID of the participant who triggered the snooze.';
+COMMENT ON COLUMN chat_requests.snoozed_until IS
+  'Timestamp when the snooze expires. While active, the snoozed party is hidden from search and blocked from new chat requests.';
+
+-- 2. Update get_dogs_for_individual to also exclude snoozed volunteers
+CREATE OR REPLACE FUNCTION get_dogs_for_individual(
+  individual_user_id TEXT,
+  max_distance_km FLOAT DEFAULT 50
+)
+RETURNS TABLE (
+  dog_id INTEGER,
+  dog_name TEXT,
+  dog_breed TEXT,
+  dog_age INTEGER,
+  dog_bio TEXT,
+  dog_picture_url TEXT,
+  volunteer_id TEXT,
+  volunteer_first_name TEXT,
+  volunteer_last_initial TEXT,
+  volunteer_city TEXT,
+  general_availability TEXT,
+  distance_km DOUBLE PRECISION,
+  matching_categories TEXT[]
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    d.id as dog_id,
+    d.dog_name::TEXT as dog_name,
+    d.dog_breed::TEXT as dog_breed,
+    d.dog_age as dog_age,
+    d.dog_bio::TEXT as dog_bio,
+    d.dog_picture_url::TEXT as dog_picture_url,
+    v.id as volunteer_id,
+    v.first_name::TEXT as volunteer_first_name,
+    LEFT(v.last_name, 1) as volunteer_last_initial,
+    v.city::TEXT as volunteer_city,
+    v.general_availability::TEXT,
+    ST_Distance(
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      ST_MakePoint(u.location_lng, u.location_lat)::geography
+    ) / 1000 as distance_km,
+    ARRAY_AGG(DISTINCT ac.name) as matching_categories
+  FROM dogs d
+  JOIN users v ON v.id = d.volunteer_id
+  CROSS JOIN users u
+  LEFT JOIN volunteer_audience_preferences vap ON vap.volunteer_id = v.id
+  LEFT JOIN individual_audience_tags iat ON iat.individual_id = individual_user_id
+  LEFT JOIN audience_categories ac ON ac.id = vap.category_id
+  WHERE d.status = 'approved'
+    AND v.status = 'approved'
+    AND v.role = 'volunteer'
+    AND u.id = individual_user_id
+    AND u.role = 'individual'
+    AND vap.category_id = iat.category_id
+    AND ST_DWithin(
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      ST_MakePoint(u.location_lng, u.location_lat)::geography,
+      max_distance_km * 1000
+    )
+    -- Exclude volunteers declined within 30 days
+    AND v.id NOT IN (
+      SELECT recipient_id FROM chat_requests
+      WHERE requester_id = individual_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+      UNION
+      SELECT requester_id FROM chat_requests
+      WHERE recipient_id = individual_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+    )
+    -- Exclude volunteers with an active snooze (either direction)
+    AND v.id NOT IN (
+      SELECT CASE WHEN requester_id = individual_user_id THEN recipient_id ELSE requester_id END
+      FROM chat_requests
+      WHERE (requester_id = individual_user_id OR recipient_id = individual_user_id)
+        AND snoozed_until > NOW()
+    )
+  GROUP BY d.id, v.id, u.location_lng, u.location_lat
+  ORDER BY distance_km ASC;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- 3. Update get_individuals_for_volunteer to also exclude snoozed individuals
+CREATE OR REPLACE FUNCTION get_individuals_for_volunteer(
+  volunteer_user_id TEXT,
+  max_distance_km FLOAT DEFAULT 50
+)
+RETURNS TABLE (
+  id TEXT,
+  first_name TEXT,
+  last_initial TEXT,
+  city TEXT,
+  pronouns TEXT,
+  bio TEXT,
+  profile_picture_url TEXT,
+  distance_km DOUBLE PRECISION,
+  matching_categories TEXT[]
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    u.id,
+    u.first_name,
+    LEFT(u.last_name, 1) as last_initial,
+    u.city::TEXT,
+    u.pronouns::TEXT,
+    u.bio::TEXT,
+    u.profile_image::TEXT as profile_picture_url,
+    ST_Distance(
+      ST_MakePoint(u.location_lng, u.location_lat)::geography,
+      ST_MakePoint(v.location_lng, v.location_lat)::geography
+    ) / 1000 as distance_km,
+    ARRAY_AGG(DISTINCT ac.name) as matching_categories
+  FROM users u
+  CROSS JOIN users v
+  LEFT JOIN individual_audience_tags iat ON iat.individual_id = u.id
+  LEFT JOIN volunteer_audience_preferences vap ON vap.volunteer_id = volunteer_user_id
+  LEFT JOIN audience_categories ac ON ac.id = iat.category_id
+  WHERE u.role = 'individual'
+    AND u.status = 'approved'
+    AND u.is_browsable = TRUE
+    AND v.id = volunteer_user_id
+    AND v.role = 'volunteer'
+    AND iat.category_id = vap.category_id
+    AND ST_DWithin(
+      ST_MakePoint(u.location_lng, u.location_lat)::geography,
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      max_distance_km * 1000
+    )
+    -- Exclude users declined within 30 days
+    AND u.id NOT IN (
+      SELECT recipient_id FROM chat_requests
+      WHERE requester_id = volunteer_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+      UNION
+      SELECT requester_id FROM chat_requests
+      WHERE recipient_id = volunteer_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+    )
+    -- Exclude individuals with an active snooze (either direction)
+    AND u.id NOT IN (
+      SELECT CASE WHEN requester_id = volunteer_user_id THEN recipient_id ELSE requester_id END
+      FROM chat_requests
+      WHERE (requester_id = volunteer_user_id OR recipient_id = volunteer_user_id)
+        AND snoozed_until > NOW()
+    )
+  GROUP BY u.id, v.location_lng, v.location_lat
+  ORDER BY distance_km ASC;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+```
+
+**Rollback:**
+```sql
+ALTER TABLE chat_requests
+  DROP COLUMN IF EXISTS snoozed_by,
+  DROP COLUMN IF EXISTS snoozed_until;
+-- Re-run Script 06 to restore the functions without snooze filtering.
+```
+
+---
+
 ## Summary Table
 
 | Script | Description | Dev | Prod |
@@ -479,7 +715,7 @@ WITH CHECK (
 | 02 | Create chat_requests table | [x] | [ ] |
 | 03 | Modify appointments table | [x] | [ ] |
 | 04 | RLS policies for chat_requests | [x] | [ ] |
-| 06 | Create new search functions | [x] | [ ] |
+| 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [ ] | [ ] |
 | 07 | Fix unique constraint (allow re-requesting) | [ ] | [ ] |
 | 08 | Fix RLS policies (auth.jwt instead of auth.uid) | [x] | [ ] |
 | 05 | **DESTRUCTIVE** — Remove appointment_availability table | [ ] | [ ] |

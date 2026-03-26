@@ -16,6 +16,8 @@ export interface Appointment {
   status: string;
   cancellation_reason?: string;
   availability_id?: number;
+  location_type?: string;
+  location_details?: string | null;
   volunteer?: {
     id: string;
     first_name: string;
@@ -316,17 +318,24 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </div>
             )}
 
-            {/* Location info */}
-            {location && (
+            {/* Location info — prefer appointment-specific location for new chat-based appointments */}
+            {(appointment.location_type || location) && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="text-gray-700">
                   <div className="flex items-center mb-2">
                     <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-600">
-                      {role === 'individual' ? 'Your Location' : 'Requester\'s Location'}:
-                    </span>
+                    <span className="text-sm font-medium text-gray-600">Visit Location:</span>
                   </div>
-                  <p className="ml-6 text-sm text-gray-700">{location}</p>
+                  <p className="ml-6 text-sm text-gray-700">
+                    {appointment.location_type
+                      ? (() => {
+                          const base =
+                            appointment.location_type === 'individual_address' ? "Individual's home" :
+                            appointment.location_type === 'public' ? 'Public place' : 'Other';
+                          return appointment.location_details ? `${base} — ${appointment.location_details}` : base;
+                        })()
+                      : location}
+                  </p>
                 </div>
                 {/* Reason for Visit */}
                 {appointment.individual?.bio && (
@@ -345,8 +354,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </div>
             )}
 
-            {/* Reason for Visit - standalone section when no location */}
-            {!location && appointment.individual?.bio && (
+            {/* Reason for Visit - standalone section when no location of any kind */}
+            {!appointment.location_type && !location && appointment.individual?.bio && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="text-gray-700">
                   <div className="flex items-center mb-2">

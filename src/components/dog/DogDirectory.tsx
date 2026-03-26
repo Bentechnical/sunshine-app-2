@@ -38,17 +38,33 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
     const fetchDogs = async () => {
       if (!user?.id) return;
 
-      const { data, error } = await supabase.rpc('get_dogs_for_individual', {
-        individual_user_id: user.id,
-      });
+      const [dogsRes, snoozeRes] = await Promise.all([
+        supabase.rpc('get_dogs_for_individual', { individual_user_id: user.id }),
+        supabase
+          .from('chat_requests')
+          .select('requester_id, recipient_id')
+          .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`)
+          .gt('snoozed_until', new Date().toISOString()),
+      ]);
 
-      if (error) {
-        console.error('Error fetching dogs:', error.message);
+      if (dogsRes.error) {
+        console.error('Error fetching dogs:', dogsRes.error.message);
         setLoading(false);
         return;
       }
 
-      setDogs(data ?? []);
+      // Build a set of snoozed volunteer IDs (the other party in each snooze record)
+      const snoozedIds = new Set(
+        (snoozeRes.data ?? []).map(r =>
+          r.requester_id === user.id ? r.recipient_id : r.requester_id
+        )
+      );
+
+      const filtered = (dogsRes.data ?? []).filter(
+        (d: DogResult) => !snoozedIds.has(d.volunteer_id)
+      );
+
+      setDogs(filtered);
       setLoading(false);
     };
 

@@ -60,8 +60,13 @@ export default function ScheduleAppointmentModal({
     setError(null);
 
     try {
-      // Build ISO datetime without timezone (browser local time)
-      const startTime = `${date}T${time}:00`;
+      // Build a proper UTC ISO string from the local date + time selection.
+      // Parsing as "YYYY-MM-DDTHH:mm:ss" (no TZ) treats it as local time in the browser,
+      // which is correct since appointment times are entered in the user's local timezone.
+      const [year, month, day] = date.split('-').map(Number);
+      const [hours, minutes] = time.split(':').map(Number);
+      const localDate = new Date(year, month - 1, day, hours, minutes, 0);
+      const startTime = localDate.toISOString();
 
       const res = await fetch('/api/appointment/propose', {
         method: 'POST',

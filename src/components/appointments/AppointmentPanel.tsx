@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { CalendarPlus, CheckCircle, Clock, MapPin, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { CalendarPlus, CheckCircle, Clock, MapPin, ChevronDown, ChevronUp, Pencil, AlertTriangle, X } from 'lucide-react';
+import { formatAppointmentDate, formatAppointmentTime } from '@/utils/timeZone';
 import ScheduleAppointmentModal from './ScheduleAppointmentModal';
 
 interface Appointment {
@@ -16,6 +17,97 @@ interface Appointment {
   confirmed_at: string | null;
 }
 
+function formatDateFull(iso: string) {
+  return formatAppointmentDate(iso);
+}
+
+interface AppointmentCancelModalProps {
+  startTime: string;
+  cancelReason: string;
+  onCancelReasonChange: (v: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+  submitting: boolean;
+}
+
+function AppointmentCancelModal({ startTime, cancelReason, onCancelReasonChange, onClose, onSubmit, submitting }: AppointmentCancelModalProps) {
+  const [touched, setTouched] = useState(false);
+  const isEmpty = !cancelReason.trim();
+
+  const handleSubmit = () => {
+    setTouched(true);
+    if (isEmpty) return;
+    onSubmit();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+              <AlertTriangle size={16} className="text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Cancel Appointment</h2>
+              <p className="text-xs text-gray-500 mt-0.5">This action cannot be undone</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Appointment details */}
+          <div className="bg-gray-50 rounded-xl px-4 py-3">
+            <p className="text-xs font-medium text-gray-500 mb-1">Scheduled visit</p>
+            <p className="text-sm font-medium text-gray-900">{formatDateFull(startTime)}</p>
+            <p className="text-sm text-gray-600">{formatTime(startTime)}</p>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Reason for cancellation <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={e => onCancelReasonChange(e.target.value)}
+              placeholder="Please provide a reason..."
+              rows={3}
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none transition-colors ${touched && isEmpty ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
+            />
+            {touched && isEmpty && (
+              <p className="text-xs text-red-600 mt-1">Please provide a reason for cancellation.</p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pb-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Keep Appointment
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {submitting ? 'Canceling…' : 'Confirm Cancellation'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface AppointmentPanelProps {
   chatRequestId: string;
   currentUserId: string;
@@ -24,15 +116,11 @@ interface AppointmentPanelProps {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric'
-  });
+  return formatAppointmentDate(iso);
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true
-  });
+  return formatAppointmentTime(iso);
 }
 
 function locationLabel(type: string, details: string | null) {
@@ -61,6 +149,8 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
   const [showModal, setShowModal] = useState(false);
   const [modifyingId, setModifyingId] = useState<number | undefined>(undefined);
   const [acting, setActing] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   const fetchAppointment = useCallback(async () => {
     try {
@@ -95,10 +185,6 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
 
   const handleDeclineOrWithdraw = async () => {
     if (!appointment) return;
-    const label = appointment.proposed_by === currentUserId
-      ? 'Withdraw your visit proposal?'
-      : 'Decline this visit proposal?';
-    if (!window.confirm(label)) return;
     setActing(true);
     try {
       const res = await fetch('/api/appointment/decline-proposal', {
@@ -114,15 +200,18 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
 
   const handleCancelConfirmed = async () => {
     if (!appointment) return;
-    if (!window.confirm('Cancel this confirmed visit?')) return;
     setActing(true);
     try {
       const res = await fetch('/api/appointment/decline-proposal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appointment_id: appointment.id }),
+        body: JSON.stringify({ appointment_id: appointment.id, cancellation_reason: cancelReason || null }),
       });
-      if (res.ok) fetchAppointment();
+      if (res.ok) {
+        setShowCancelModal(false);
+        setCancelReason('');
+        fetchAppointment();
+      }
     } finally {
       setActing(false);
     }
@@ -140,7 +229,7 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
   // ── No active appointment ──────────────────────────────────────
   if (appointment === null) {
     return (
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-white gap-3">
+      <div className="flex items-center justify-end px-3 py-1.5 border-b border-gray-100 bg-white gap-2">
         <button
           onClick={() => { setModifyingId(undefined); setShowModal(true); }}
           className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-colors"
@@ -256,11 +345,11 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
                 Propose changes
               </button>
               <button
-                onClick={handleCancelConfirmed}
+                onClick={() => { setCancelReason(''); setShowCancelModal(true); }}
                 disabled={acting}
                 className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50 transition-colors"
               >
-                Cancel
+                Cancel Appointment
               </button>
             </div>
           )}
@@ -273,6 +362,17 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
           replacingAppointmentId={modifyingId}
           onClose={() => { setShowModal(false); setModifyingId(undefined); }}
           onProposed={() => { setShowModal(false); setModifyingId(undefined); fetchAppointment(); }}
+        />
+      )}
+
+      {showCancelModal && appointment && (
+        <AppointmentCancelModal
+          startTime={appointment.start_time}
+          cancelReason={cancelReason}
+          onCancelReasonChange={setCancelReason}
+          onClose={() => setShowCancelModal(false)}
+          onSubmit={handleCancelConfirmed}
+          submitting={acting}
         />
       )}
     </div>

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { chat_request_id } = await request.json();
+    const { chat_request_id, snooze } = await request.json();
     if (!chat_request_id) {
       return NextResponse.json({ error: 'chat_request_id is required' }, { status: 400 });
     }
@@ -39,7 +39,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Chat is not active' }, { status: 400 });
     }
 
-    // Send a closing message in Stream and archive the channel
+    const snoozeUntil = snooze
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    const { error: updateError } = await supabase
+      .from('chat_requests')
+      .update({
+        channel_closed_at: new Date().toISOString(),
+        ...(snoozeUntil ? { snoozed_by: userId, snoozed_until: snoozeUntil } : {}),
+      })
+      .eq('id', chat_request_id);
+
+    if (updateError) {
+      console.error('[chat-request/close] Update error:', updateError);
+      return NextResponse.json({ error: 'Failed to close chat' }, { status: 500 });
+    }
+
+    // Send closing message in Stream only after DB update succeeds
     if (chatRequest.channel_id) {
       try {
         const channel = streamChatServer.channel('messaging', chatRequest.channel_id);
@@ -51,16 +68,6 @@ export async function POST(request: NextRequest) {
       } catch (streamErr) {
         console.error('[chat-request/close] Stream error (non-fatal):', streamErr);
       }
-    }
-
-    const { error: updateError } = await supabase
-      .from('chat_requests')
-      .update({ channel_closed_at: new Date().toISOString() })
-      .eq('id', chat_request_id);
-
-    if (updateError) {
-      console.error('[chat-request/close] Update error:', updateError);
-      return NextResponse.json({ error: 'Failed to close chat' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
