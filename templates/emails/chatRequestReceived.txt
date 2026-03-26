@@ -1,0 +1,12 @@
+Hello {{firstName}},
+
+You have a new chat request from {{requesterName}} about meeting {{dogName}}.
+
+Sign in to accept or decline:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca

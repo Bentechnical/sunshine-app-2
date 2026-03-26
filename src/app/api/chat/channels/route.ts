@@ -102,9 +102,51 @@ export async function GET() {
       };
     }));
 
-    return NextResponse.json({ 
-      chats: chatData,
-      total: chatData.length
+    // Also fetch accepted chat_request channels (new chat-based flow)
+    const { data: chatRequests, error: chatRequestsError } = await supabaseAdmin
+      .from('chat_requests')
+      .select(`
+        id,
+        requester_id,
+        recipient_id,
+        channel_id,
+        channel_created_at,
+        requester:users!chat_requests_requester_id_fkey(id, first_name, profile_image),
+        recipient:users!chat_requests_recipient_id_fkey(id, first_name, profile_image),
+        dog:dogs!chat_requests_dog_id_fkey(dog_name, dog_picture_url)
+      `)
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+      .eq('status', 'accepted')
+      .not('channel_id', 'is', null)
+      .is('channel_closed_at', null);
+
+    if (chatRequestsError) {
+      console.error('[Chat Channels API] Error fetching chat requests:', chatRequestsError);
+    }
+
+    const chatRequestChannels = (chatRequests ?? []).map((req: any) => {
+      const isRequester = req.requester_id === userId;
+      const otherUser = isRequester ? req.recipient : req.requester;
+      const dog = Array.isArray(req.dog) ? req.dog[0] : req.dog;
+
+      return {
+        appointmentId: 0,
+        channelId: req.channel_id,
+        appointmentTime: req.channel_created_at,
+        dogName: dog?.dog_name ?? 'Therapy Dog',
+        dogImage: dog?.dog_picture_url ?? null,
+        otherUserName: otherUser?.first_name ?? 'User',
+        otherUserImage: otherUser?.profile_image ?? null,
+        unreadCount: 0,
+        isActive: true,
+        channelType: 'chat_request' as const,
+        chatRequestId: req.id,
+      };
+    });
+
+    return NextResponse.json({
+      chats: [...chatData, ...chatRequestChannels],
+      total: chatData.length + chatRequestChannels.length
     });
 
   } catch (error) {

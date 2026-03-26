@@ -5,12 +5,12 @@ export type ActiveTab =
   | 'my-visits'
   | 'messaging'
   | 'my-therapy-dog'
+  | 'connect-with-people' // volunteer: browse individuals (replaces manage-availability)
   | 'dashboard-home'
   | 'manage-users' // admin
   | 'user-requests' // admin
   | 'appointments' // admin
-  | 'availabilities' // admin
   | 'chats' // admin
   | 'email-testing' // admin
   | 'welcome-messages' // admin
-  | 'system-logs'; // admin;
+  | 'system-logs'; // admin

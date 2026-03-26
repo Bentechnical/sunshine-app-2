@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptError } = await supabase
       .from('appointments')
-      .select('start_time, individual_id, volunteer_id, availability_id')
+      .select('start_time, individual_id, volunteer_id, availability_id, chat_request_id')
       .eq('id', appointmentId)
       .maybeSingle();
 
@@ -129,7 +129,16 @@ export async function POST(req: NextRequest) {
       data: volunteerEmailData,
     });
 
-    // Create chat channel for the appointment
+    // Create chat channel for the appointment (legacy flow only)
+    // New-style appointments (chat_request_id set) already have a channel — skip.
+    if ((appointment as any).chat_request_id) {
+      return NextResponse.json({
+        success: true,
+        individualResponse: emailResponseIndividual,
+        volunteerResponse: emailResponseVolunteer,
+      });
+    }
+
     try {
       const isDev = process.env.NODE_ENV !== 'production';
       if (isDev) console.log('[Chat Creation] Starting chat creation for appointment:', appointmentId);

@@ -58,6 +58,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Appointment must be confirmed to create chat' }, { status: 400 });
     }
 
+    // New-style appointments (chat-based scheduling) already have a chat channel
+    // via the chat_request. Skip legacy channel creation.
+    if ((appointment as any).chat_request_id) {
+      console.log('[Chat Create API] Skipping legacy channel creation — appointment has chat_request_id');
+      return NextResponse.json({ success: true, skipped: 'chat_request appointment' });
+    }
+
     // Check if chat already exists
     const { data: existingChat } = await supabase
       .from('appointment_chats')

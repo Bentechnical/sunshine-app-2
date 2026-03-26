@@ -144,8 +144,39 @@ export async function POST(request: NextRequest) {
             content: !!content
           });
         }
+      } else if (channel?.custom?.chat_request_id) {
+        // Handle chat_request channel messages
+        const chatRequestId = channel.custom.chat_request_id;
+        const senderId = message.user?.id;
+
+        // Skip bot/system messages
+        if (!senderId || senderId === 'sunshine-bot' || senderId === 'system') {
+          return NextResponse.json({ success: true, skipped: 'bot message' });
+        }
+
+        console.log(`[Stream Chat Webhook] 🎯 ${timestamp} - Chat request message:`, { chatRequestId, senderId });
+
+        const supabase = createSupabaseAdminClient();
+
+        // Fetch current counts then increment (atomic via single update)
+        const { data: req } = await supabase
+          .from('chat_requests')
+          .select('message_count, unread_count_admin')
+          .eq('id', chatRequestId)
+          .single();
+
+        await supabase
+          .from('chat_requests')
+          .update({
+            last_message_at: new Date().toISOString(),
+            message_count: (req?.message_count ?? 0) + 1,
+            unread_count_admin: (req?.unread_count_admin ?? 0) + 1,
+          })
+          .eq('id', chatRequestId);
+
+        console.log(`[Stream Chat Webhook] ✅ ${timestamp} - Updated chat_requests stats for ${chatRequestId}`);
       } else {
-        console.log('[Stream Chat Webhook] Not an appointment chat, skipping');
+        console.log('[Stream Chat Webhook] Not an appointment or chat_request channel, skipping');
       }
     }
     

@@ -21,14 +21,14 @@
     role === 'individual'
       ? [
           { key: 'dashboard-home', label: 'Home' },
-          { key: 'meet-with-dog', label: 'Meet With Dog' },
+          { key: 'meet-with-dog', label: 'Meet a Dog' },
           { key: 'my-visits', label: 'My Visits' },
           { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : role === 'volunteer'
       ? [
           { key: 'dashboard-home', label: 'Home' },
-          { key: 'my-therapy-dog', label: 'Set Availability' },
+          { key: 'connect-with-people', label: 'Connect with People' },
           { key: 'my-visits', label: 'My Visits' },
           { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
         ]

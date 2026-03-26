@@ -7,38 +7,37 @@ export function useAdminUnreadCount(activeTab?: string, refreshTrigger?: number)
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
-    console.log('[useAdminUnreadCount] Fetching admin unread count...');
-    
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await fetch('/api/admin/chats');
-      
-      if (!response.ok) {
-        if (response.status === 403) {
-          // User is not authorized to access admin endpoints - return 0 unread count
-          console.log('[useAdminUnreadCount] 403 error - user not authorized, returning 0');
+
+      const [apptRes, crRes] = await Promise.all([
+        fetch('/api/admin/chats'),
+        fetch('/api/admin/chat-requests'),
+      ]);
+
+      if (!apptRes.ok) {
+        if (apptRes.status === 403) {
           setUnreadCount(0);
           setError(null);
           return;
         }
         throw new Error('Failed to fetch unread count');
       }
-      
-      const data = await response.json();
-      
-      // Calculate total unread count from all chats
-      const totalUnread = data.chats?.reduce((sum: number, chat: any) => {
-        return sum + (chat.unread_count || 0);
-      }, 0) || 0;
-      
-      console.log('[useAdminUnreadCount] Successfully fetched unread count:', totalUnread);
-      setUnreadCount(totalUnread);
+
+      const apptData = await apptRes.json();
+      const crData = crRes.ok ? await crRes.json() : { requests: [] };
+
+      const apptUnread = apptData.chats?.reduce((sum: number, chat: any) =>
+        sum + (chat.unread_count || 0), 0) ?? 0;
+
+      const crUnread = crData.requests?.reduce((sum: number, req: any) =>
+        sum + (req.unread_count_admin || 0), 0) ?? 0;
+
+      setUnreadCount(apptUnread + crUnread);
     } catch (err) {
       console.error('[useAdminUnreadCount] Error fetching unread count:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
-      // Fallback to 0 if there's an error
       setUnreadCount(0);
     } finally {
       setLoading(false);

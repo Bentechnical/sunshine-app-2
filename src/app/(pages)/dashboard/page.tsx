@@ -10,8 +10,9 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import MeetWithDog from '@/components/visits/MeetWithDog';
 import MyVisits from '@/components/visits/MyVisits';
-import TemplateStyleAvailability from '@/components/availability/TemplateStyleAvailability';
 import MessagingTab from '@/components/messaging/MessagingTab';
+import IndividualDirectory from '@/components/individual/IndividualDirectory';
+import PendingChatRequests from '@/components/chat/PendingChatRequests';
 
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { ActiveTab } from '@/types/navigation';
@@ -122,27 +123,27 @@ export default function DashboardPage() {
     switch (activeTab) {
       case 'dashboard-home':
         return (
-          <DashboardHome
-            userId={userId}
-            role={role as 'volunteer' | 'individual'}
-            setActiveTab={setActiveTab}
-          />
+          <>
+            <PendingChatRequests onGoToChat={() => setActiveTab('messaging')} />
+            <DashboardHome
+              userId={userId}
+              role={role as 'volunteer' | 'individual'}
+              setActiveTab={setActiveTab}
+            />
+          </>
         );
       case 'meet-with-dog':
         return (
           <MeetWithDog
             selectedDogId={selectedDogId}
             setSelectedDogId={handleSelectDog}
+            onGoToChat={() => setActiveTab('messaging')}
           />
         );
       case 'my-visits':
         return <MyVisits userId={userId} role={role as 'volunteer' | 'individual'} />;
-      case 'my-therapy-dog':
-        return (
-          <div className="h-full flex flex-col space-y-0 md:space-y-6 md:bg-transparent">
-            <TemplateStyleAvailability userId={userId} />
-          </div>
-        );
+      case 'connect-with-people':
+        return <IndividualDirectory onGoToChat={() => setActiveTab('messaging')} />;
       case 'messaging':
         return (
           <MessagingTab

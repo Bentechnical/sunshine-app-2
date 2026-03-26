@@ -4,14 +4,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Chat,
   Channel,
-  ChannelHeader,
   MessageInput,
   MessageList,
-  Thread,
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useUnreadCount } from '@/contexts/UnreadCountContext';
+import { useUser } from '@clerk/nextjs';
+import AppointmentPanel from '@/components/appointments/AppointmentPanel';
 import styles from './MessagingTab.module.css';
 
 interface ChatData {
@@ -25,6 +25,8 @@ interface ChatData {
   lastMessage?: any;
   unreadCount: number;
   isActive: boolean;
+  channelType?: 'appointment' | 'chat_request';
+  chatRequestId?: string;
 }
 
 interface MessagingTabProps {
@@ -32,12 +34,15 @@ interface MessagingTabProps {
 }
 
 export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) {
-  const { client, connectionStatus, updateUnreadFromChannels, refreshChannelData } = useUnreadCount();
+  const { client, connectionStatus, updateUnreadFromChannels } = useUnreadCount();
+  const { user } = useUser();
 
   // Core state
   const [channels, setChannels] = useState<ChatData[]>([]);
   const [activeChannel, setActiveChannel] = useState<any>(null);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [activeChatRequestId, setActiveChatRequestId] = useState<string | null>(null);
+  const [closingChat, setClosingChat] = useState(false);
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +140,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             const channelId = chat.channelId?.split(':')[1] || chat.channelId;
 
             // Find matching channel in unread response
-            const unreadChannel = (unreadResponse as any).channels?.find((uc: any) =>
-              uc.channel_id === channelId || uc.channel_id === chat.channelId
-            );
+            // Normalize uc.channel_id (Stream returns full CID like "messaging:cr-xxx")
+            const unreadChannel = (unreadResponse as any).channels?.find((uc: any) => {
+              const ucNormalized = uc.channel_id?.split(':')[1] || uc.channel_id;
+              return ucNormalized === channelId || uc.channel_id === chat.channelId;
+            });
 
             return {
               ...chat,
@@ -229,16 +236,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     if (!client) return;
 
     try {
-      // Remove 'messaging:' prefix if present
       const cleanChannelId = channelId.replace('messaging:', '');
-      
       const channel = client.channel('messaging', cleanChannelId);
       await channel.watch();
-      
+
       setActiveChannel(channel);
       setActiveChannelId(cleanChannelId);
-      
-      // Mobile: switch to chat view and hide nav
+
+      // Track chat request ID for the close button
+      const chatData = channels.find(
+        (c) => c.channelId === channelId || c.channelId === cleanChannelId
+      );
+      setActiveChatRequestId(chatData?.chatRequestId ?? null);
+
       if (isMobile) {
         setViewMode('activeChat');
         onActiveChatChange?.(true);
@@ -247,13 +257,42 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       console.error('Failed to select channel:', err);
       setError('Failed to open conversation');
     }
-  }, [client, isMobile, onActiveChatChange]);
+  }, [client, channels, isMobile, onActiveChatChange]);
 
   // Handle back to channel list
   const handleBackToChannelList = useCallback(() => {
     setViewMode('channelList');
+    setActiveChatRequestId(null);
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
+
+  // Close a chat_request channel
+  const handleCloseChat = useCallback(async () => {
+    if (!activeChatRequestId) return;
+    if (!window.confirm('Close this conversation? Either participant can start a new chat request to reconnect.')) return;
+
+    setClosingChat(true);
+    try {
+      const res = await fetch('/api/chat-request/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_request_id: activeChatRequestId }),
+      });
+      if (res.ok) {
+        setActiveChannel(null);
+        setActiveChannelId(null);
+        setActiveChatRequestId(null);
+        setViewMode('channelList');
+        onActiveChatChange?.(false);
+        // Reload channel list
+        loadChannels();
+      }
+    } catch (err) {
+      console.error('Failed to close chat:', err);
+    } finally {
+      setClosingChat(false);
+    }
+  }, [activeChatRequestId, loadChannels, onActiveChatChange]);
 
   // Format appointment date for display
   const formatAppointmentDate = (dateStr: string) => {
@@ -332,7 +371,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     No Messages Yet
                   </h3>
                   <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
-                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
+                    Your conversations will appear here. Request to chat with a therapy dog volunteer to get started!
                   </p>
                 </div>
               ) : (
@@ -361,12 +400,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                           {chat.dogName}
                         </h3>
                         <div className="flex flex-col items-end space-y-1">
-                          <div className="text-right">
-                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
-                            <div className="text-xs text-gray-400">
-                              {formatAppointmentDate(chat.appointmentTime)}
+                          {chat.channelType !== 'chat_request' && (
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                              <div className="text-xs text-gray-400">
+                                {formatAppointmentDate(chat.appointmentTime)}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           {chat.unreadCount > 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               {chat.unreadCount}
@@ -422,7 +463,20 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         </div>
                       </div>
                     </div>
+
                   </div>
+                </div>
+
+                {/* Appointment Panel — grid row 2, close chat integrated */}
+                <div style={{ gridRow: 2 }}>
+                  {activeChatRequestId && user?.id && (
+                    <AppointmentPanel
+                      chatRequestId={activeChatRequestId}
+                      currentUserId={user.id}
+                      onCloseChat={handleCloseChat}
+                      closingChat={closingChat}
+                    />
+                  )}
                 </div>
 
                 {/* Chat Messages */}
@@ -466,7 +520,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     No Messages Yet
                   </h3>
                   <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
-                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
+                    Your conversations will appear here. Request to chat with a therapy dog volunteer to get started!
                   </p>
                 </div>
               ) : (
@@ -494,12 +548,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                           {chat.dogName}
                         </h3>
                         <div className="flex flex-col items-end space-y-1">
-                          <div className="text-right">
-                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
-                            <div className="text-xs text-gray-400">
-                              {formatAppointmentDate(chat.appointmentTime)}
+                          {chat.channelType !== 'chat_request' && (
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                              <div className="text-xs text-gray-400">
+                                {formatAppointmentDate(chat.appointmentTime)}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           {chat.unreadCount > 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               {chat.unreadCount}
@@ -523,6 +579,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             {activeChannel && client && connectionStatus === 'connected' ? (
               <Channel channel={activeChannel}>
                 <div className={styles.desktopChatContent}>
+                  {activeChatRequestId && user?.id && (
+                    <AppointmentPanel
+                      chatRequestId={activeChatRequestId}
+                      currentUserId={user.id}
+                      onCloseChat={handleCloseChat}
+                      closingChat={closingChat}
+                    />
+                  )}
                   <MessageList />
                   <MessageInput />
                 </div>
