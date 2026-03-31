@@ -168,7 +168,7 @@ Critical environment variables needed:
   - `createSupabaseServerClient()` for server-side with RLS
   - `createSupabaseAdminClient()` for admin operations bypassing RLS
   - `useSupabaseClient()` for client-side operations
-- RLS policies are comprehensive - check `DATABASE_SCHEMA.md` for policy details
+- RLS policies are comprehensive - check `docs/DATABASE_SCHEMA.md` for policy details
 
 ### Stream Chat Integration
 - Use `StreamChatClientManager` for connection management

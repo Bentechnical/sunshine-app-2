@@ -8,6 +8,7 @@ interface AppointmentGroupProps {
   heading: string;
   appointments: Appointment[];
   role: string;
+  userId?: string;
   onApprove: (appointmentId: number) => void;
   onDecline: (appointmentId: number) => void;
   onCancelClick: (appointment: Appointment) => void;
@@ -19,6 +20,7 @@ const AppointmentGroup: React.FC<AppointmentGroupProps> = ({
   heading,
   appointments,
   role,
+  userId,
   onApprove,
   onDecline,
   onCancelClick,
@@ -41,6 +43,7 @@ const AppointmentGroup: React.FC<AppointmentGroupProps> = ({
             key={apt.id}
             appointment={apt}
             role={role}
+            userId={userId}
             onApprove={onApprove}
             onDecline={onDecline}
             onCancelClick={onCancelClick}

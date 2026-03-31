@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { CalendarPlus, CheckCircle, Clock, MapPin, ChevronDown, ChevronUp, Pencil, AlertTriangle, X } from 'lucide-react';
 import { formatAppointmentDate, formatAppointmentTime } from '@/utils/timeZone';
 import ScheduleAppointmentModal from './ScheduleAppointmentModal';
+import { useSupabaseClient } from '@/utils/supabase/client';
 
 interface Appointment {
   id: number;
@@ -144,6 +145,7 @@ function CloseChatButton({ onClick, disabled }: { onClick?: () => void; disabled
 }
 
 export default function AppointmentPanel({ chatRequestId, currentUserId, onCloseChat, closingChat }: AppointmentPanelProps) {
+  const supabase = useSupabaseClient();
   const [appointment, setAppointment] = useState<Appointment | null | undefined>(undefined);
   const [expanded, setExpanded] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -167,6 +169,25 @@ export default function AppointmentPanel({ chatRequestId, currentUserId, onClose
   useEffect(() => {
     fetchAppointment();
   }, [fetchAppointment]);
+
+  // Live updates: re-fetch when the appointment for this chat is updated by the other party
+  useEffect(() => {
+    const channel = supabase
+      .channel(`appointment-panel-${chatRequestId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'appointments',
+          filter: `chat_request_id=eq.${chatRequestId}`,
+        },
+        () => { fetchAppointment(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [chatRequestId, supabase, fetchAppointment]);
 
   const handleConfirm = async () => {
     if (!appointment) return;

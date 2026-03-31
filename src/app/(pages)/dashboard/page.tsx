@@ -124,7 +124,7 @@ export default function DashboardPage() {
       case 'dashboard-home':
         return (
           <>
-            <PendingChatRequests onGoToChat={() => setActiveTab('messaging')} />
+            <PendingChatRequests onGoToChat={() => setActiveTab('messaging')} onGoToVisits={() => setActiveTab('my-visits')} />
             <DashboardHome
               userId={userId}
               role={role as 'volunteer' | 'individual'}
