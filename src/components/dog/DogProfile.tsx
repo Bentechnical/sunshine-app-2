@@ -21,6 +21,9 @@ interface Volunteer {
   first_name: string;
   city: string | null;
   general_availability: string | null;
+  profile_image: string | null;
+  bio: string | null;
+  pronouns: string | null;
 }
 
 interface DogProfileProps {
@@ -44,7 +47,7 @@ export default function DogProfile({ dogId, onBack, onGoToChat }: DogProfileProp
 
       const { data: volunteerData } = await supabase
         .from('users')
-        .select('first_name, city, general_availability')
+        .select('first_name, city, general_availability, profile_image, bio, pronouns')
         .eq('id', dogData.volunteer_id)
         .single();
       if (volunteerData) setVolunteer(volunteerData);
@@ -59,60 +62,119 @@ export default function DogProfile({ dogId, onBack, onGoToChat }: DogProfileProp
   if (!dog) return <p>Dog not found.</p>;
 
   return (
-    <div className="flex flex-col gap-4 h-auto lg:h-[90vh] px-4 pb-4">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-y-6 lg:gap-6 flex-1">
+    <div className="px-4 pb-4">
+      <div className="bg-white shadow-lg rounded-xl p-5 flex flex-col gap-5">
 
-        {/* Left Column - Dog Info */}
-        <div className="col-span-1 bg-white shadow-lg rounded-lg p-4 flex flex-col">
-          <div className="mb-4">
-            <button
-              className="text-lg text-[#0e62ae] font-semibold hover:underline"
-              onClick={onBack}
-            >
-              ← Back to Dogs
-            </button>
-          </div>
-          <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-            <Image
-              src={optimizeSupabaseImage(dog.dog_picture_url, { width: 600, quality: 80 })}
-              alt={dog.dog_name}
-              fill
-              sizes={getImageSizes('profile')}
-              className="object-cover"
-              priority={false}
-            />
-          </div>
-          <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
-          <p className="text-gray-700">
-            {dog.dog_breed} | Age: {dog.dog_age ?? 'Unknown'}
-          </p>
-          <p className="text-gray-600 mt-2">{dog.dog_bio}</p>
-          <p className="text-gray-800 mt-2">
-            <strong>Volunteer:</strong> {volunteer?.first_name || 'Unknown'}
-          </p>
-          {volunteer?.city && (
-            <p className="text-gray-600 text-sm mt-1">📍 {volunteer.city}</p>
-          )}
-        </div>
+        {/* Back button */}
+        <button
+          className="text-sm text-[#0e62ae] font-semibold hover:underline self-start"
+          onClick={onBack}
+        >
+          ← Back to Dogs
+        </button>
 
-        {/* Right Column - Connect (Phase 3: chat request button goes here) */}
-        <div className="col-span-2 bg-white shadow-lg rounded-lg p-4">
-          {volunteer?.general_availability && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                🕐 <strong>Usually available:</strong> {volunteer.general_availability}
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Left Column - Image only */}
+          <div className="col-span-1">
+            <div className="relative aspect-square w-full overflow-hidden rounded-xl">
+              <Image
+                src={optimizeSupabaseImage(dog.dog_picture_url, { width: 600, quality: 80 })}
+                alt={dog.dog_name}
+                fill
+                sizes={getImageSizes('profile')}
+                className="object-cover"
+                priority={false}
+              />
             </div>
-          )}
-          {dog && (
-            <ChatRequestButton
-              recipientId={dog.volunteer_id}
-              dogId={dog.id}
-              onGoToChat={onGoToChat}
-            />
-          )}
-        </div>
+          </div>
 
+          {/* Right Column - All profile details + CTA */}
+          <div className="col-span-2 flex flex-col gap-5">
+
+            {/* Name + badges */}
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">{dog.dog_name}</h2>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                  {dog.dog_breed}
+                </span>
+                <span className="px-3 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded-full">
+                  {dog.dog_age != null ? `${dog.dog_age} yr${dog.dog_age === 1 ? '' : 's'} old` : 'Age unknown'}
+                </span>
+              </div>
+            </div>
+
+            {/* Dog bio */}
+            {dog.dog_bio && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">About</h3>
+                <p className="text-gray-700 leading-relaxed">{dog.dog_bio}</p>
+              </div>
+            )}
+
+            <hr className="border-gray-100" />
+
+            {/* Volunteer info */}
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Handler</h3>
+              <div className="flex items-start gap-4">
+                {/* Avatar */}
+                <div className="relative w-1/4 aspect-square rounded-xl overflow-hidden shrink-0 bg-blue-100">
+                  {volunteer?.profile_image ? (
+                    <Image
+                      src={optimizeSupabaseImage(volunteer.profile_image, { width: 300, quality: 80 })}
+                      alt={volunteer.first_name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-blue-700 font-bold text-3xl">
+                      {volunteer?.first_name?.[0]?.toUpperCase() ?? '?'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Name, pronouns, city */}
+                <div className="flex flex-col gap-0.5">
+                  <p className="font-semibold text-gray-900 text-lg leading-tight">
+                    {volunteer?.first_name || 'Unknown'}
+                    {volunteer?.pronouns && (
+                      <span className="ml-2 text-sm font-normal text-gray-400">({volunteer.pronouns})</span>
+                    )}
+                  </p>
+                  {volunteer?.city && (
+                    <p className="text-sm text-gray-500">📍 {volunteer.city}</p>
+                  )}
+                  {volunteer?.bio && (
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">{volunteer.bio}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Availability */}
+            {volunteer?.general_availability && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  🕐 <strong>Usually available:</strong> {volunteer.general_availability}
+                </p>
+              </div>
+            )}
+
+            {/* Chat CTA */}
+            <div className="mt-auto pt-2">
+              {dog && (
+                <ChatRequestButton
+                  recipientId={dog.volunteer_id}
+                  dogId={dog.id}
+                  onGoToChat={onGoToChat}
+                />
+              )}
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -14,8 +14,10 @@ interface IndividualResult {
   last_initial: string;
   city: string | null;
   pronouns: string | null;
+  bio: string | null;
   profile_picture_url: string | null;
   distance_km: number;
+  matching_categories: string[] | null;
 }
 
 interface IndividualDirectoryProps {
@@ -104,49 +106,76 @@ export default function IndividualDirectory({ onGoToChat }: IndividualDirectoryP
         {individuals.map((person) => (
           <div
             key={person.id}
-            className="bg-white shadow-lg rounded-lg p-4 flex flex-col justify-between"
+            className="bg-white shadow-lg rounded-xl overflow-hidden flex flex-col"
           >
-            <div className="flex flex-col items-center text-center">
-              {/* Profile picture */}
-              <div className="relative w-20 h-20 overflow-hidden rounded-full bg-gray-100 mb-3">
-                {person.profile_picture_url ? (
-                  <Image
-                    src={optimizeSupabaseImage(person.profile_picture_url, { width: 200, quality: 80 })}
-                    alt={person.first_name}
-                    fill
-                    sizes={getImageSizes('thumbnail')}
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl text-gray-400">
-                    {person.first_name[0]}
-                  </div>
-                )}
-              </div>
-
-              <h3 className="text-lg font-bold">
-                {person.first_name} {person.last_initial}.
-              </h3>
-
-              {person.pronouns && (
-                <p className="text-gray-500 text-sm">{person.pronouns}</p>
+            {/* Square image */}
+            <div className="relative aspect-square w-full bg-gray-100">
+              {person.profile_picture_url ? (
+                <Image
+                  src={optimizeSupabaseImage(person.profile_picture_url, { width: 600, quality: 80 })}
+                  alt={person.first_name}
+                  fill
+                  sizes={getImageSizes('card')}
+                  className="object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-5xl text-gray-400">
+                  {person.first_name[0]}
+                </div>
               )}
-
-              {person.city && (
-                <p className="text-gray-500 text-sm mt-0.5">📍 {person.city}</p>
-              )}
-
-              <p className="text-gray-400 text-xs mt-1">
-                {Math.round(person.distance_km)} km away
-              </p>
             </div>
 
-            <Button
-              className="w-full mt-4"
-              onClick={() => handleSelectProfile(person.id, person.distance_km)}
-            >
-              View Profile
-            </Button>
+            {/* Card content */}
+            <div className="p-4 flex flex-col gap-3 flex-1">
+
+              {/* Name + pronouns */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {person.first_name} {person.last_initial}.
+                  {person.pronouns && (
+                    <span className="ml-1.5 text-sm font-normal text-gray-400">({person.pronouns})</span>
+                  )}
+                </h3>
+                <div className="flex items-center gap-3 mt-0.5">
+                  {person.city && (
+                    <p className="text-gray-500 text-sm">📍 {person.city}</p>
+                  )}
+                  <p className="text-gray-400 text-xs">{Math.round(person.distance_km)} km away</p>
+                </div>
+              </div>
+
+              {/* Audience category pills */}
+              {person.matching_categories && person.matching_categories.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {person.matching_categories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Bio excerpt */}
+              {person.bio && (
+                <p className="text-gray-600 text-sm leading-relaxed line-clamp-3">
+                  {person.bio}
+                </p>
+              )}
+
+              {/* CTA */}
+              <div className="mt-auto pt-1">
+                <Button
+                  className="w-full"
+                  onClick={() => handleSelectProfile(person.id, person.distance_km)}
+                >
+                  View Profile
+                </Button>
+              </div>
+
+            </div>
           </div>
         ))}
       </div>
