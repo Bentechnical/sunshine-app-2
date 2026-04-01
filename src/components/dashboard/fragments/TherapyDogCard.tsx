@@ -85,13 +85,26 @@ export default function TherapyDogCard() {
             priority={false}
           />
         </div>
-        <div className="pt-3 px-4">
-          <h3 className="text-lg font-bold">{dog?.dog_name}</h3>
-          <p className="text-gray-700">
-            {dog?.dog_breed || 'Unknown breed'}
-            {typeof dog?.dog_age === 'number' ? ` | Age: ${dog.dog_age}` : ''}
-          </p>
-          <p className="text-gray-600 text-sm mt-2">{dog?.dog_bio}</p>
+        <div className="pt-3 px-4 flex flex-col gap-3">
+          <div>
+            <h3 className="text-lg font-bold">{dog?.dog_name}</h3>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                {dog?.dog_breed || 'Unknown breed'}
+              </span>
+              {typeof dog?.dog_age === 'number' && (
+                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                  {dog.dog_age} yr{dog.dog_age === 1 ? '' : 's'} old
+                </span>
+              )}
+            </div>
+          </div>
+          {dog?.dog_bio && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">About</h4>
+              <p className="text-gray-600 text-sm leading-relaxed">{dog.dog_bio}</p>
+            </div>
+          )}
         </div>
         <div className="pt-3 px-4 pb-4 mt-auto">
           <Button className="w-full" onClick={() => setEditing(true)}>

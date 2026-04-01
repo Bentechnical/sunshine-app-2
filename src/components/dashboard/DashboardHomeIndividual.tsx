@@ -31,7 +31,7 @@ export default function DashboardHomeIndividual({ userId, role, setActiveTab }: 
 
         {/* Right Column: Profile */}
         <div className="col-span-2 flex flex-col gap-2 lg:max-h-[90vh] lg:overflow-y-auto">
-          <div className="rounded-2xl bg-white p-2">
+          <div className="rounded-2xl bg-white shadow p-2">
             <ProfileCardBlock />
           </div>
         </div>

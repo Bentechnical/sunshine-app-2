@@ -201,11 +201,13 @@ export default function ProfileCardBlock() {
   const bio = profile.bio;
 
   return (
-    <div className="rounded-lg px-3 py-2 flex flex-col justify-between min-h-[200px]">
-      <div className="flex flex-col md:flex-row items-start">
+    <div className="rounded-xl px-4 py-4 flex flex-col gap-5">
+
+      {/* Top section: image + essential fields */}
+      <div className="flex flex-col md:flex-row items-start gap-5">
         {profile.profile_image && (
-          <div className="flex-shrink-0 mb-4 md:mb-0 mx-auto md:mx-0 md:mr-6">
-            <div className="relative w-36 aspect-square rounded-xl overflow-hidden shadow-md border border-gray-300">
+          <div className="flex-shrink-0 mx-auto md:mx-0">
+            <div className="relative w-36 aspect-square rounded-xl overflow-hidden shadow-md">
               <Image
                 src={profile.profile_image}
                 alt="Profile"
@@ -216,93 +218,103 @@ export default function ProfileCardBlock() {
           </div>
         )}
 
-        <div className="md:ml-6 flex-1">
-          <h2 className="text-sm text-gray-500 tracking-wide mb-1 font-semibold">My Profile</h2>
-          <hr className="border-t border-gray-200 mb-3" />
-          
-          {/* Account Holder Information */}
-          <h3 className="text-xl font-semibold mb-2">{fullName}</h3>
-          <div className="text-sm text-gray-800 space-y-1 mb-4">
-            <p><span className="font-semibold text-gray-700">Email:</span> {email}</p>
-            <p><span className="font-semibold text-gray-700">Phone:</span> {phone}</p>
-            {profile.postal_code && <p><span className="font-semibold text-gray-700">Postal Code:</span> {profile.postal_code}</p>}
-            {profile.pronouns && <p><span className="font-semibold text-gray-700">Pronouns:</span> {profile.pronouns}</p>}
-            {profile.birthday && profile.visit_recipient_type !== 'other' && <p><span className="font-semibold text-gray-700">Birth Year:</span> {profile.birthday}</p>}
+        <div className="flex-1 flex flex-col gap-1.5">
+          <h3 className="text-2xl font-bold text-gray-900">{fullName}</h3>
+          <div className="flex flex-col gap-1 mt-1 text-sm">
+            <p><span className="text-gray-500">Email:</span> <span className="text-gray-800">{email}</span></p>
+            <p><span className="text-gray-500">Phone:</span> <span className="text-gray-800">{phone}</span></p>
+            {profile.postal_code && (
+              <p><span className="text-gray-500">Postal Code:</span> <span className="text-gray-800">{profile.postal_code}</span></p>
+            )}
+            {profile.pronouns && (
+              <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>
+            )}
+            {profile.birthday && profile.visit_recipient_type !== 'other' && (
+              <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>
+            )}
           </div>
-
-          {/* Visit Recipient Information (for dependants) */}
-          {profile.role === 'individual' && profile.visit_recipient_type === 'other' && (
-            <div className="border-t border-gray-200 pt-4 mb-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Visit Recipient</h4>
-              <div className="text-sm text-gray-800 space-y-1">
-                <p><span className="font-semibold text-gray-700">Name:</span> {profile.dependant_name}</p>
-                <p><span className="font-semibold text-gray-700">Relationship:</span> {profile.relationship_to_recipient}</p>
-                {profile.pronouns && <p><span className="font-semibold text-gray-700">Pronouns:</span> {profile.pronouns}</p>}
-                {profile.birthday && <p><span className="font-semibold text-gray-700">Birth Year:</span> {profile.birthday}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Visit Details Section */}
-          {profile.role === 'individual' && (
-            <div className="border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Visit Details</h4>
-              <div className="text-sm text-gray-800 space-y-2">
-                {bio && (
-                  <div>
-                    <p className="font-medium text-gray-700">Reason for Visit:</p>
-                    <p className="text-gray-600 italic">"{bio}"</p>
-                  </div>
-                )}
-                {profile.physical_address && (
-                  <div>
-                    <p className="font-medium text-gray-700">Location of Visits:</p>
-                    <p className="text-gray-600 italic">"{profile.physical_address}"</p>
-                  </div>
-                )}
-                {profile.other_pets_on_site && (
-                  <div>
-                    <p className="font-medium text-gray-700">Other Animals on Site:</p>
-                    <p className="text-gray-600 italic">"{profile.other_pets_description || 'Yes'}"</p>
-                  </div>
-                )}
-                {profile.third_party_available && (
-                  <div>
-                    <p className="font-medium text-gray-700">Third Party Contact:</p>
-                    <p className="text-gray-600 italic">"{profile.third_party_available}"</p>
-                  </div>
-                )}
-                {profile.additional_information && (
-                  <div>
-                    <p className="font-medium text-gray-700">Additional Information:</p>
-                    <p className="text-gray-600 italic">"{profile.additional_information}"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Volunteer Information */}
-          {profile.role === 'volunteer' && (
-            <div className="border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Volunteer Details</h4>
-              <div className="text-sm text-gray-800 space-y-2">
-                {profile.travel_distance_km && (
-                  <p><span className="font-medium text-gray-700">Travel Distance:</span> {profile.travel_distance_km} km</p>
-                )}
-                {bio && (
-                  <div>
-                    <p className="font-medium text-gray-700">Bio:</p>
-                    <p className="text-gray-600 italic">"{bio}"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      <Button className="w-full mt-3 text-sm py-2" onClick={() => setShowEditForm(true)}>
+      {/* Bottom section: full-width extended profile details */}
+      {(profile.role === 'individual' || profile.role === 'volunteer') && (
+        <div className="flex flex-col gap-5 border-t border-gray-100 pt-5">
+
+          {/* Visit Recipient (individuals arranging for someone else) */}
+          {profile.role === 'individual' && profile.visit_recipient_type === 'other' && (
+            <div className="flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Visit Recipient</h4>
+              <div className="text-sm flex flex-col gap-1">
+                <p><span className="text-gray-500">Name:</span> <span className="text-gray-800">{profile.dependant_name}</span></p>
+                <p><span className="text-gray-500">Relationship:</span> <span className="text-gray-800">{profile.relationship_to_recipient}</span></p>
+                {profile.pronouns && <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>}
+                {profile.birthday && <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>}
+              </div>
+            </div>
+          )}
+
+          {/* Profile Details — individuals */}
+          {profile.role === 'individual' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 text-sm">
+                {bio && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Reason for Visit</p>
+                    <p className="text-gray-600 italic border-l-2 border-gray-200 pl-3 leading-relaxed">"{bio}"</p>
+                  </div>
+                )}
+                {profile.physical_address && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Location of Visits</p>
+                    <p className="text-gray-700">{profile.physical_address}</p>
+                  </div>
+                )}
+                {profile.other_pets_on_site && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Other Animals on Site</p>
+                    <p className="text-gray-700">{profile.other_pets_description || 'Yes'}</p>
+                  </div>
+                )}
+                {profile.third_party_available && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Third Party Contact</p>
+                    <p className="text-gray-700">{profile.third_party_available}</p>
+                  </div>
+                )}
+                {profile.additional_information && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Additional Information</p>
+                    <p className="text-gray-700">{profile.additional_information}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Profile Details — volunteers */}
+          {profile.role === 'volunteer' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 text-sm">
+                {profile.travel_distance_km && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Travel Distance</p>
+                    <p className="text-gray-700">{profile.travel_distance_km} km</p>
+                  </div>
+                )}
+                {bio && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Bio</p>
+                    <p className="text-gray-600 italic border-l-2 border-gray-200 pl-3 leading-relaxed">"{bio}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      <Button className="w-full text-sm py-2" onClick={() => setShowEditForm(true)}>
         Edit Profile
       </Button>
     </div>
