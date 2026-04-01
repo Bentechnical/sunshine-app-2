@@ -1,0 +1,316 @@
+{% extends "base" %}
+{% block title %}Calendar Subscriptions{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Calendar Subscriptions</h1>
+    <p class="mt-1 text-sm text-gray-500">Subscribe to your Sunshine shifts in your preferred calendar app. Your calendar updates automatically.</p>
+  </div>
+
+  {# ── Confirmed Shifts feed ──────────────────────────────────── #}
+  <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-700">
+      <div class="flex items-center gap-2.5">
+        <span class="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </span>
+        <div>
+          <h2 class="text-base font-semibold text-gray-900 dark:text-white">Confirmed Shifts</h2>
+          <p class="text-xs text-gray-500">Shifts you're confirmed on, with full location and team details.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-5 space-y-4">
+      {# Subscribe buttons #}
+      {% set feed_url = confirmed_url %}
+      <div class="flex flex-wrap gap-2">
+        <a href="https://calendar.google.com/calendar/r/settings/addbyurl?url={{ confirmed_url | urlencode }}"
+           target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium border border-blue-100 transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 3H4a1 1 0 00-1 1v16a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1zm-1 16H5V8h14v11zm0-13H5V5h14v1z"/>
+          </svg>
+          Google Calendar
+        </a>
+        <a href="{{ confirmed_url | replace(from='https://', to='webcal://') | replace(from='http://', to='webcal://') }}"
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Apple Calendar
+        </a>
+        <div x-data="{ copied: false }">
+          <button type="button"
+                  @click="navigator.clipboard.writeText('{{ confirmed_url }}'); copied = true; setTimeout(() => copied = false, 2500)"
+                  class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            <span x-show="!copied">Copy URL</span>
+            <span x-show="copied" x-cloak class="text-green-600">Copied!</span>
+          </button>
+        </div>
+      </div>
+
+      {# Help modal trigger #}
+      {% set modal_id = "help-confirmed" %}
+      {% set feed_url = confirmed_url %}
+      {% include "partials/calendar_help_modal" %}
+
+      {# URL display #}
+      <div class="flex gap-2 items-center mt-1">
+        <input type="text" value="{{ confirmed_url }}" readonly
+               class="flex-1 text-xs font-mono bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-600 dark:text-gray-400 min-w-0 select-all"
+               @click="$el.select()" />
+      </div>
+    </div>
+
+    <div class="px-5 pb-4 flex justify-end">
+      <form method="post" action="/volunteer/calendar/tokens/confirmed/regenerate"
+            x-data="{ confirm: false }"
+            @submit.prevent="if (confirm) $el.submit(); else { confirm = true; setTimeout(() => confirm = false, 4000) }">
+        <button type="submit"
+                :class="confirm ? 'text-red-600 hover:text-red-700 border-red-200 bg-red-50 hover:bg-red-100' : 'text-gray-400 hover:text-gray-600 border-gray-200 hover:bg-gray-50'"
+                class="text-xs border rounded-lg px-3 py-1.5 transition-colors">
+          <span x-show="!confirm">Regenerate link</span>
+          <span x-show="confirm" x-cloak>⚠ This will break existing subscriptions — confirm?</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {# ── Available Shifts feed ──────────────────────────────────── #}
+  <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-700">
+      <div class="flex items-center gap-2.5">
+        <span class="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </span>
+        <div>
+          <h2 class="text-base font-semibold text-gray-900 dark:text-white">Available Shifts</h2>
+          <p class="text-xs text-gray-500">Open shifts refreshed every 8 hours. Configure which filters apply below.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-5 space-y-5">
+      {# Subscribe buttons #}
+      <div class="flex flex-wrap gap-2">
+        <a href="https://calendar.google.com/calendar/r/settings/addbyurl?url={{ available_url | urlencode }}"
+           target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium border border-blue-100 transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 3H4a1 1 0 00-1 1v16a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1zm-1 16H5V8h14v11zm0-13H5V5h14v1z"/>
+          </svg>
+          Google Calendar
+        </a>
+        <a href="{{ available_url | replace(from='https://', to='webcal://') | replace(from='http://', to='webcal://') }}"
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Apple Calendar
+        </a>
+        <div x-data="{ copied: false }">
+          <button type="button"
+                  @click="navigator.clipboard.writeText('{{ available_url }}'); copied = true; setTimeout(() => copied = false, 2500)"
+                  class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            <span x-show="!copied">Copy URL</span>
+            <span x-show="copied" x-cloak class="text-green-600">Copied!</span>
+          </button>
+        </div>
+      </div>
+
+      {# Help modal #}
+      {% set modal_id = "help-available" %}
+      {% set feed_url = available_url %}
+      {% include "partials/calendar_help_modal" %}
+
+      {# URL display #}
+      <input type="text" value="{{ available_url }}" readonly
+             class="w-full text-xs font-mono bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-600 dark:text-gray-400 select-all"
+             @click="$el.select()" />
+
+      {# Feed configuration form #}
+      <form method="post" action="/volunteer/calendar/available/config"
+            class="border border-gray-100 dark:border-gray-700 rounded-xl p-4 space-y-4 bg-gray-50 dark:bg-gray-700/30">
+        <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200">Feed filters</h3>
+
+        {# Follow queryset toggle #}
+        <label class="flex items-start gap-3 cursor-pointer">
+          <div class="relative mt-0.5">
+            <input type="checkbox" name="follow_queryset" value="true"
+                   {% if follow_queryset %}checked{% endif %}
+                   id="toggle-follow-queryset"
+                   class="sr-only peer" />
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-sunshine-500 rounded-full transition-colors peer-focus:ring-2 peer-focus:ring-sunshine-300"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+          </div>
+          <div>
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Follow saved queryset</span>
+            {# Queryset selector (shown when toggle is on) #}
+            <div x-data="{ active: document.getElementById('toggle-follow-queryset')?.checked }"
+                 @change.document="active = document.getElementById('toggle-follow-queryset')?.checked"
+                 class="mt-1.5">
+              <select name="queryset_id"
+                      x-show="active"
+                      x-cloak
+                      class="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 w-48 focus:ring-2 focus:ring-sunshine-300">
+                <option value="">— No queryset (all open shifts) —</option>
+                {% for qs in querysets %}
+                <option value="{{ qs.id }}"
+                        {% if selected_queryset_id and selected_queryset_id == qs.id %}selected{% endif %}>
+                  {{ qs.name }}{% if qs.is_default %} (default){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+              {% if querysets | length == 0 %}
+              <p x-show="active" x-cloak class="text-xs text-gray-400 mt-1">
+                You don't have any saved filters yet.
+                <a href="/volunteer/shifts" class="text-sunshine-600 hover:underline">Save one from the shifts board →</a>
+              </p>
+              {% endif %}
+            </div>
+          </div>
+        </label>
+
+        {# Follow preferred times toggle #}
+        <label class="flex items-start gap-3 cursor-pointer">
+          <div class="relative mt-0.5">
+            <input type="checkbox" name="follow_preferred_times" value="true"
+                   {% if follow_preferred_times %}checked{% endif %}
+                   class="sr-only peer" />
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-sunshine-500 rounded-full transition-colors peer-focus:ring-2 peer-focus:ring-sunshine-300"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+          </div>
+          <div>
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Follow my preferred times</span>
+            <p class="text-xs text-gray-500 mt-0.5">Only show shifts that fall within your time preference grid.</p>
+          </div>
+        </label>
+
+        {% if not follow_queryset and not follow_preferred_times %}
+        <p class="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg px-3 py-2">
+          Both filters are off — this feed will show <strong>all open published shifts</strong>.
+        </p>
+        {% endif %}
+
+        <div class="flex items-center justify-between pt-1">
+          {% if cache_generated_at %}
+          <span class="text-xs text-gray-400">Last refreshed: {{ cache_generated_at | date(format="%b %-d at %-I:%M %p") }}</span>
+          {% else %}
+          <span class="text-xs text-gray-400">Not yet generated</span>
+          {% endif %}
+          <button type="submit"
+                  class="px-4 py-1.5 bg-sunshine-500 hover:bg-sunshine-600 text-white text-sm font-medium rounded-lg transition-colors">
+            Save &amp; Refresh
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="px-5 pb-4 flex justify-end">
+      <form method="post" action="/volunteer/calendar/tokens/available/regenerate"
+            x-data="{ confirm: false }"
+            @submit.prevent="if (confirm) $el.submit(); else { confirm = true; setTimeout(() => confirm = false, 4000) }">
+        <button type="submit"
+                :class="confirm ? 'text-red-600 hover:text-red-700 border-red-200 bg-red-50 hover:bg-red-100' : 'text-gray-400 hover:text-gray-600 border-gray-200 hover:bg-gray-50'"
+                class="text-xs border rounded-lg px-3 py-1.5 transition-colors">
+          <span x-show="!confirm">Regenerate link</span>
+          <span x-show="confirm" x-cloak>⚠ This will break existing subscriptions — confirm?</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {# ── Saved Querysets ──────────────────────────────────────────── #}
+  <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div class="px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Saved Filters</h2>
+        <p class="text-xs text-gray-500">Up to 3 filter presets. The default loads automatically on the shifts board.</p>
+      </div>
+      <span class="text-xs text-gray-400">{{ querysets | length }}/3</span>
+    </div>
+    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+      {% if querysets | length == 0 %}
+      <div class="px-5 py-6 text-center">
+        <p class="text-sm text-gray-400">No saved filters yet.</p>
+        <a href="/volunteer/shifts" class="mt-1 inline-block text-sm text-sunshine-600 hover:underline">Go to the shifts board to save one →</a>
+      </div>
+      {% else %}
+      {% for qs in querysets %}
+      <div class="px-5 py-3 flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ qs.name }}</span>
+            {% if qs.is_default %}
+            <span class="px-1.5 py-0.5 rounded-full bg-sunshine-100 text-sunshine-700 text-xs font-medium">default</span>
+            {% endif %}
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {% if qs.region %}Area: {{ qs.region }}{% endif %}
+            {% if qs.region and qs.agency_type %} · {% endif %}
+            {% if qs.agency_type %}Type: {{ qs.agency_type }}{% endif %}
+            {% if qs.open_only %} · Open only{% endif %}
+            {% if qs.match_preferences %} · Preferred times{% endif %}
+            {% if qs.preferred_distance_km %} · Within {{ qs.preferred_distance_km }} km{% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          {% if not qs.is_default %}
+          <form method="post" action="/volunteer/querysets/{{ qs.id }}/default">
+            <button type="submit" title="Set as default"
+                    class="p-1.5 text-gray-300 hover:text-sunshine-500 hover:bg-sunshine-50 rounded-lg transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+              </svg>
+            </button>
+          </form>
+          {% else %}
+          <form method="post" action="/volunteer/querysets/clear-default">
+            <button type="submit" title="Remove default"
+                    class="p-1.5 text-sunshine-500 hover:text-gray-400 hover:bg-gray-50 rounded-lg transition-colors">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+              </svg>
+            </button>
+          </form>
+          {% endif %}
+          <button type="button"
+                  hx-delete="/volunteer/querysets/{{ qs.id }}"
+                  hx-confirm="Delete filter '{{ qs.name }}'?"
+                  hx-target="closest div.px-5"
+                  hx-swap="outerHTML"
+                  title="Delete"
+                  class="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    <div class="px-5 pb-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+      <a href="/volunteer/shifts" class="text-sm text-sunshine-600 hover:underline">
+        ← Back to shifts board to save new filters
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

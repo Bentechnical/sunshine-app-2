@@ -1,0 +1,9 @@
+{# Admin curate toggle button. Variables: asset_id, curated #}
+<button id="curate-{{ asset_id }}"
+        hx-post="/admin/assets/{{ asset_id }}/curate"
+        hx-target="#curate-{{ asset_id }}"
+        hx-swap="outerHTML"
+        title="{% if curated %}Remove from public stream{% else %}Add to public stream{% endif %}"
+        class="text-sm {% if curated %}text-sunshine-600 font-semibold{% else %}text-gray-400 hover:text-sunshine-500{% endif %} transition">
+  ★
+</button>

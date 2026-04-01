@@ -1,0 +1,20 @@
+{# Inline tag list rendered by HTMX tag add/remove endpoints. Variables: asset_id, tags, viewer_id, is_admin #}
+<div id="tags-{{ asset_id }}" class="flex flex-wrap gap-1">
+  {% for tag in tags %}
+  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tight
+               {% if tag.dog_name %}bg-amber-100 text-amber-800{% else %}bg-indigo-100 text-indigo-800{% endif %}">
+    {% if tag.dog_name %}🐾 {{ tag.dog_name }}{% else %}👤 {{ tag.volunteer_name }}{% endif %}
+    
+    {% if is_admin or tag.tagged_by == viewer_id %}
+    <button hx-delete="/assets/{{ asset_id }}/tags/{{ tag.id }}"
+            hx-target="#tags-{{ asset_id }}"
+            hx-swap="outerHTML"
+            class="ml-0.5 text-current opacity-40 hover:opacity-100 transition-opacity">
+      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    {% endif %}
+  </span>
+  {% endfor %}
+</div>

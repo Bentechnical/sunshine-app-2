@@ -1,0 +1,253 @@
+/*
+ * Dark mode overrides — scoped to .dark on <html>.
+ * Remaps Tailwind's light-mode color utilities to a slate-toned dark palette.
+ * No template changes required.
+ *
+ * Palette:
+ *   Page bg   : #0f172a  (slate-950)
+ *   Card bg   : #1e293b  (slate-800)
+ *   Raised bg : #334155  (slate-700)
+ *   Border    : #334155  (slate-700)
+ *   Subtle bdr: #1e293b  (slate-800)
+ *   Text-1    : #f8fafc  (slate-50)
+ *   Text-2    : #e2e8f0  (slate-200)
+ *   Text-3    : #cbd5e1  (slate-300)
+ *   Text-muted: #94a3b8  (slate-400)
+ *   Text-faint: #64748b  (slate-500)
+ */
+
+/* ─── Page & structural backgrounds ───────────────────────── */
+.dark body                 { background-color: #0f172a; color: #e2e8f0; }
+.dark .bg-white            { background-color: #1e293b; }
+.dark .bg-gray-50          { background-color: #0f172a; }
+.dark .bg-gray-100         { background-color: #1e293b; }
+.dark .bg-gray-200         { background-color: #334155; }
+.dark .bg-gray-300         { background-color: #475569; }
+.dark .bg-black            { background-color: #000; } /* keep */
+
+/* ─── Hover backgrounds ────────────────────────────────────── */
+.dark .hover\:bg-white:hover     { background-color: #334155; }
+.dark .hover\:bg-gray-50:hover   { background-color: #334155; }
+.dark .hover\:bg-gray-100:hover  { background-color: #334155; }
+.dark .hover\:bg-gray-200:hover  { background-color: #475569; }
+.dark .hover\:bg-gray-500:hover  { background-color: #475569; }
+.dark .hover\:bg-gray-700:hover  { background-color: #475569; } /* already dark */
+.dark .hover\:bg-gray-800:hover  { background-color: #334155; }
+
+/* ─── Text colors ──────────────────────────────────────────── */
+.dark .text-gray-900 { color: #f8fafc; }
+.dark .text-gray-800 { color: #f1f5f9; }
+.dark .text-gray-700 { color: #e2e8f0; }
+.dark .text-gray-600 { color: #cbd5e1; }
+.dark .text-gray-500 { color: #94a3b8; }
+.dark .text-gray-400 { color: #64748b; }
+.dark .text-gray-300 { color: #475569; }
+.dark .text-gray-200 { color: #334155; }
+.dark .text-gray-100 { color: #1e293b; }
+
+/* ─── Border colors ────────────────────────────────────────── */
+.dark .border-gray-50  { border-color: #1e293b; }
+.dark .border-gray-100 { border-color: #1e293b; }
+.dark .border-gray-200 { border-color: #334155; }
+.dark .border-gray-300 { border-color: #475569; }
+.dark .border-gray-700 { border-color: #334155; } /* already dark */
+
+/* ─── Divide colors ────────────────────────────────────────── */
+.dark .divide-gray-50  > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+
+/* ─── Red ──────────────────────────────────────────────────── */
+.dark .bg-red-50         { background-color: rgba(239,68,68,.12); }
+.dark .bg-red-100        { background-color: rgba(239,68,68,.18); }
+.dark .border-red-100    { border-color: rgba(239,68,68,.2); }
+.dark .border-red-200    { border-color: rgba(239,68,68,.3); }
+.dark .text-red-900      { color: #fecaca; }
+.dark .text-red-800      { color: #fca5a5; }
+.dark .text-red-700      { color: #fca5a5; }
+.dark .text-red-600      { color: #f87171; }
+.dark .text-red-500      { color: #ef4444; }
+.dark .text-red-400      { color: #f87171; }
+.dark .text-red-300      { color: #fca5a5; }
+.dark .hover\:bg-red-50:hover   { background-color: rgba(239,68,68,.18); }
+.dark .hover\:bg-red-100:hover  { background-color: rgba(239,68,68,.22); }
+.dark .hover\:bg-red-200:hover  { background-color: rgba(239,68,68,.28); }
+
+/* ─── Green ────────────────────────────────────────────────── */
+.dark .bg-green-50        { background-color: rgba(34,197,94,.12); }
+.dark .bg-green-100       { background-color: rgba(34,197,94,.18); }
+.dark .border-green-100   { border-color: rgba(34,197,94,.2); }
+.dark .border-green-200   { border-color: rgba(34,197,94,.3); }
+.dark .text-green-900     { color: #bbf7d0; }
+.dark .text-green-800     { color: #86efac; }
+.dark .text-green-700     { color: #86efac; }
+.dark .text-green-600     { color: #4ade80; }
+.dark .text-green-400     { color: #4ade80; }
+.dark .text-green-300     { color: #86efac; }
+.dark .hover\:bg-green-50:hover   { background-color: rgba(34,197,94,.18); }
+.dark .hover\:bg-green-100:hover  { background-color: rgba(34,197,94,.22); }
+.dark .hover\:bg-green-200:hover  { background-color: rgba(34,197,94,.28); }
+
+/* ─── Blue ─────────────────────────────────────────────────── */
+.dark .bg-blue-50         { background-color: rgba(59,130,246,.12); }
+.dark .bg-blue-100        { background-color: rgba(59,130,246,.18); }
+.dark .border-blue-100    { border-color: rgba(59,130,246,.2); }
+.dark .border-blue-200    { border-color: rgba(59,130,246,.3); }
+.dark .border-blue-300    { border-color: rgba(59,130,246,.4); }
+.dark .text-blue-900      { color: #bfdbfe; }
+.dark .text-blue-800      { color: #93c5fd; }
+.dark .text-blue-700      { color: #93c5fd; }
+.dark .text-blue-600      { color: #60a5fa; }
+.dark .text-blue-500      { color: #3b82f6; }
+.dark .text-blue-400      { color: #60a5fa; }
+.dark .text-blue-300      { color: #93c5fd; }
+.dark .text-blue-100      { color: #bfdbfe; }
+.dark .hover\:bg-blue-50:hover   { background-color: rgba(59,130,246,.18); }
+.dark .hover\:bg-blue-100:hover  { background-color: rgba(59,130,246,.22); }
+
+/* ─── Amber ────────────────────────────────────────────────── */
+.dark .bg-amber-50        { background-color: rgba(245,158,11,.12); }
+.dark .bg-amber-100       { background-color: rgba(245,158,11,.18); }
+.dark .bg-amber-200       { background-color: rgba(245,158,11,.22); }
+.dark .border-amber-50    { border-color: rgba(245,158,11,.15); }
+.dark .border-amber-100   { border-color: rgba(245,158,11,.2); }
+.dark .border-amber-200   { border-color: rgba(245,158,11,.3); }
+.dark .border-amber-400   { border-color: rgba(245,158,11,.5); }
+.dark .text-amber-900     { color: #fef3c7; }
+.dark .text-amber-800     { color: #fde68a; }
+.dark .text-amber-700     { color: #fcd34d; }
+.dark .text-amber-600     { color: #fbbf24; }
+.dark .text-amber-500     { color: #f59e0b; }
+.dark .text-amber-400     { color: #fbbf24; }
+.dark .hover\:bg-amber-100:hover { background-color: rgba(245,158,11,.22); }
+
+/* ─── Yellow ───────────────────────────────────────────────── */
+.dark .bg-yellow-50       { background-color: rgba(234,179,8,.12); }
+.dark .bg-yellow-100      { background-color: rgba(234,179,8,.18); }
+.dark .border-yellow-200  { border-color: rgba(234,179,8,.3); }
+.dark .text-yellow-900    { color: #fef9c3; }
+.dark .text-yellow-700    { color: #fef08a; }
+.dark .text-yellow-600    { color: #facc15; }
+.dark .text-yellow-500    { color: #eab308; }
+.dark .text-yellow-400    { color: #facc15; }
+
+/* ─── Indigo ───────────────────────────────────────────────── */
+.dark .bg-indigo-50       { background-color: rgba(99,102,241,.12); }
+.dark .bg-indigo-100      { background-color: rgba(99,102,241,.18); }
+.dark .border-indigo-100  { border-color: rgba(99,102,241,.2); }
+.dark .border-indigo-200  { border-color: rgba(99,102,241,.3); }
+.dark .border-indigo-300  { border-color: rgba(99,102,241,.4); }
+.dark .border-indigo-400  { border-color: rgba(99,102,241,.5); }
+.dark .text-indigo-900    { color: #e0e7ff; }
+.dark .text-indigo-800    { color: #c7d2fe; }
+.dark .text-indigo-700    { color: #a5b4fc; }
+.dark .text-indigo-600    { color: #818cf8; }
+.dark .text-indigo-500    { color: #6366f1; }
+.dark .text-indigo-400    { color: #818cf8; }
+.dark .text-indigo-200    { color: #c7d2fe; }
+.dark .text-indigo-100    { color: #e0e7ff; }
+.dark .hover\:bg-indigo-50:hover   { background-color: rgba(99,102,241,.18); }
+.dark .hover\:bg-indigo-100:hover  { background-color: rgba(99,102,241,.22); }
+.dark .hover\:bg-indigo-400:hover  { background-color: rgba(99,102,241,.45); }
+
+/* ─── Purple ───────────────────────────────────────────────── */
+.dark .bg-purple-50       { background-color: rgba(168,85,247,.12); }
+.dark .bg-purple-100      { background-color: rgba(168,85,247,.18); }
+.dark .border-purple-100  { border-color: rgba(168,85,247,.2); }
+.dark .border-purple-200  { border-color: rgba(168,85,247,.3); }
+.dark .text-purple-700    { color: #d8b4fe; }
+.dark .text-purple-400    { color: #c084fc; }
+.dark .hover\:bg-purple-100:hover { background-color: rgba(168,85,247,.22); }
+
+/* ─── Orange ───────────────────────────────────────────────── */
+.dark .bg-orange-50       { background-color: rgba(249,115,22,.12); }
+.dark .bg-orange-100      { background-color: rgba(249,115,22,.18); }
+.dark .border-orange-100  { border-color: rgba(249,115,22,.2); }
+.dark .border-orange-200  { border-color: rgba(249,115,22,.3); }
+.dark .border-orange-300  { border-color: rgba(249,115,22,.4); }
+.dark .text-orange-900    { color: #ffedd5; }
+.dark .text-orange-800    { color: #fed7aa; }
+.dark .text-orange-700    { color: #fdba74; }
+.dark .text-orange-600    { color: #fb923c; }
+.dark .text-orange-500    { color: #f97316; }
+.dark .text-orange-400    { color: #fb923c; }
+.dark .text-orange-300    { color: #fdba74; }
+.dark .hover\:bg-orange-200:hover { background-color: rgba(249,115,22,.25); }
+
+/* ─── Rose ─────────────────────────────────────────────────── */
+.dark .bg-rose-50         { background-color: rgba(244,63,94,.12); }
+.dark .bg-rose-100        { background-color: rgba(244,63,94,.18); }
+.dark .border-rose-100    { border-color: rgba(244,63,94,.2); }
+.dark .border-rose-200    { border-color: rgba(244,63,94,.3); }
+.dark .border-rose-300    { border-color: rgba(244,63,94,.4); }
+.dark .text-rose-700      { color: #fda4af; }
+.dark .text-rose-600      { color: #fb7185; }
+
+/* ─── Cyan ─────────────────────────────────────────────────── */
+.dark .bg-cyan-50         { background-color: rgba(6,182,212,.12); }
+.dark .text-cyan-700      { color: #67e8f9; }
+
+/* ─── Sunshine brand ───────────────────────────────────────── */
+/* Nav bg-sunshine-500 stays — gold works on dark. Lighten link/text variants. */
+.dark .bg-sunshine-50     { background-color: rgba(245,158,11,.12); }
+.dark .bg-sunshine-100    { background-color: rgba(245,158,11,.18); }
+.dark .border-sunshine-200 { border-color: rgba(245,158,11,.25); }
+.dark .border-sunshine-300 { border-color: rgba(245,158,11,.35); }
+.dark .border-sunshine-400 { border-color: rgba(245,158,11,.50); }
+.dark .text-sunshine-900  { color: #fef3c7; }
+.dark .text-sunshine-800  { color: #fde68a; }
+.dark .text-sunshine-700  { color: #fcd34d; }
+.dark .text-sunshine-600  { color: #fbbf24; }
+.dark .text-sunshine-500  { color: #f59e0b; }
+.dark .hover\:bg-sunshine-50:hover { background-color: rgba(245,158,11,.18); }
+
+/* ─── Form inputs ──────────────────────────────────────────── */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="submit"]):not([type="button"]),
+.dark textarea,
+.dark select {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+.dark input:not([type="checkbox"]):not([type="radio"])::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+.dark input:not([type="checkbox"]):not([type="radio"]):focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #475569;
+  outline-color: #475569;
+}
+.dark input[type="checkbox"],
+.dark input[type="radio"] {
+  border-color: #475569;
+  background-color: #1e293b;
+}
+/* Disabled inputs */
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  background-color: #0f172a;
+  color: #64748b;
+}
+
+/* ─── Shadows ──────────────────────────────────────────────── */
+/* Soften shadows in dark mode so they don't look too heavy */
+.dark .shadow     { box-shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3); }
+.dark .shadow-sm  { box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.dark .shadow-md  { box-shadow: 0 4px 6px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.3); }
+.dark .shadow-lg  { box-shadow: 0 10px 15px rgba(0,0,0,.4), 0 4px 6px rgba(0,0,0,.3); }
+.dark .shadow-xl  { box-shadow: 0 20px 25px rgba(0,0,0,.4), 0 10px 10px rgba(0,0,0,.3); }
+
+/* ─── Ring / focus ─────────────────────────────────────────── */
+.dark .focus\:ring-sunshine-300:focus { --tw-ring-color: rgba(245,158,11,.4); }
+.dark .focus\:ring-sunshine-400:focus { --tw-ring-color: rgba(245,158,11,.5); }
+.dark .focus\:ring-sunshine-500:focus { --tw-ring-color: rgba(245,158,11,.6); }
+.dark .focus\:border-sunshine-500:focus { border-color: #f59e0b; }
+
+/* ─── Misc structural ──────────────────────────────────────── */
+.dark hr { border-color: #334155; }
+
+/* Tailwind bg-opacity shim — rare, just darken */
+.dark .bg-opacity-50 { opacity: .7; }

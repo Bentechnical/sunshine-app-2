@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT s.id as shift_id, s.title, s.start_at, a.name as agency_name\n        FROM shift_assignments sa\n        JOIN shifts s ON s.id = sa.shift_id\n        JOIN agencies a ON a.id = s.agency_id\n        WHERE $1 = ANY(sa.dog_ids)\n          AND s.start_at > now()\n          AND sa.status IN ('confirmed', 'waitlisted', 'pending_confirmation')\n        ORDER BY s.start_at ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "shift_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "start_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "agency_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2c55690dbc1f1e11c89dd6066ec36fd75cb8eadac8e1b41f9df167429579f232"
+}

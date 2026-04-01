@@ -1,0 +1,36 @@
+<div class="mt-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+    {% if count > 0 %}
+    <div class="bg-green-50 border-2 border-green-100 rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center text-xl shadow-lg shadow-green-100">
+                ✨
+            </div>
+            <div>
+                <h3 class="text-lg font-black text-green-900 tracking-tight">Survey Prompts Triggered</h3>
+                <p class="text-green-700 text-sm font-medium">Successfully processed {{ count }} missing survey prompts.</p>
+            </div>
+        </div>
+
+        <div class="space-y-2">
+            {% for item in processed %}
+            <div class="bg-white/60 rounded-xl p-3 flex items-center justify-between border border-green-100">
+                <div>
+                    <div class="font-bold text-gray-900 text-sm">{{ item.title }}</div>
+                    <div class="text-[10px] text-gray-400 font-mono">{{ item.id }}</div>
+                </div>
+                <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg 
+                           {% if item.target_type == 'volunteer' %}bg-indigo-50 text-indigo-600{% else %}bg-blue-50 text-blue-600{% endif %}">
+                    {{ item.target_type }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-gray-50 border-2 border-gray-100 rounded-2xl p-8 text-center">
+        <div class="text-4xl mb-3">✅</div>
+        <h3 class="text-lg font-black text-gray-900 tracking-tight">All Caught Up!</h3>
+        <p class="text-gray-500 text-sm font-medium">No shifts were found missing their survey prompts.</p>
+    </div>
+    {% endif %}
+</div>

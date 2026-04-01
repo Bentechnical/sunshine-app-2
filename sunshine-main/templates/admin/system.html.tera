@@ -1,0 +1,58 @@
+{% extends "base" %}
+
+{% block title %}System{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">System Dashboard</h1>
+      <p class="mt-1 text-sm text-gray-500">Live server health — refreshes every 5 s</p>
+    </div>
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 border border-green-200">
+      <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+      Live
+    </span>
+  </div>
+
+  <!-- Metrics grid — polled every 5 s via HTMX -->
+  <div
+    id="metrics-grid"
+    hx-get="/admin/system/metrics"
+    hx-trigger="load, every 5s"
+    hx-swap="outerHTML"
+  >
+    {% include "admin/system_metrics" %}
+  </div>
+
+  <!-- Recent event log -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-semibold text-gray-900">Recent Activity</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Last 20 volunteer events</p>
+    </div>
+
+    {% if events %}
+    <div class="divide-y divide-gray-50">
+      {% for e in events %}
+      <div class="flex items-center gap-4 px-6 py-3">
+        <span class="text-lg leading-none">{{ e.event_type | event_icon }}</span>
+        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium {{ e.event_type | event_color }}">
+          {{ e.event_type | event_label }}
+        </span>
+        <span class="text-sm text-gray-700 flex-1 min-w-0 truncate">
+          {% if e.volunteer_name %}{{ e.volunteer_name }}{% else %}<span class="text-gray-400 italic">Unknown</span>{% endif %}
+        </span>
+        <span class="text-xs text-gray-400 whitespace-nowrap">{{ e.created_at | date(format="%b %d, %H:%M") }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="px-6 py-8 text-sm text-gray-400 text-center">No events yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

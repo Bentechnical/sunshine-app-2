@@ -1,0 +1,282 @@
+{% extends "base" %}
+{% block title %}Review Application — {{ application.full_name | default(value="Applicant") }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+  <!-- Header -->
+  <div class="flex items-center gap-4">
+    <a href="/admin/vol-applications" class="text-gray-400 hover:text-gray-600">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-bold text-gray-900">{{ application.full_name | default(value=application.applicant_email) }}</h1>
+        <span class="px-3 py-1 rounded-full text-sm font-medium {{ application.status | vol_app_status_color }}">
+          {{ application.status | vol_app_status_label }}
+        </span>
+      </div>
+      <p class="text-sm text-gray-500">{{ application.applicant_email }}</p>
+    </div>
+  </div>
+
+  <!-- Status Banners -->
+  {% if application.status == "approved" %}
+  <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🎉</span>
+      <div>
+        <p class="font-medium text-green-900">Application Approved</p>
+        <p class="text-sm text-green-700">
+          Approved on {{ application.reviewed_at | date(format="%B %-d, %Y") }}
+          {% if application.reviewer_name %}by {{ application.reviewer_name }}{% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if application.status == "rejected" %}
+  <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">❌</span>
+      <div>
+        <p class="font-medium text-red-900">Application Rejected</p>
+        <p class="text-sm text-red-700">
+          {% if application.rejection_reason %}{{ application.rejection_reason }}{% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Admin Actions -->
+  {% if next_statuses | length > 0 %}
+  <div class="bg-sunshine-50 border border-sunshine-200 rounded-2xl p-6 shadow-sm" x-data="{ showReject: false }">
+    <h3 class="text-xs font-black text-sunshine-400 uppercase tracking-widest mb-4">Admin Actions</h3>
+
+    <form method="post" action="/admin/vol-applications/{{ application.id }}/advance" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Advance Status To</label>
+          <select name="target_status" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            {% for ns in next_statuses %}
+            <option value="{{ ns.0 }}">{{ ns.1 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
+          <input type="text" name="note" placeholder="Internal note..."
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-bold px-6 py-2 rounded-lg transition shadow-md text-sm">
+          Advance Status
+        </button>
+        {% if application.status != "approved" %}
+        <button type="button" @click="showReject = !showReject"
+                class="bg-white border border-red-200 text-red-600 font-bold px-6 py-2 rounded-lg hover:bg-red-50 transition text-sm">
+          Reject
+        </button>
+        {% endif %}
+      </div>
+    </form>
+
+    <!-- Reject Form (inline toggle) -->
+    <div x-show="showReject" x-transition class="mt-6 pt-6 border-t border-sunshine-200" style="display: none;">
+      <form method="post" action="/admin/vol-applications/{{ application.id }}/reject" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (shared with applicant) *</label>
+          <textarea name="reason" rows="3" required
+                    placeholder="Please explain why the application is being rejected..."
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Internal Note (optional)</label>
+          <input type="text" name="note" placeholder="Admin-only note..."
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2 rounded-lg transition text-sm">
+          Confirm Rejection
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Application Details -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Personal Information -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm font-medium text-gray-500">Full Name</label>
+          <p class="text-gray-900 font-medium">{{ application.full_name | default(value="—") }}</p>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-500">Email</label>
+          <p class="text-gray-900">{{ application.applicant_email }}</p>
+        </div>
+        {% if application.phone %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Phone</label>
+          <p class="text-gray-900">{{ application.phone }}</p>
+        </div>
+        {% endif %}
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm font-medium text-gray-500">City</label>
+            <p class="text-gray-900">{{ application.city | default(value="—") }}</p>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-gray-500">Postal Code</label>
+            <p class="text-gray-900">{{ application.postal_code | default(value="—") }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Questionnaire -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Questionnaire</h2>
+      <div class="space-y-4">
+        {% if application.motivation %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Motivation</label>
+          <p class="text-gray-900 text-sm">{{ application.motivation }}</p>
+        </div>
+        {% endif %}
+        {% if application.experience %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Experience</label>
+          <p class="text-gray-900 text-sm">{{ application.experience }}</p>
+        </div>
+        {% endif %}
+        {% if application.availability %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Availability</label>
+          <p class="text-gray-900 text-sm">{{ application.availability }}</p>
+        </div>
+        {% endif %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Has Dog</label>
+          <p class="text-gray-900">{{ application.has_dog | default(value=false) | yesno(yes="Yes", no="No") }}
+            {% if application.dog_breed_freeform %} — {{ application.dog_breed_freeform }}{% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agreements & Flags -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Agreements</h2>
+      <div class="space-y-2">
+        <div class="flex items-center gap-2 text-sm">
+          {% if application.agreed_code_of_conduct %}<span class="text-green-600">✓</span>{% else %}<span class="text-gray-300">○</span>{% endif %}
+          Code of Conduct
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          {% if application.agreed_photo_release %}<span class="text-green-600">✓</span>{% else %}<span class="text-gray-300">○</span>{% endif %}
+          Photo Release
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          {% if application.agreed_liability_waiver %}<span class="text-green-600">✓</span>{% else %}<span class="text-gray-300">○</span>{% endif %}
+          Liability Waiver
+        </div>
+        {% if application.agreements_signed_at %}
+        <p class="text-xs text-gray-400 mt-2">Signed {{ application.agreements_signed_at | date(format="%b %-d, %Y at %-I:%M %p") }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Flags & Source</h2>
+      <div class="space-y-3">
+        {% if application.invite_link_label %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Invite Link</label>
+          <p class="text-gray-900">{{ application.invite_link_label }}</p>
+        </div>
+        {% endif %}
+        {% if application.source_tag %}
+        <div>
+          <label class="text-sm font-medium text-gray-500">Source</label>
+          <span class="text-xs bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded-full font-medium">{{ application.source_tag }}</span>
+        </div>
+        {% endif %}
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 text-sm">
+            {% if application.vsc_waived %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">○</span>{% endif %}
+            VSC Waived {% if application.vsc_waived_visible %}<span class="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">visible</span>{% endif %}
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            {% if application.background_check_waived %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">○</span>{% endif %}
+            Background Check Waived {% if application.background_waived_visible %}<span class="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">visible</span>{% endif %}
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            {% if application.dog_health_check_waived %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">○</span>{% endif %}
+            Dog Health Check Waived {% if application.dog_health_waived_visible %}<span class="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">visible</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Notes -->
+  {% if application.review_notes %}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Review Notes</h2>
+    <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-line">{{ application.review_notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Add Note -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Note</h2>
+    <form method="post" action="/admin/vol-applications/{{ application.id }}/note" class="flex gap-3">
+      <input type="text" name="note" required placeholder="Add an internal note..."
+             class="flex-1 border border-gray-200 rounded-lg px-4 py-2 text-sm">
+      <button type="submit" class="bg-gray-900 text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
+        Add Note
+      </button>
+    </form>
+  </div>
+
+  <!-- Event Log -->
+  {% if events | length > 0 %}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Activity Log</h2>
+    <div class="space-y-3">
+      {% for event in events %}
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-full {{ event.event_type | event_color }} flex items-center justify-center text-sm flex-shrink-0">
+          {{ event.event_type | event_icon }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-900">{{ event.event_type | event_description(metadata=event.metadata) }}</p>
+          <p class="text-xs text-gray-400">
+            {{ event.created_at | date(format="%b %-d, %Y at %-I:%M %p") }}
+            {% if event.created_by_name %} — {{ event.created_by_name }}{% endif %}
+          </p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Application Metadata -->
+  <div class="text-xs text-gray-400 flex items-center gap-4">
+    <span>Application ID: {{ application.id }}</span>
+    <span>Created: {{ application.created_at | date(format="%b %-d, %Y") }}</span>
+    {% if application.submitted_at %}
+    <span>Submitted: {{ application.submitted_at | date(format="%b %-d, %Y") }}</span>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -205,7 +205,7 @@ export default function ProfileCardBlock() {
       <div className="flex flex-col md:flex-row items-start">
         {profile.profile_image && (
           <div className="flex-shrink-0 mb-4 md:mb-0 mx-auto md:mx-0 md:mr-6">
-            <div className="relative w-36 aspect-square rounded-lg overflow-hidden shadow-md border border-gray-300">
+            <div className="relative w-36 aspect-square rounded-xl overflow-hidden shadow-md border border-gray-300">
               <Image
                 src={profile.profile_image}
                 alt="Profile"

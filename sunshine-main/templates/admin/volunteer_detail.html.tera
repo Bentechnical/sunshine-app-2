@@ -1,0 +1,609 @@
+{% extends "base" %}
+{% block title %}{{ volunteer.volunteer_names }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8" x-data="volunteerDetail('{{ volunteer.user_id }}')">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-full {% if volunteer.is_active %}bg-sunshine-100 text-sunshine-700{% else %}bg-gray-200 text-gray-500{% endif %} flex items-center justify-center text-2xl font-bold">
+        {{ volunteer.volunteer_names | default(value="Volunteer") | truncate(length=1, end="") | upper }}
+      </div>
+      <div>
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl font-bold text-gray-900">{{ volunteer.volunteer_names }}</h1>
+          {% if not volunteer.is_active %}<span class="bg-red-100 text-red-700 text-xs font-medium px-2 py-1 rounded-full">Inactive</span>{% endif %}
+        </div>
+        <p class="text-gray-500">{{ volunteer.email }}</p>
+        <p class="text-sm text-gray-400 mt-1">Member since {{ volunteer.created_at | date(format="%B %Y") }}</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <a href="/admin/volunteers/{{ volunteer.user_id }}/edit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+        ✏️ Edit
+      </a>
+      
+      {% if volunteer.is_active %}
+      <button type="button" @click="checkDeactivation()"
+              class="bg-red-100 hover:bg-red-200 text-red-700 font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+        🚫 Deactivate
+      </button>
+      {% else %}
+      <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/toggle-active" class="inline">
+        <button type="submit" class="bg-green-100 hover:bg-green-200 text-green-700 font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+          ✅ Activate
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Deactivation Modal -->
+  <div x-show="deactivateModalOpen" 
+       class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       style="display: none;"
+       x-cloak>
+    
+    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-100"
+         @click.away="deactivateModalOpen = false">
+      
+      <div class="p-8 border-b border-gray-100 bg-red-50/30 flex items-center justify-between">
+        <div>
+          <h3 class="text-2xl font-black text-gray-900 tracking-tight">Deactivate Account</h3>
+          <p class="text-sm text-red-600 font-bold mt-1">{{ volunteer.volunteer_names }}</p>
+        </div>
+        <button @click="deactivateModalOpen = false" class="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-8 space-y-6">
+        <div class="bg-amber-50 border-2 border-amber-100 rounded-2xl p-4">
+          <p class="text-amber-800 text-sm font-medium leading-relaxed">
+            Deactivating this account will prevent the user from logging in and will <span class="font-black">automatically cancel</span> all upcoming shift assignments.
+          </p>
+        </div>
+
+        <template x-if="upcomingShifts.length > 0">
+          <div>
+            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Impacted Shifts (<span x-text="upcomingShifts.length"></span>)</h4>
+            <div class="max-h-48 overflow-y-auto space-y-2 pr-2">
+              <template x-for="shift in upcomingShifts" :key="shift.shift_id">
+                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100 text-left">
+                  <div class="flex justify-between items-start">
+                    <div class="font-bold text-gray-900 text-sm" x-text="shift.title"></div>
+                    <span class="text-[10px] font-black uppercase bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-500" x-text="shift.status"></span>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-0.5" x-text="shift.agency_name"></div>
+                  <div class="text-[10px] text-gray-400 mt-1" x-text="new Date(shift.start_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <div class="pt-4 flex gap-4">
+          <button type="button" @click="deactivateModalOpen = false"
+                  class="flex-1 px-8 py-4 text-gray-500 font-bold hover:text-gray-700 transition-all text-sm uppercase tracking-widest">
+            Keep Active
+          </button>
+          <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/toggle-active" class="flex-[2]">
+            <button type="submit"
+                    class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-red-100 active:scale-95 text-sm uppercase tracking-widest">
+              Confirm & Deactivate
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+      <div class="text-3xl font-bold text-gray-900">{{ volunteer.total_shifts }}</div>
+      <div class="text-sm text-gray-500 mt-1">Total Shifts</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+      <div class="text-3xl font-bold text-gray-900">{{ volunteer.total_clients_served }}</div>
+      <div class="text-sm text-gray-500 mt-1">Clients Served</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+      <div class="text-3xl font-bold text-gray-900">{{ volunteer.upcoming_shifts }}</div>
+      <div class="text-sm text-gray-500 mt-1">Upcoming</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+      <div class="text-3xl font-bold text-gray-900">{{ dogs | length }}</div>
+      <div class="text-sm text-gray-500 mt-1">Dogs</div>
+    </div>
+  </div>
+
+  <!-- Compliance Badges -->
+  <div class="flex gap-3">
+    {% if volunteer.has_police_check %}
+    <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-sm font-medium">
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+      Police Check
+    </span>
+    {% else %}
+    <span class="inline-flex items-center gap-1 bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg text-sm">
+      ⏳ Police Check Pending
+    </span>
+    {% endif %}
+    
+    {% if volunteer.has_vulnerable_sector_check %}
+    <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium">
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+      Vulnerable Sector Check
+    </span>
+    {% else %}
+    <span class="inline-flex items-center gap-1 bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg text-sm">
+      ⏳ Vulnerable Sector Pending
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Profile Info -->
+  {% if volunteer.bio or volunteer.joined_at %}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Profile Information</h2>
+    {% if volunteer.bio %}
+    <div class="mb-4">
+      <h3 class="text-sm font-medium text-gray-500 mb-1">Bio</h3>
+      <p class="text-gray-700">{{ volunteer.bio }}</p>
+    </div>
+    {% endif %}
+    <div class="grid grid-cols-2 gap-4">
+      {% if volunteer.joined_at %}
+      <div>
+        <h3 class="text-sm font-medium text-gray-500 mb-1">Volunteer Since</h3>
+        <p class="text-gray-700">{{ volunteer.joined_at | date(format="%B %Y") }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tabs Navigation -->
+  <div class="border-b border-gray-200">
+    <nav class="flex gap-6">
+      <button @click="tab = 'dogs'" 
+              :class="{ 'border-b-2 border-sunshine-500 text-sunshine-600': tab === 'dogs', 'text-gray-500 hover:text-gray-700': tab !== 'dogs' }"
+              class="pb-3 px-1 font-medium text-sm transition">
+        🐕 Dogs ({{ dogs | length }})
+      </button>
+      <button @click="tab = 'shifts'" 
+              :class="{ 'border-b-2 border-sunshine-500 text-sunshine-600': tab === 'shifts', 'text-gray-500 hover:text-gray-700': tab !== 'shifts' }"
+              class="pb-3 px-1 font-medium text-sm transition">
+        📅 Shifts
+      </button>
+      <button @click="tab = 'evaluations'" 
+              :class="{ 'border-b-2 border-sunshine-500 text-sunshine-600': tab === 'evaluations', 'text-gray-500 hover:text-gray-700': tab !== 'evaluations' }"
+              class="pb-3 px-1 font-medium text-sm transition">
+        🎓 Evaluations ({{ dog_applications | length }})
+      </button>
+      <button @click="tab = 'history'" 
+              :class="{ 'border-b-2 border-sunshine-500 text-sunshine-600': tab === 'history', 'text-gray-500 hover:text-gray-700': tab !== 'history' }"
+              class="pb-3 px-1 font-medium text-sm transition">
+        📋 Activity Log
+      </button>
+      <button @click="tab = 'contact'" 
+              :class="{ 'border-b-2 border-sunshine-500 text-sunshine-600': tab === 'contact', 'text-gray-500 hover:text-gray-700': tab !== 'contact' }"
+              class="pb-3 px-1 font-medium text-sm transition">
+        ✉️ Contact
+      </button>
+    </nav>
+  </div>
+
+  <!-- Dogs Tab -->
+  <div x-show="tab === 'dogs'" class="space-y-4">
+    <div class="flex justify-between items-center">
+      <h2 class="text-lg font-semibold text-gray-900">Registered Dogs</h2>
+      <button onclick="document.getElementById('add-dog-modal').classList.remove('hidden')" 
+              class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+        + Add Dog
+      </button>
+    </div>
+    
+    {% if dogs | length > 0 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for dog in dogs %}
+      <div class="bg-white rounded-xl border {% if not dog.is_active %}border-gray-300 bg-gray-50{% else %}border-gray-200{% endif %} p-5">
+        <div class="flex justify-between items-start mb-3">
+          <div class="flex items-center gap-3">
+            <!-- Dog photo -->
+            {% if dog.photo_thumb_url %}
+              <img src="{{ dog.photo_thumb_url }}" alt="{{ dog.name }}" class="w-14 h-14 rounded-full object-cover flex-shrink-0">
+            {% else %}
+              <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-2xl flex-shrink-0">
+                🐕
+              </div>
+            {% endif %}
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-gray-900">{{ dog.name }}</h3>
+                {% if dog.is_primary %}<span class="text-xs bg-sunshine-100 text-sunshine-700 px-2 py-0.5 rounded-full">Primary</span>{% endif %}
+                {% if not dog.is_active %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Inactive</span>{% endif %}
+              </div>
+              <p class="text-sm text-gray-500">
+                {{ dog.breed_name | default(value=dog.breed_freeform) | default(value="Unknown breed") }} • {{ dog.size | replace(from="_", to=" ") | title }}
+                {% if dog.gender %} • {{ dog.gender | title }}{% endif %}
+              </p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <!-- Photo upload/replace -->
+            <div x-data="{ showMenu: false }" class="relative" @keydown.escape.window="showMenu = false">
+              <button @click="showMenu = !showMenu" :aria-expanded="showMenu" class="text-gray-400 hover:text-gray-600" title="Photo">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </button>
+              <div x-show="showMenu" 
+                   x-cloak
+                   @click.away="showMenu = false" 
+                   class="absolute right-0 mt-1 w-44 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-200">
+                <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/dogs/{{ dog.id }}/photo" enctype="multipart/form-data">
+                  <label class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                    {% if dog.photo_asset_id %}Replace{% else %}Upload{% endif %} Photo
+                    <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden"
+                           onchange="this.form.submit()">
+                  </label>
+                </form>
+                {% if dog.photo_asset_id %}
+                <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/dogs/{{ dog.id }}/photo/remove">
+                  <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">Remove Photo</button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+            <button onclick="document.getElementById('edit-dog-{{ dog.id }}').classList.remove('hidden')"
+                    class="text-gray-400 hover:text-gray-600">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+            <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/dogs/{{ dog.id }}/toggle-active" class="inline">
+              <button type="submit" class="{% if dog.is_active %}text-red-400 hover:text-red-600{% else %}text-green-400 hover:text-green-600{% endif %}" title="Toggle Active">
+                {% if dog.is_active %}🚫{% else %}✅{% endif %}
+              </button>
+            </form>
+            {% if dog.is_active %}
+            <button type="button"
+                  class="text-orange-400 hover:text-orange-600"
+                  title="Retire with Honors"
+                  @click="$dispatch('open-retire-modal', { id: '{{ dog.id }}', name: '{{ dog.name }}', url: '/admin/volunteers/{{ volunteer.user_id }}/dogs/{{ dog.id }}/retire' })">
+              🎖️
+            </button>
+            {% endif %}
+          </div>
+        </div>
+        {% if dog.date_of_birth %}
+        <p class="text-sm text-gray-600" x-data="{
+          get age() {
+            const birthDate = new Date('{{ dog.date_of_birth }}');
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+              age--;
+            }
+            return age;
+          }
+        }">Age: <span x-text="age"></span> years</p>
+        {% endif %}
+        {% if dog.personality_desc %}
+        <p class="text-sm text-gray-600 mt-2">{{ dog.personality_desc }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+      <p>No dogs registered yet</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Shifts Tab -->
+  <div x-show="tab === 'shifts'" class="space-y-4" style="display: none;">
+    <h2 class="text-lg font-semibold text-gray-900">Shift History</h2>
+    {% if shifts | length > 0 %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-gray-700">Shift</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-700">Date</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-700">Agency</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-700">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          {% for shift in shifts %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <a href="/admin/shifts/{{ shift.id }}/edit" class="font-medium text-sunshine-600 hover:underline">{{ shift.title }}</a>
+            </td>
+            <td class="px-4 py-3 text-gray-600">{{ shift.start_at | date(format="%b %-d, %Y") }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ shift.agency_name }}</td>
+            <td class="px-4 py-3">
+              {% if shift.status == "confirmed" %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Confirmed</span>
+              {% elif shift.status == "waitlisted" %}
+              <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Waitlisted</span>
+              {% elif shift.status == "cancelled" %}
+              <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Cancelled</span>
+              {% elif shift.status == "pending_confirmation" %}
+              <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+      <p>No shift history yet</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Evaluations Tab -->
+  <div x-show="tab === 'evaluations'" class="space-y-4" style="display: none;">
+    <h2 class="text-lg font-semibold text-gray-900">Application & Assessment History</h2>
+    {% if dog_applications | length > 0 %}
+    <div class="space-y-4">
+      {% for app in dog_applications %}
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-gray-900">{{ app.dog_name }}</h3>
+            <p class="text-xs text-gray-500">Submitted {{ app.submitted_at | date(format="%b %d, %Y") }}</p>
+          </div>
+          <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest {{ app.status | app_status_color }}">
+            {{ app.status | app_status_label }}
+          </span>
+        </div>
+        <div class="p-5 space-y-4 bg-gray-50/30">
+          {% if app.assessment_admin_notes %}
+          <div>
+            <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Internal Assessment Notes</h4>
+            <p class="text-sm text-gray-700 bg-amber-50 border border-amber-100 rounded-lg p-3 italic">
+              "{{ app.assessment_admin_notes }}"
+            </p>
+          </div>
+          {% endif %}
+          
+          {% if app.response_reason %}
+          <div>
+            <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Final Feedback (Shared)</h4>
+            <p class="text-sm text-gray-600">
+              {{ app.response_reason | truncate(length=200) }}
+            </p>
+          </div>
+          {% endif %}
+
+          <div class="pt-2 flex justify-end">
+            <a href="/admin/dog-applications/{{ app.id }}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+              View full application &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500 italic bg-white rounded-xl border border-dashed border-gray-200">
+      No dog applications recorded.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- History Tab -->
+  <div x-show="tab === 'history'" class="space-y-4" style="display: none;">
+    {% include "admin/partials/event_log" %}
+  </div>
+
+  <!-- Contact Tab -->
+  <div x-show="tab === 'contact'" class="space-y-4" style="display: none;">
+    <div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Contact {{ volunteer.volunteer_names }}</h2>
+      <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/contact" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Method</label>
+          <select name="method" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+          <input type="text" name="subject" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+          <textarea name="message" rows="5" required class="w-full border border-gray-200 rounded-lg px-3 py-2"></textarea>
+        </div>
+        <button type="submit" class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+          Send Message
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Dog Modal -->
+<div id="add-dog-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full p-6">
+    <h3 class="text-lg font-semibold mb-4">Add New Dog</h3>
+    <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/dogs" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+        <input type="text" name="name" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+          <select name="breed_id" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="">(Select breed)</option>
+            {% for b in all_breeds %}
+              <option value="{{ b.0 }}">{{ b.1 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+          <select name="gender" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="">(Select gender)</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Or Enter Breed</label>
+        <input type="text" name="breed_freeform" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Size *</label>
+          <select name="size" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="x_small">Extra Small</option>
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="x_large">Extra Large</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
+          <input type="date" name="date_of_birth" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Personality Description</label>
+        <textarea name="personality_desc" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2"></textarea>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_primary" id="is_primary" value="true" class="rounded">
+        <label for="is_primary" class="text-sm text-gray-700">Primary Dog</label>
+      </div>
+      <div class="flex gap-3 pt-4">
+        <button type="button" onclick="document.getElementById('add-dog-modal').classList.add('hidden')" 
+                class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg">
+          Cancel
+        </button>
+        <button type="submit" class="flex-1 bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg">
+          Add Dog
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Dog Modals -->
+{% for dog in dogs %}
+<div id="edit-dog-{{ dog.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full p-6">
+    <h3 class="text-lg font-semibold mb-4">Edit {{ dog.name }}</h3>
+    <form method="post" action="/admin/volunteers/{{ volunteer.user_id }}/dogs/{{ dog.id }}" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+        <input type="text" name="name" value="{{ dog.name }}" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+          <select name="breed_id" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="">-- Select --</option>
+            {% for breed in all_breeds %}
+            <option value="{{ breed.0 }}" {% if breed.0 == dog.breed_id %}selected{% endif %}>{{ breed.1 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+          <select name="gender" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="">(Select gender)</option>
+            <option value="male" {% if dog.gender == "male" %}selected{% endif %}>Male</option>
+            <option value="female" {% if dog.gender == "female" %}selected{% endif %}>Female</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Or Enter Breed</label>
+        <input type="text" name="breed_freeform" value="{{ dog.breed_freeform | default(value="") }}" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Size *</label>
+          <select name="size" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="x_small" {% if dog.size == "x_small" %}selected{% endif %}>Extra Small</option>
+            <option value="small" {% if dog.size == "small" %}selected{% endif %}>Small</option>
+            <option value="medium" {% if dog.size == "medium" %}selected{% endif %}>Medium</option>
+            <option value="large" {% if dog.size == "large" %}selected{% endif %}>Large</option>
+            <option value="x_large" {% if dog.size == "x_large" %}selected{% endif %}>Extra Large</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
+          <input type="date" name="date_of_birth" value="{{ dog.date_of_birth | default(value="") }}" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Personality Description</label>
+        <textarea name="personality_desc" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2">{{ dog.personality_desc | default(value="") }}</textarea>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_primary" id="is_primary_{{ dog.id }}" value="true" {% if dog.is_primary %}checked{% endif %} class="rounded">
+        <label for="is_primary_{{ dog.id }}" class="text-sm text-gray-700">Primary Dog</label>
+      </div>
+      <div class="flex gap-3 pt-4">
+        <button type="button" onclick="document.getElementById('edit-dog-{{ dog.id }}').classList.add('hidden')" 
+                class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg">
+          Cancel
+        </button>
+        <button type="submit" class="flex-1 bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% include "partials/dog_retirement_modal" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function volunteerDetail(userId) {
+  return {
+    tab: 'dogs',
+    deactivateModalOpen: false,
+    upcomingShifts: [],
+    loading: false,
+
+    async checkDeactivation() {
+      this.loading = true;
+      try {
+        const resp = await fetch(`/api/users/${userId}/upcoming-shifts`);
+        this.upcomingShifts = await resp.json();
+        this.deactivateModalOpen = true;
+      } catch (err) {
+        console.error('Failed to fetch shifts', err);
+        // Still open modal even if fetch fails, but warning will be general
+        this.deactivateModalOpen = true;
+      } finally {
+        this.loading = false;
+      }
+    }
+  }
+}
+</script>
+{% endblock %}

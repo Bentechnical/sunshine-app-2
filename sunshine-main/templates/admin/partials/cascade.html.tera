@@ -1,0 +1,38 @@
+<!-- Site select (HTMX partial — innerHTML of #cascade-selects) -->
+<div class="mb-4">
+  <label class="block text-sm font-medium text-gray-700 mb-1.5">
+    Site <span class="text-red-500">*</span>
+  </label>
+  <select name="site_id" id="site-select" required
+          class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-sunshine-400 focus:border-transparent
+                 bg-white">
+    <option value="">— select site —</option>
+    {% for site in sites %}
+    <option value="{{ site.id }}"
+            {% if selected_site == site.id %}selected{% endif %}>
+      {{ site.name }}{% if site.address %} · {{ site.address }}{% endif %}
+    </option>
+    {% endfor %}
+  </select>
+  {% if sites | length == 0 %}
+  <p class="text-xs text-gray-400 mt-1">No active sites — select an agency first.</p>
+  {% endif %}
+</div>
+
+<!-- Contact select -->
+<div>
+  <label class="block text-sm font-medium text-gray-700 mb-1.5">Site Contact</label>
+  <select name="contact_id" id="contact-select"
+          class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-sunshine-400 focus:border-transparent
+                 bg-white">
+    <option value="">— no contact assigned —</option>
+    {% for contact in contacts %}
+    <option value="{{ contact.id }}"
+            {% if selected_contact == contact.id %}selected{% endif %}>
+      {{ contact.name }}{% if contact.title %} ({{ contact.title }}){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+</div>

@@ -111,7 +111,7 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
       <h2 className="text-xl font-bold">Upcoming Visits</h2>
 
       <div className="rounded-lg p-0 flex flex-col flex-1">
-        <div className="relative w-full overflow-hidden rounded-lg aspect-[4/3] md:aspect-video lg:aspect-square">
+        <div className="relative w-full overflow-hidden rounded-xl aspect-[4/3] md:aspect-video lg:aspect-square">
           <Image
             src={optimizeSupabaseImage(dog_picture_url, { width: 600, quality: 80 })}
             alt={dog_name}
@@ -131,10 +131,10 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
           <p className="text-gray-500 italic text-md mb-2">
             with {volunteerName}
           </p>
-          {dog_bio && <p className="text-gray-600 text-sm mt-2">{dog_bio}</p>}
-          <p className="text-gray-800 mt-4 text-md">
+          <p className="text-gray-800 mt-1 text-md">
             <strong>Visit Time:</strong> {formattedDate} at {formattedTime}
           </p>
+          {dog_bio && <p className="text-gray-600 text-sm mt-3">{dog_bio}</p>}
         </div>
 
         <div className="pt-3 mt-auto mb-0">

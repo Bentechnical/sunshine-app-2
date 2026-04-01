@@ -1,0 +1,207 @@
+{% extends "base" %}
+{% block title %}Message Centre{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+        Message Centre
+        {% if unread_count > 0 %}
+        <span class="text-sm font-semibold bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full">
+          {{ unread_count }} unread
+        </span>
+        {% endif %}
+      </h1>
+      <p class="text-sm text-gray-500 mt-0.5">Messages and notifications from coordinators and agencies</p>
+    </div>
+
+    {% if filter != "archived" and messages | length > 0 %}
+    <form action="/volunteer/messages/mark-all-read" method="post">
+      <button type="submit"
+              class="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 bg-white px-3 py-1.5 rounded-lg transition hover:border-gray-300">
+        Mark all read
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Flash -->
+  {% if flash_msg %}
+  <div class="rounded-xl px-4 py-3 text-sm font-medium
+    {% if flash_msg.0 == 'success' %}bg-green-50 text-green-800 border border-green-200
+    {% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">
+    {{ flash_msg.1 }}
+  </div>
+  {% endif %}
+
+  <!-- Filter tabs -->
+  <div class="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+    <a href="/volunteer/messages?filter=all"
+       class="px-4 py-1.5 rounded-lg text-sm font-medium transition
+         {% if filter == 'all' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+      All
+    </a>
+    <a href="/volunteer/messages?filter=unread"
+       class="px-4 py-1.5 rounded-lg text-sm font-medium transition
+         {% if filter == 'unread' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+      Unread
+      {% if unread_count > 0 %}
+      <span class="ml-1 text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5">{{ unread_count }}</span>
+      {% endif %}
+    </a>
+    <a href="/volunteer/messages?filter=archived"
+       class="px-4 py-1.5 rounded-lg text-sm font-medium transition
+         {% if filter == 'archived' %}bg-white shadow-sm text-gray-900{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+      Archived
+    </a>
+  </div>
+
+  <!-- Message list -->
+  {% if messages | length == 0 %}
+  <div class="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+    <div class="text-4xl mb-3">
+      {% if filter == "archived" %}🗃️{% elif filter == "unread" %}✅{% else %}📭{% endif %}
+    </div>
+    <p class="text-gray-500 font-medium">
+      {% if filter == "archived" %}No archived messages{% elif filter == "unread" %}You're all caught up!{% else %}No messages yet{% endif %}
+    </p>
+  </div>
+  {% else %}
+  <div class="space-y-2" id="message-list">
+    {% for msg in messages %}
+    <div id="msg-{{ msg.id }}"
+         x-data="{ read: {% if msg.read_at %}true{% else %}false{% endif %}, archived: false }"
+         x-show="!archived"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl border transition-all"
+         :class="read ? 'border-gray-100' : 'border-sunshine-200 shadow-sm'">
+
+      <div class="flex items-start gap-4 p-4">
+
+        <!-- Type icon -->
+        <div class="flex-shrink-0 mt-0.5">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-base
+            {% if msg.notification_type == 'admin_message' %}bg-indigo-100 text-indigo-600
+            {% elif msg.notification_type == 'agency_message' %}bg-blue-100 text-blue-600
+            {% elif msg.notification_type == 'booking_confirmed' %}bg-green-100 text-green-600
+            {% elif msg.notification_type == 'booking_cancelled' %}bg-red-100 text-red-600
+            {% elif msg.notification_type == 'waitlist_promoted' or msg.notification_type == 'vacancy_invite' %}bg-sunshine-100 text-sunshine-600
+            {% elif msg.notification_type == 'shift_invite' %}bg-purple-100 text-purple-600
+            {% elif msg.notification_type == 'shift_updated' or msg.notification_type == 'shift_update' %}bg-amber-100 text-amber-600
+            {% elif msg.notification_type == 'survey_prompt' %}bg-amber-100 text-amber-600
+            {% else %}bg-gray-100 text-gray-500{% endif %}">
+            {% if msg.notification_type == 'admin_message' %}🛡️
+            {% elif msg.notification_type == 'agency_message' %}🏢
+            {% elif msg.notification_type == 'booking_confirmed' %}✓
+            {% elif msg.notification_type == 'booking_cancelled' %}✕
+            {% elif msg.notification_type == 'waitlist_promoted' or msg.notification_type == 'vacancy_invite' %}🎉
+            {% elif msg.notification_type == 'shift_invite' %}✉️
+            {% elif msg.notification_type == 'shift_updated' or msg.notification_type == 'shift_update' %}📝
+            {% elif msg.notification_type == 'survey_prompt' %}📝
+            {% else %}📢{% endif %}
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-gray-900 text-sm">{{ msg.title }}</span>
+              <!-- Unread dot -->
+              <span x-show="!read"
+                    class="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0"
+                    title="Unread"></span>
+            </div>
+            <span class="text-[11px] text-gray-400 flex-shrink-0 tabular-nums">
+              {{ msg.created_at | date(format="%b %-d · %-I:%M %p") }}
+            </span>
+          </div>
+
+          <p class="text-sm text-gray-600 mt-1 leading-relaxed">{{ msg.body }}</p>
+
+          <!-- Survey Action -->
+          {% if msg.notification_type == 'survey_prompt' %}
+          <div class="mt-3">
+            <a href="{{ msg.payload.survey_url | default(value='/volunteer/survey/' ~ msg.shift_id) }}" 
+               class="inline-flex items-center gap-2 bg-sunshine-500 hover:bg-sunshine-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all active:scale-95">
+              <span>📝</span> Complete Survey
+            </a>
+          </div>
+          {% endif %}
+
+          <!-- Shift context link -->
+          {% if msg.shift_id and msg.notification_type != 'survey_prompt' %}
+          <a href="/volunteer/shifts/{{ msg.shift_id }}"
+             class="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-sunshine-700 hover:text-sunshine-800">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            {% if msg.shift_title %}{{ msg.shift_title }}{% if msg.shift_start_at %} — {{ msg.shift_start_at | date(format="%b %-d") }}{% endif %}{% else %}View shift{% endif %}
+          </a>
+          {% endif %}
+
+          <!-- Sender label -->
+          <div class="mt-2">
+            <span class="text-[10px] uppercase tracking-widest font-bold
+              {% if msg.notification_type == 'admin_message' %}text-indigo-500
+              {% elif msg.notification_type == 'agency_message' %}text-blue-500
+              {% else %}text-gray-400{% endif %}">
+              {% if msg.notification_type == 'admin_message' %}Sunshine Coordinator
+              {% elif msg.notification_type == 'agency_message' %}Agency Contact
+              {% elif msg.notification_type == 'booking_confirmed' %}Booking
+              {% elif msg.notification_type == 'booking_cancelled' %}Booking
+              {% elif msg.notification_type == 'waitlist_promoted' or msg.notification_type == 'vacancy_invite' %}Waitlist
+              {% elif msg.notification_type == 'shift_invite' %}Invite
+              {% elif msg.notification_type == 'shift_updated' or msg.notification_type == 'shift_update' %}Shift Update
+              {% elif msg.notification_type == 'survey_prompt' %}Post-Shift Feedback
+              {% else %}System{% endif %}
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Action bar -->
+      <div class="flex items-center gap-2 px-4 pb-3 pt-0 border-t border-gray-50 mt-1">
+        <!-- Mark read -->
+        <button x-show="!read"
+                @click="
+                  fetch('/volunteer/messages/{{ msg.id }}/read', { method: 'POST', headers: { 'X-CSRF-Token': '' } })
+                    .then(() => { read = true; htmx.trigger('#notif-badge', 'refresh') })
+                "
+                class="text-xs text-gray-500 hover:text-gray-800 flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-gray-50 transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          Mark read
+        </button>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Archive -->
+        {% if filter != "archived" %}
+        <button @click="
+                  fetch('/volunteer/messages/{{ msg.id }}/archive', { method: 'POST', headers: { 'X-CSRF-Token': '' } })
+                    .then(() => { archived = true })
+                "
+                class="text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-gray-50 transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+          </svg>
+          Archive
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

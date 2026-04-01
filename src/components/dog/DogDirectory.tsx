@@ -107,38 +107,65 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
         {dogs.map((dog) => (
           <div
             key={dog.dog_id}
-            className="bg-white shadow-lg rounded-lg p-4 flex flex-col justify-between"
+            className="bg-white shadow-lg rounded-xl overflow-hidden flex flex-col"
           >
-            <div>
-              <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-                <Image
-                  src={optimizeSupabaseImage(dog.dog_picture_url, { width: 600, quality: 80 })}
-                  alt={dog.dog_name}
-                  fill
-                  sizes={getImageSizes('card')}
-                  className="object-cover"
-                  priority={false}
-                />
-              </div>
-
-              <h3 className="text-xl font-bold mt-3">{dog.dog_name}</h3>
-              <p className="text-gray-600 text-sm">
-                {dog.dog_breed} · Age {dog.dog_age ?? '?'}
-              </p>
-
-              <p className="text-gray-600 text-sm mt-2">
-                With {dog.volunteer_first_name} {dog.volunteer_last_initial}. · 📍 {dog.volunteer_city}
-              </p>
-
-              <p className="text-gray-400 text-xs mt-1">{Math.round(dog.distance_km)} km away</p>
+            {/* Square image — full bleed at top */}
+            <div className="relative aspect-square w-full bg-gray-100">
+              <Image
+                src={optimizeSupabaseImage(dog.dog_picture_url, { width: 600, quality: 80 })}
+                alt={dog.dog_name}
+                fill
+                sizes={getImageSizes('card')}
+                className="object-cover"
+                priority={false}
+              />
             </div>
 
-            <Button
-              onClick={() => onSelectDog(String(dog.dog_id))}
-              className="w-full mt-4"
-            >
-              View Profile
-            </Button>
+            {/* Card content */}
+            <div className="p-4 flex flex-col gap-3 flex-1">
+
+              {/* Name + breed/age pills */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{dog.dog_name}</h3>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    {dog.dog_breed}
+                  </span>
+                  <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                    {dog.dog_age != null ? `${dog.dog_age} yr${dog.dog_age === 1 ? '' : 's'} old` : 'Age unknown'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bio excerpt */}
+              {dog.dog_bio && (
+                <p className="text-gray-600 text-sm leading-relaxed line-clamp-3">
+                  {dog.dog_bio}
+                </p>
+              )}
+
+              {/* Handler info */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    {dog.volunteer_first_name} {dog.volunteer_last_initial}.
+                  </p>
+                  <p className="text-xs text-gray-500">📍 {dog.volunteer_city}</p>
+                </div>
+                <span className="text-xs text-gray-400">{Math.round(dog.distance_km)} km away</span>
+              </div>
+
+              {/* CTA */}
+              <div className="mt-auto pt-1">
+                <Button
+                  onClick={() => onSelectDog(String(dog.dog_id))}
+                  className="w-full"
+                >
+                  View Profile
+                </Button>
+              </div>
+
+            </div>
           </div>
         ))}
       </div>

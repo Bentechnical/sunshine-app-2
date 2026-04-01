@@ -1,0 +1,132 @@
+{% extends "base" %}
+
+{% block title %}Shift Change Requests — Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8 px-4">
+    <div class="mb-8">
+        <h1 class="text-3xl font-black text-gray-900">Shift Change Requests</h1>
+        <p class="text-gray-500">Agencies requesting updates to existing visits.</p>
+    </div>
+
+    {% if requests | length > 0 %}
+    <div class="space-y-8">
+        {% for req in requests %}
+        <div class="bg-white rounded-[2rem] border border-gray-100 shadow-xl overflow-hidden" x-data="{ showProcess: false }">
+            <div class="p-8 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
+                <div>
+                    <div class="flex items-center gap-3 mb-1">
+                        <span class="text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">Change Request</span>
+                        <span class="text-xs text-gray-400 font-bold">{{ req.created_at | date(format="%b %d, %Y at %-I:%M %p") }}</span>
+                    </div>
+                    <h2 class="text-xl font-black text-gray-900">{{ req.agency_name }} — {{ req.shift_title }}</h2>
+                    <p class="text-sm text-gray-500">Requested by <span class="font-bold text-gray-700">{{ req.requested_by_name }}</span></p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="/admin/shifts/{{ req.shift_id }}" target="_blank" class="px-4 py-2 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl text-xs hover:bg-gray-50 transition-all">View Shift</a>
+                    <button @click="showProcess = !showProcess" class="px-6 py-2 bg-gray-900 text-white font-black rounded-xl text-xs hover:bg-black transition-all shadow-lg">Review & Process</button>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <div class="grid grid-cols-1 md:grid-cols-[35%_65%] gap-8 mb-8">
+                    {% set changes = req.requested_changes %}
+                    {% set site_changed = req.current_site_id != changes.site_id %}
+                    {% set start_at_changed = req.current_start_at | date(format="%Y-%m-%dT%H:%M:%S") != changes.start_at | truncate(length=19, end="") %}
+                    {% set end_at_changed = req.current_end_at | date(format="%Y-%m-%dT%H:%M:%S") != changes.end_at | truncate(length=19, end="") %}
+                    {% set time_changed = start_at_changed or end_at_changed %}
+                    {% set slots_changed = req.current_slots != changes.slots_requested %}
+
+                    <!-- Current State -->
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest">Current Details</h3>
+                        <div class="p-6 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
+                            <div>
+                                <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Site</p>
+                                <p class="font-bold text-gray-900 {% if site_changed %}line-through opacity-50{% endif %}">{{ req.current_site_name }}</p>
+                                {% if not site_changed %}<p class="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">No change</p>{% endif %}
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Date & Time</p>
+                                <p class="font-bold text-gray-900 {% if time_changed %}line-through opacity-50{% endif %}">{{ req.current_start_at | date(format="%b %d, %Y") }}</p>
+                                <p class="text-sm text-gray-600 {% if time_changed %}line-through opacity-50{% endif %}">{{ req.current_start_at | date(format="%-I:%M %p") }} – {{ req.current_end_at | date(format="%-I:%M %p") }}</p>
+                                {% if not time_changed %}<p class="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">No change</p>{% endif %}
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Teams</p>
+                                <p class="font-bold text-gray-900 {% if slots_changed %}line-through opacity-50{% endif %}">{{ req.current_slots }} teams requested</p>
+                                {% if not slots_changed %}<p class="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">No change</p>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Requested Changes -->
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest">Requested Changes</h3>
+                        <div class="p-6 bg-blue-50 rounded-2xl border-2 border-blue-100 space-y-4 shadow-sm shadow-blue-50">
+                            <div>
+                                <p class="text-[10px] font-black text-blue-400 uppercase mb-1">Site</p>
+                                {% if site_changed %}
+                                    <p class="font-bold text-blue-900">{{ req.new_site_name | default(value="New site requested") }}</p>
+                                {% else %}
+                                    <p class="text-sm text-blue-400 italic">No change to site</p>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black text-blue-400 uppercase mb-1">Date & Time</p>
+                                {% if time_changed %}
+                                    <p class="font-bold text-blue-900">{{ changes.start_at | date(format="%b %d, %Y") }}</p>
+                                    <p class="text-sm text-blue-700">{{ changes.start_at | date(format="%-I:%M %p") }} – {{ changes.end_at | date(format="%-I:%M %p") }}</p>
+                                {% else %}
+                                    <p class="text-sm text-blue-400 italic">No change to timing</p>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black text-blue-400 uppercase mb-1">Teams</p>
+                                {% if slots_changed %}
+                                    <p class="font-bold text-blue-900">{{ changes.slots_requested }} teams requested</p>
+                                {% else %}
+                                    <p class="text-sm text-blue-400 italic">No change to team count</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 rounded-2xl p-6 border border-amber-100">
+                    <h4 class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Reason provided</h4>
+                    <p class="text-amber-900 text-sm leading-relaxed italic">"{{ req.reason | default(value="No reason provided.") }}"</p>
+                </div>
+
+                <!-- Process Form -->
+                <div x-show="showProcess" x-transition class="mt-8 pt-8 border-t border-gray-100">
+                    <form action="/admin/shift-change-requests/{{ req.id }}/process" method="post" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-black text-gray-900 mb-2">Admin Notes (shared with agency)</label>
+                            <textarea name="admin_notes" required rows="3" class="w-full bg-gray-50 border-gray-100 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-500/10 text-sm" placeholder="e.g. Approved as requested. OR Declined because..."></textarea>
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" name="notify_volunteers" id="notify_{{ req.id }}" value="true" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <label for="notify_{{ req.id }}" class="text-sm text-gray-600 font-bold">Notify assigned volunteers of changes if approved</label>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button type="submit" name="action" value="approve" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-green-100">Approve & Apply Changes</button>
+                            <button type="submit" name="action" value="reject" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-red-100">Decline Request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-[2rem] border-2 border-dashed border-gray-200 p-24 text-center">
+        <div class="text-6xl mb-6">✨</div>
+        <h3 class="text-2xl font-black text-gray-900 mb-2">All Clear!</h3>
+        <p class="text-gray-500">No pending shift change requests to review.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

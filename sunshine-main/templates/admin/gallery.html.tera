@@ -1,0 +1,127 @@
+{% extends "base" %}
+{% block title %}Photo Gallery{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8 py-8 px-4">
+
+  <div class="flex items-center justify-between flex-wrap gap-4">
+    <h1 class="text-2xl font-bold text-gray-900">Photo Gallery</h1>
+    <div class="flex items-center gap-2">
+      <a href="?filter=all"
+         class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if not filter or filter == 'all' %}bg-sunshine-500 text-white shadow-sm{% else %}bg-white border border-gray-200 text-gray-700 hover:bg-gray-50{% endif %}">
+        All
+      </a>
+      <a href="?filter=admin_starred"
+         class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if filter == 'admin_starred' %}bg-sunshine-500 text-white shadow-sm{% else %}bg-white border border-gray-200 text-gray-700 hover:bg-gray-50{% endif %}">
+        ★ Curated
+      </a>
+      <a href="?filter=unverified"
+         class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if filter == 'unverified' %}bg-sunshine-500 text-white shadow-sm{% else %}bg-white border border-gray-200 text-gray-700 hover:bg-gray-50{% endif %}">
+        Review Queue
+      </a>
+    </div>
+  </div>
+
+  {% if items | length == 0 %}
+  <div class="text-center py-20 bg-gray-50 rounded-3xl border border-gray-100">
+    <div class="text-5xl mb-4">🖼️</div>
+    <p class="text-lg font-black text-gray-900 tracking-tight">No photos found</p>
+    {% if filter == 'admin_starred' %}
+    <p class="text-sm font-medium text-gray-500 mt-1">Curate photos from the review queue or individual shift pages.</p>
+    {% elif filter == 'unverified' %}
+    <p class="text-sm font-medium text-gray-500 mt-1">All caught up! No photos awaiting review.</p>
+    {% else %}
+    <p class="text-sm font-medium text-gray-500 mt-1">Photos will appear here once volunteers upload them via shift surveys.</p>
+    {% endif %}
+  </div>
+  {% else %}
+  
+  {% if filter == 'unverified' %}
+    <!-- Review Queue Layout (Grouped/Special Actions) -->
+    <div class="space-y-12">
+      {% for item in items %}
+      {% set asset = item.item.asset %}
+      <div id="asset-{{ asset.id }}" class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col md:flex-row gap-6 p-6">
+        <div class="w-full md:w-64 aspect-square bg-gray-100 rounded-2xl overflow-hidden shadow-inner flex-shrink-0">
+          <img src="{{ asset.thumb_key | default(value=asset.storage_key) }}" class="w-full h-full object-cover" />
+        </div>
+        
+        <div class="flex-1 space-y-6">
+          <div class="space-y-1">
+            <h3 class="text-lg font-black text-gray-900 tracking-tight">{{ item.shift_title | default(value="General Upload") }}</h3>
+            {% if item.shift_start_at %}
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest">{{ item.shift_start_at | date(format="%B %e, %Y") }}</p>
+            {% endif %}
+          </div>
+
+          <div class="space-y-2">
+            <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tags</div>
+            <div id="tags-{{ asset.id }}" class="flex flex-wrap gap-2">
+              {% set tags = item.item.tags %}
+              {% set asset_id = asset.id %}
+              {% include "partials/asset_tags" %}
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 pt-4">
+            <button hx-post="/admin/assets/{{ asset.id }}/verify"
+                    hx-target="#asset-{{ asset.id }}"
+                    hx-swap="outerHTML"
+                    class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-green-100 transition-all">
+              Verify
+            </button>
+            <button hx-post="/admin/assets/{{ asset.id }}/hide"
+                    hx-target="#asset-{{ asset.id }}"
+                    hx-swap="outerHTML"
+                    class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all">
+              Hide
+            </button>
+            <button hx-post="/assets/{{ asset.id }}/star"
+                    hx-target="this"
+                    hx-swap="outerHTML"
+                    class="bg-white border-2 border-sunshine-100 text-sunshine-500 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-sunshine-50 transition-all">
+              {% if item.item.my_star %}★ Starred{% else %}☆ Star{% endif %}
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <!-- Grid Layout (Standard) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {% for item in items %}
+      {% set asset = item.item.asset %}
+      {% set star_count = item.item.star_count %}
+      {% set my_star = item.item.my_star %}
+      {% set tags = item.item.tags %}
+      {% set thumb_url = asset.thumb_key | default(value=asset.storage_key) %}
+      {% set show_delete = false %}
+      {% set is_admin = true %}
+      {% include "partials/asset_card" %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# Pagination #}
+  <div class="flex justify-center gap-3 pt-4">
+    {% if page > 1 %}
+    <a href="?filter={{ filter | default(value='all') }}&page={{ page - 1 }}"
+       class="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+      &larr; Previous
+    </a>
+    {% endif %}
+    {% if items | length == 24 %}
+    <a href="?filter={{ filter | default(value='all') }}&page={{ page + 1 }}"
+       class="px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+      Next &rarr;
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

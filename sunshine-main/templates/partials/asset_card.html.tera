@@ -1,0 +1,95 @@
+{# Reusable gallery card. Variables: asset, thumb_url, star_count, my_star, tags, show_delete, is_admin #}
+<div class="group relative bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition"
+     id="asset-{{ asset.id }}">
+
+  {# Thumbnail #}
+  <a href="{{ asset.storage_key }}" target="_blank" rel="noopener" class="block aspect-square overflow-hidden bg-gray-100">
+    <img src="{{ thumb_url }}"
+         alt="{{ asset.caption | default(value='Photo') }}"
+         class="w-full h-full object-cover transition group-hover:scale-105"
+         loading="lazy" />
+  </a>
+
+  {# Footer #}
+  <div class="p-3 space-y-2">
+    {% if asset.caption %}
+    <p class="text-sm text-gray-700 line-clamp-2">{{ asset.caption }}</p>
+    {% endif %}
+
+    {# Tags #}
+    {% if tags | length > 0 %}
+    <div id="tags-{{ asset.id }}" class="flex flex-wrap gap-1">
+      {% for tag in tags %}
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                   {% if tag.dog_name %}bg-amber-100 text-amber-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+        {% if tag.dog_name %}🐕 {{ tag.dog_name }}{% else %}👤 {{ tag.volunteer_name }}{% endif %}
+        {% if is_admin %}
+        <button hx-delete="/assets/{{ asset.id }}/tags/{{ tag.id }}"
+                hx-target="#tags-{{ asset.id }}"
+                hx-swap="outerHTML"
+                class="ml-0.5 text-gray-400 hover:text-red-500">&times;</button>
+        {% endif %}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Action row #}
+    <div class="flex items-center justify-between pt-1">
+      {# Star button — HTMX #}
+      <div id="star-{{ asset.id }}">
+        {% include "partials/star_button" %}
+      </div>
+
+      <div class="flex items-center gap-2">
+        {# Admin: curate toggle #}
+        {% if is_admin %}
+        <button id="curate-{{ asset.id }}"
+                hx-post="/admin/assets/{{ asset.id }}/curate"
+                hx-target="#curate-{{ asset.id }}"
+                hx-swap="outerHTML"
+                title="{% if asset.promoted_at %}Remove from public stream{% else %}Add to public stream{% endif %}"
+                class="text-sm transition {% if asset.promoted_at %}text-sunshine-600 font-semibold{% else %}text-gray-400 hover:text-sunshine-500{% endif %}">
+          ★
+        </button>
+        <button hx-post="/admin/assets/{{ asset.id }}/hide"
+                hx-target="#asset-{{ asset.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Hide this photo from all streams?"
+                class="text-sm text-gray-400 hover:text-red-500"
+                title="Hide photo">
+          🚫
+        </button>
+        {% endif %}
+
+        {# Delete own asset #}
+        {% if show_delete %}
+        <button hx-delete="/volunteer/assets/{{ asset.id }}"
+                hx-confirm="Remove this photo?"
+                hx-target="#asset-{{ asset.id }}"
+                hx-swap="outerHTML"
+                class="text-sm text-gray-400 hover:text-red-500"
+                title="Remove photo">
+          🗑
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Status badge (top-left) #}
+  <div class="absolute top-2 left-2 flex flex-col gap-1">
+    {% if asset.promoted_at %}
+    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sunshine-500 text-white shadow">★ Curated</span>
+    {% endif %}
+    {% if is_admin and not asset.promoted_at %}
+      {% if asset.visibility == "private" %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-800/70 text-white">Private</span>
+      {% elif asset.visibility == "hidden" %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-600/80 text-white">Hidden</span>
+      {% elif asset.visibility == "agency" %}
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/80 text-white">Agency</span>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>

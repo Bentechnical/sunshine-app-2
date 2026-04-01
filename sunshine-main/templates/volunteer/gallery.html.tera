@@ -1,0 +1,38 @@
+{% extends "base" %}
+{% block title %}My Gallery{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8 py-8 px-4">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-black text-gray-900 tracking-tight">Gallery</h1>
+      <p class="text-gray-500 font-medium">Your uploads and photos you're tagged in</p>
+    </div>
+    
+    <!-- Filter Toggle -->
+    <div class="bg-gray-100 p-1 rounded-2xl flex gap-1 self-start shadow-sm" x-data="{ filter: 'all' }">
+      <button @click="filter = 'all'; htmx.ajax('GET', '/volunteer/gallery?filter=all&htmx=1', {target: '#photostream', swap: 'innerHTML'})"
+              :class="filter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all">
+        All
+      </button>
+      <button @click="filter = 'stars'; htmx.ajax('GET', '/volunteer/gallery?filter=stars&htmx=1', {target: '#photostream', swap: 'innerHTML'})"
+              :class="filter === 'stars' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all">
+        Stars
+      </button>
+      <button @click="filter = 'tagged'; htmx.ajax('GET', '/volunteer/gallery?filter=tagged&htmx=1', {target: '#photostream', swap: 'innerHTML'})"
+              :class="filter === 'tagged' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all">
+        Tagged
+      </button>
+    </div>
+  </div>
+
+  <div id="photostream" class="min-h-[400px]">
+    {% include "partials/gallery_photostream" %}
+  </div>
+
+</div>
+{% endblock %}

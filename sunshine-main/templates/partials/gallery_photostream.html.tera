@@ -1,0 +1,22 @@
+{% if items | length == 0 %}
+  <div class="text-center py-20 bg-gray-50/50 rounded-3xl border border-gray-100">
+    <div class="text-5xl mb-4">📷</div>
+    <p class="text-lg font-black text-gray-900 tracking-tight">No photos found</p>
+    <p class="text-sm font-medium text-gray-500 mt-1">Try a different filter or upload some after your next visit!</p>
+  </div>
+{% else %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+    {% for item in items %}
+      <div class="group relative"
+           {% if loop.last and items | length == 24 %}
+             hx-get="/volunteer/gallery?filter={{ filter | default(value='all') }}&page={{ page + 1 }}&htmx=1"
+             hx-trigger="revealed"
+             hx-swap="afterend"
+           {% endif %}>
+        {% set asset = item.asset %}
+        {% set thumb_url = asset.thumb_key | default(value=asset.storage_key) %}
+        {% include "partials/asset_card" %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

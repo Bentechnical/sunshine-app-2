@@ -1,0 +1,1292 @@
+{% extends "base" %}
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-8" x-data="profilePage()" x-init="init()">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-gray-900">My Profile</h1>
+    <a href="/volunteer/history" class="text-sunshine-600 hover:text-sunshine-700 font-medium text-sm">
+      View Full History →
+    </a>
+  </div>
+
+  <!-- Profile Picture Section -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h2>
+    <div class="flex items-center gap-6">
+      <!-- Current Profile Picture -->
+      <div class="relative">
+        {% if profile_pic_url %}
+          <img src="{{ profile_pic_url }}" 
+               alt="Profile" 
+               class="w-24 h-24 rounded-full object-cover border-4 border-sunshine-100">
+        {% else %}
+          <div class="w-24 h-24 rounded-full bg-sunshine-100 flex items-center justify-center text-3xl border-4 border-sunshine-100">
+            {% if profile %}{{ profile.0 | truncate(length=1, end="") | upper }}{% else %}👤{% endif %}
+          </div>
+        {% endif %}
+        <!-- Badge showing crop circle preview -->
+        <div class="absolute -bottom-1 -right-1 w-8 h-8 bg-sunshine-500 rounded-full flex items-center justify-center text-white text-xs shadow-md" title="Badge Preview">
+          {% if profile_pic_url %}
+            <img src="{{ profile_pic_url }}" class="w-full h-full rounded-full object-cover">
+          {% else %}
+            {% if profile %}{{ profile.0 | truncate(length=1, end="") | upper }}{% else %}?{% endif %}
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Upload/Remove Actions -->
+      <div class="flex flex-col gap-2">
+        <button @click="openPhotoModal()" 
+                class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          {% if profile_pic_url %}Change Photo{% else %}Upload Photo{% endif %}
+        </button>
+        {% if profile_pic_url %}
+        <form method="post" action="/volunteer/profile/photo/remove" class="inline">
+          <button type="submit" 
+                  class="text-red-500 hover:text-red-600 font-medium text-sm px-4 py-2 transition-colors">
+            Remove Photo
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">
+      This photo will be used on your volunteer badge and in shift assignments. 
+      Drag the circle to choose the area for your circular profile picture.
+    </p>
+  </div>
+
+  <!-- Profile Photo Upload Modal with Circular Crop -->
+  <div x-show="showPhotoModal" 
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+       @click.self="closePhotoModal()">
+    <div x-show="showPhotoModal"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Upload Profile Picture</h3>
+        <button @click="closePhotoModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="p-6">
+        <!-- File Input (shown initially) -->
+        <div x-show="!imageLoaded" x-transition class="space-y-4">
+          <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-sunshine-400 transition-colors"
+               @dragover.prevent
+               @drop.prevent="handleDrop($event)">
+            <div class="text-4xl mb-3">📷</div>
+            <p class="text-gray-600 mb-2">Drag and drop a photo here, or click to browse</p>
+            <input type="file" 
+                   x-ref="fileInput"
+                   @change="handleFileSelect($event)"
+                   accept="image/jpeg,image/png,image/webp"
+                   class="hidden">
+            <button @click="$refs.fileInput.click()" 
+                    class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+              Choose File
+            </button>
+            <p class="text-xs text-gray-400 mt-2">JPEG, PNG, or WebP (max 10MB)</p>
+          </div>
+        </div>
+        
+        <!-- Crop Interface (shown after image selected) -->
+        <div x-show="imageLoaded" x-transition class="space-y-4">
+          <p class="text-sm text-gray-600 text-center">
+            Drag center to move • Drag edge to resize
+          </p>
+          
+          <!-- Crop Container -->
+          <div class="relative mx-auto bg-gray-900 rounded-lg overflow-hidden"
+               style="width: 400px; height: 400px;"
+               @mousemove="drag($event)"
+               @touchmove="drag($event)"
+               @mouseup="endDrag()"
+               @touchend="endDrag()"
+               @mouseleave="endDrag()">
+            
+            <!-- The Image (constrained to container) -->
+            <img :src="imagePreview" 
+                 x-ref="cropImage"
+                 class="absolute inset-0 w-full h-full object-contain select-none"
+                 draggable="false">
+            
+            <!-- Dark Overlay outside circle -->
+            <div class="absolute inset-0 pointer-events-none"
+                 style="background: rgba(0,0,0,0.6);
+                        clip-path: circle(var(--crop-r, 60px) at var(--crop-x) var(--crop-y));">
+            </div>
+            
+            <!-- The Draggable Circle with Resize Handle -->
+            <div class="absolute rounded-full"
+                 :style="`left: ${displayCropX - displayCropRadius}px; top: ${displayCropY - displayCropRadius}px; width: ${displayCropRadius * 2}px; height: ${displayCropRadius * 2}px;`">
+              
+              <!-- Circle border -->
+              <div class="absolute inset-0 rounded-full border-4 border-white shadow-lg"
+                   :class="{ 'cursor-move': dragMode === 'move', 'cursor-default': dragMode === null }">
+                <!-- Inner border for visibility -->
+                <div class="absolute inset-2 rounded-full border-2 border-sunshine-400/50 pointer-events-none"></div>
+                <!-- Crosshair center -->
+                <div class="absolute top-1/2 left-0 right-0 h-px bg-white/50 pointer-events-none"></div>
+                <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white/50 pointer-events-none"></div>
+              </div>
+              
+              <!-- Center drag handle (move the circle) -->
+              <div class="absolute top-1/2 left-1/2 w-6 h-6 -ml-3 -mt-3 bg-sunshine-500 rounded-full border-2 border-white shadow cursor-move hover:bg-sunshine-600 transition-colors z-10"
+                   @mousedown.prevent="startCircleMove($event)"
+                   @touchstart.prevent="startCircleMove($event)"
+                   title="Drag to move">
+                <svg class="w-4 h-4 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                </svg>
+              </div>
+              
+              <!-- Edge resize handle -->
+              <div class="absolute -right-1 top-1/2 -mt-3 w-6 h-6 bg-white rounded-full border-2 border-sunshine-500 shadow cursor-ew-resize hover:scale-110 transition-transform z-10"
+                   @mousedown.prevent="startCircleResize($event)"
+                   @touchstart.prevent="startCircleResize($event)"
+                   title="Drag to resize">
+                <svg class="w-4 h-4 text-sunshine-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Size Indicator -->
+          <div class="text-center">
+            <span class="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full" x-text="`Size: ${Math.round(cropRadius * 2)}px`"></span>
+          </div>
+          
+          <!-- Preview Badge -->
+          <div class="flex items-center justify-center gap-4 pt-4 border-t border-gray-100">
+            <div class="text-center">
+              <p class="text-xs text-gray-500 mb-1">Badge Preview</p>
+              <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200">
+                <canvas x-ref="previewCanvas" width="128" height="128" class="w-full h-full"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-between">
+        <button x-show="imageLoaded" 
+                @click="resetImage()"
+                class="text-gray-600 hover:text-gray-800 font-medium text-sm px-4 py-2 transition-colors">
+          Choose Different Photo
+        </button>
+        <div class="flex gap-2 ml-auto">
+          <button @click="closePhotoModal()" 
+                  class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button x-show="imageLoaded"
+                  @click="uploadPhoto()"
+                  :disabled="uploading"
+                  class="bg-sunshine-500 hover:bg-sunshine-600 disabled:bg-sunshine-300 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+            <span x-show="!uploading">Save Photo</span>
+            <span x-show="uploading">Uploading...</span>
+            <svg x-show="uploading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Hidden Upload Form -->
+      <form x-ref="uploadForm" method="post" action="/volunteer/profile/photo" enctype="multipart/form-data" class="hidden">
+        <input type="file" name="file" x-ref="formFileInput">
+        <input type="hidden" name="crop_x" :value="Math.round(cropX)">
+        <input type="hidden" name="crop_y" :value="Math.round(cropY)">
+        <input type="hidden" name="crop_radius" :value="60">
+      </form>
+    </div>
+  </div>
+
+  <!-- Dog Photo Upload Modal with Circular Crop (shared for all dogs) -->
+  <div x-show="showDogPhotoModal" 
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+       @click.self="closeDogPhotoModal()">
+    <div x-show="showDogPhotoModal"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Upload Dog Photo</h3>
+        <button @click="closeDogPhotoModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="p-6">
+        <!-- File Input (shown initially) -->
+        <div x-show="!dogImageLoaded" x-transition class="space-y-4">
+          <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-sunshine-400 transition-colors"
+               @dragover.prevent
+               @drop.prevent="handleDogDrop($event)">
+            <div class="text-4xl mb-3">🐕</div>
+            <p class="text-gray-600 mb-2">Drag and drop a photo here, or click to browse</p>
+            <input type="file" 
+                   x-ref="dogFileInput"
+                   @change="handleDogFileSelect($event)"
+                   accept="image/jpeg,image/png,image/webp"
+                   class="hidden">
+            <button @click="$refs.dogFileInput.click()" 
+                    class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+              Choose File
+            </button>
+            <p class="text-xs text-gray-400 mt-2">JPEG, PNG, or WebP (max 10MB)</p>
+          </div>
+        </div>
+        
+        <!-- Crop Interface (shown after image selected) -->
+        <div x-show="dogImageLoaded" x-transition class="space-y-4">
+          <p class="text-sm text-gray-600 text-center">
+            Drag center to move • Drag edge to resize
+          </p>
+          
+          <!-- Crop Container -->
+          <div class="relative mx-auto bg-gray-900 rounded-lg overflow-hidden"
+               style="width: 400px; height: 400px;"
+               @mousemove="dogDrag($event)"
+               @touchmove="dogDrag($event)"
+               @mouseup="endDogDrag()"
+               @touchend="endDogDrag()">
+            
+            <!-- The Image (constrained to container) -->
+            <img :src="dogImagePreview" 
+                 x-ref="dogCropImage"
+                 class="absolute inset-0 w-full h-full object-contain select-none"
+                 draggable="false">
+            
+            <!-- Dark Overlay outside circle -->
+            <div class="absolute inset-0 pointer-events-none"
+                 style="background: rgba(0,0,0,0.6);
+                        clip-path: circle(var(--dog-crop-r, 60px) at var(--dog-crop-x) var(--dog-crop-y));">
+            </div>
+            
+            <!-- The Draggable Circle with Resize Handle -->
+            <div class="absolute rounded-full"
+                 :style="`left: ${displayDogCropX - displayDogCropRadius}px; top: ${displayDogCropY - displayDogCropRadius}px; width: ${displayDogCropRadius * 2}px; height: ${displayDogCropRadius * 2}px;`">
+              
+              <!-- Circle border -->
+              <div class="absolute inset-0 rounded-full border-4 border-white shadow-lg"
+                   :class="{ 'cursor-move': dogDragMode === 'move', 'cursor-default': dogDragMode === null }">
+                <!-- Inner border for visibility -->
+                <div class="absolute inset-2 rounded-full border-2 border-sunshine-400/50 pointer-events-none"></div>
+                <!-- Crosshair center -->
+                <div class="absolute top-1/2 left-0 right-0 h-px bg-white/50 pointer-events-none"></div>
+                <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white/50 pointer-events-none"></div>
+              </div>
+              
+              <!-- Center drag handle (move the circle) -->
+              <div class="absolute top-1/2 left-1/2 w-6 h-6 -ml-3 -mt-3 bg-sunshine-500 rounded-full border-2 border-white shadow cursor-move hover:bg-sunshine-600 transition-colors z-10"
+                   @mousedown.prevent="startDogCircleMove($event)"
+                   @touchstart.prevent="startDogCircleMove($event)">
+                <svg class="w-4 h-4 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                </svg>
+              </div>
+              
+              <!-- Edge resize handle -->
+              <div class="absolute -right-1 top-1/2 -mt-3 w-6 h-6 bg-white rounded-full border-2 border-sunshine-500 shadow cursor-ew-resize hover:scale-110 transition-transform z-10"
+                   @mousedown.prevent="startDogCircleResize($event)"
+                   @touchstart.prevent="startDogCircleResize($event)">
+                <svg class="w-4 h-4 text-sunshine-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Size Indicator -->
+          <div class="text-center">
+            <span class="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full" x-text="`Size: ${Math.round(dogCropRadius * 2)}px`"></span>
+          </div>
+          
+          <!-- Preview Badge -->
+          <div class="flex items-center justify-center gap-4 pt-4 border-t border-gray-100">
+            <div class="text-center">
+              <p class="text-xs text-gray-500 mb-1">Badge Preview</p>
+              <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200">
+                <canvas x-ref="dogPreviewCanvas" width="128" height="128" class="w-full h-full"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-between">
+        <button x-show="dogImageLoaded" 
+                @click="resetDogImage()"
+                class="text-gray-600 hover:text-gray-800 font-medium text-sm px-4 py-2 transition-colors">
+          Choose Different Photo
+        </button>
+        <div class="flex gap-2 ml-auto">
+          <button @click="closeDogPhotoModal()" 
+                  class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button x-show="dogImageLoaded"
+                  @click="uploadDogPhoto()"
+                  :disabled="dogUploading"
+                  class="bg-sunshine-500 hover:bg-sunshine-600 disabled:bg-sunshine-300 text-white font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+            <span x-show="!dogUploading">Save Photo</span>
+            <span x-show="dogUploading">Uploading...</span>
+            <svg x-show="dogUploading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Hidden Upload Form -->
+      <form x-ref="dogUploadForm" method="post" :action="'/volunteer/profile/dogs/' + currentDogId + '/photo'" enctype="multipart/form-data" class="hidden">
+        <input type="file" name="file" x-ref="dogFormFileInput">
+        <input type="hidden" name="crop_x" :value="Math.round(dogCropX)">
+        <input type="hidden" name="crop_y" :value="Math.round(dogCropY)">
+        <input type="hidden" name="crop_radius" :value="Math.round(dogCropRadius)">
+      </form>
+    </div>
+  </div>
+
+  <!-- Profile Form -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Profile Information</h2>
+    <form method="post" action="/volunteer/profile" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Volunteer Name(s)</label>
+        <input type="text" name="volunteer_names" 
+               value="{% if profile %}{{ profile.0 }}{% endif %}"
+               required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sunshine-300"
+               placeholder="e.g., Jane & Bob Smith">
+        <p class="text-xs text-gray-500 mt-1">Use "&" to separate multiple handlers</p>
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+        <textarea name="bio" rows="4"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sunshine-300"
+                  placeholder="Tell us about yourself and your therapy dog...">{% if profile %}{{ profile.1 | default(value="") }}{% endif %}</textarea>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Volunteer Since</label>
+          <input type="date" name="joined_at"
+                 value="{% if profile %}{{ profile.2 | default(value="") }}{% endif %}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sunshine-300">
+        </div>
+      </div>
+      
+      <div class="pt-2">
+        <button type="submit" class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-6 py-2 rounded-lg transition-colors">
+          Save Profile
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Search Locations -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-1">Search Locations</h2>
+    <p class="text-sm text-gray-500 mb-4">These are used as starting points for the distance filter on the shifts page. Your addresses are never shared.</p>
+
+    {% if locations | length > 0 %}
+    <div class="divide-y divide-gray-100 mb-5">
+      {% for loc in locations %}
+      <div class="flex items-center justify-between py-2.5">
+        <div>
+          <span class="font-medium text-gray-800 text-sm">{{ loc.name }}</span>
+          {% if loc.is_home %}<span class="ml-2 text-xs bg-sunshine-100 text-sunshine-700 px-1.5 py-0.5 rounded">default</span>{% endif %}
+          {% if not loc.lat %}
+            <span class="ml-2 text-xs text-amber-600">⚠ not geocoded</span>
+          {% endif %}
+          <p class="text-xs text-gray-500 mt-0.5">{{ loc.address }}</p>
+        </div>
+        <div class="flex items-center gap-2 ml-4 shrink-0">
+          <a href="/volunteer/locations/{{ loc.id }}/edit"
+             class="text-xs text-gray-500 hover:text-gray-700 underline">Edit</a>
+          {% if not loc.is_home %}
+          <form method="post" action="/volunteer/locations/{{ loc.id }}/delete"
+                onsubmit="return confirm('Remove this location?')">
+            <button type="submit" class="text-xs text-red-500 hover:text-red-700 underline">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <details class="group">
+      <summary class="cursor-pointer text-sm text-sunshine-600 hover:text-sunshine-700 font-medium list-none flex items-center gap-1">
+        <span class="group-open:hidden">+ Add a location</span>
+        <span class="hidden group-open:inline">Hide</span>
+      </summary>
+      <form method="post" action="/volunteer/locations" class="mt-3 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Label</label>
+            <input type="text" name="name" maxlength="30" placeholder="e.g., OFFICE"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sunshine-300">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Address</label>
+            <div id="pac-profile-mount"></div>
+            <input type="hidden" name="address" id="pac-profile-value">
+            <input id="pac-profile-fallback" type="text" placeholder="123 Main St, Toronto, ON"
+                   autocomplete="off"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sunshine-300">
+          </div>
+        </div>
+        <button type="submit"
+                class="bg-sunshine-500 hover:bg-sunshine-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+          Save Location
+        </button>
+      </form>
+    </details>
+  </div>
+
+  <!-- My Dogs -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-900">My Dogs</h2>
+      <button onclick="document.getElementById('add-dog-modal').classList.remove('hidden')" 
+              class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+        + Add Dog
+      </button>
+    </div>
+    
+    {% if dogs | length > 0 %}
+    <div class="space-y-4">
+      {% for dog in dogs %}
+      <div class="border {% if not dog.is_active %}border-gray-200 bg-gray-50{% else %}border-gray-200{% endif %} rounded-lg p-4">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center gap-3">
+            <!-- Dog photo -->
+            <div class="relative group">
+              {% if dog.photo_thumb_url %}
+                <img src="{{ dog.photo_thumb_url }}" alt="{{ dog.name }}" class="w-12 h-12 rounded-full object-cover">
+              {% else %}
+                <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-xl">
+                  🐕
+                </div>
+              {% endif %}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-gray-900">{{ dog.name }}</h3>
+                {% if dog.is_primary %}<span class="text-xs bg-sunshine-100 text-sunshine-700 px-2 py-0.5 rounded-full">Primary</span>{% endif %}
+                {% if not dog.is_active %}<span class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Inactive</span>{% endif %}
+              </div>
+              <p class="text-sm text-gray-500">
+                {{ dog.breed_name | default(value=dog.breed_freeform) | default(value="Unknown breed") }} • {{ dog.size | replace(from="_", to=" ") | title }}
+                {% if dog.gender %} • {{ dog.gender | title }}{% endif %}
+              </p>
+              {% if dog.date_of_birth %}
+              <p class="text-sm text-gray-500" x-data="{
+                get ageDisplay() {
+                  const birthDate = new Date('{{ dog.date_of_birth }}');
+                  const today = new Date();
+                  let years = today.getFullYear() - birthDate.getFullYear();
+                  let months = today.getMonth() - birthDate.getMonth();
+                  if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+                    years--;
+                    months += 12;
+                  }
+                  if (years === 0) {
+                    return months + ' month' + (months === 1 ? '' : 's');
+                  }
+                  return years + ' year' + (years === 1 ? '' : 's');
+                }
+              }">Age: <span x-text="ageDisplay"></span></p>
+              {% endif %}
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <!-- Photo upload/replace with crop modal -->
+            <button @click="openDogPhotoModal('{{ dog.id }}')" 
+                    class="text-gray-400 hover:text-gray-600 p-2" title="Photo">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
+            {% if dog.photo_asset_id %}
+            <form method="post" action="/volunteer/profile/dogs/{{ dog.id }}/photo/remove" class="inline">
+              <button type="submit" class="text-gray-400 hover:text-red-500 p-2" title="Remove Photo">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </form>
+            {% endif %}
+            <button onclick="document.getElementById('edit-dog-{{ dog.id }}').classList.remove('hidden')"
+                    class="text-gray-400 hover:text-gray-600 p-2">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+            <form method="post" action="/volunteer/profile/dogs/{{ dog.id }}/toggle-active" class="inline">
+              <button type="submit" class="{% if dog.is_active %}text-red-400 hover:text-red-600{% else %}text-green-400 hover:text-green-600{% endif %} p-2" title="Toggle Active">
+                {% if dog.is_active %}🚫{% else %}✅{% endif %}
+              </button>
+            </form>
+            {% if dog.is_active %}
+            <button type="button"
+                  class="text-orange-400 hover:text-orange-600 p-2"
+                  title="Retire with Honors"
+                  @click="$dispatch('open-retire-modal', { id: '{{ dog.id }}', name: '{{ dog.name }}', url: '/volunteer/profile/dogs/{{ dog.id }}/retire' })">
+              🎖️
+            </button>
+            {% endif %}
+          </div>
+        </div>
+        {% if dog.personality_desc %}
+        <p class="mt-3 text-sm text-gray-600">{{ dog.personality_desc }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+      <div class="text-4xl mb-3">🐕</div>
+      <p class="mb-2">No dogs registered yet</p>
+      <p class="text-sm">Add your therapy dog to start signing up for shifts</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Recent Activity -->
+  {% if recent_events | length > 0 %}
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+    <div class="relative">
+      <div class="absolute left-3 top-0 bottom-0 w-px bg-gray-200"></div>
+      <div class="space-y-3">
+        {% for event in recent_events %}
+        <div class="relative pl-10">
+          <div class="absolute left-0 w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xs">
+            {{ event.event_type | event_icon }}
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-900">{{ event.event_type | event_label }}</p>
+            {% if event.shift_title %}
+            <p class="text-xs text-gray-500">
+              {{ event.agency_name }} — {{ event.shift_title }}
+              {% if event.site_name %}<br><span class="text-[10px]">{{ event.site_name }}</span>{% endif %}
+            </p>
+            {% endif %}
+            {% if event.dog_name %}
+            <p class="text-[10px] text-indigo-600 font-medium">🐾 {{ event.dog_name }}</p>
+            {% endif %}
+            <p class="text-[10px] text-gray-400 mt-0.5">{{ event.created_at | date(format="%b %-d, %Y") }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="mt-4 pt-4 border-t border-gray-100 text-center">
+      <a href="/volunteer/history" class="text-sm text-sunshine-600 hover:text-sunshine-700 font-medium">
+        View All Activity →
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add Dog Modal -->
+<div id="add-dog-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full p-6">
+    <h3 class="text-lg font-semibold mb-4">Add New Dog</h3>
+    <form method="post" action="/volunteer/profile/dogs" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+        <input type="text" name="name" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+          <select name="breed_id" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="">(Select breed)</option>
+            {% for b in all_breeds %}
+              <option value="{{ b.0 }}">{{ b.1 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+          <select name="gender" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="">(Select gender)</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Or Enter Breed</label>
+        <input type="text" name="breed_freeform" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Size *</label>
+          <select name="size" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="x_small">Extra Small</option>
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="x_large">Extra Large</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
+          <input type="date" name="date_of_birth" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Personality Description</label>
+        <textarea name="personality_desc" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2"></textarea>
+      </div>
+      {% if dogs | filter(attribute="is_active", value=true) | length > 0 %}
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_primary" id="is_primary" value="true" class="rounded">
+        <label for="is_primary" class="text-sm text-gray-700">This is my primary dog</label>
+      </div>
+      {% endif %}
+      <div class="flex gap-3 pt-4">
+        <button type="button" onclick="document.getElementById('add-dog-modal').classList.add('hidden')"
+                class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg">
+          Cancel
+        </button>
+        <button type="submit" class="flex-1 bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg">
+          Add Dog
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Dog Modals -->
+{% for dog in dogs %}
+<div id="edit-dog-{{ dog.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full p-6">
+    <h3 class="text-lg font-semibold mb-4">Edit {{ dog.name }}</h3>
+    <form method="post" action="/volunteer/profile/dogs/{{ dog.id }}" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+        <input type="text" name="name" value="{{ dog.name }}" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+            <select name="breed_id" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+              <option value="">(Select breed)</option>
+              {% for b in all_breeds %}
+                <option value="{{ b.0 }}" {% if b.0 == dog.breed_id %}selected{% endif %}>{{ b.1 }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+            <select name="gender" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+              <option value="">(Select gender)</option>
+              <option value="male" {% if dog.gender == "male" %}selected{% endif %}>Male</option>
+              <option value="female" {% if dog.gender == "female" %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Or Enter Breed</label>
+          <input type="text" name="breed_freeform" value="{{ dog.breed_freeform | default(value="") }}" class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Size *</label>
+          <select name="size" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+            <option value="x_small" {% if dog.size == "x_small" %}selected{% endif %}>Extra Small</option>
+            <option value="small" {% if dog.size == "small" %}selected{% endif %}>Small</option>
+            <option value="medium" {% if dog.size == "medium" %}selected{% endif %}>Medium</option>
+            <option value="large" {% if dog.size == "large" %}selected{% endif %}>Large</option>
+            <option value="x_large" {% if dog.size == "x_large" %}selected{% endif %}>Extra Large</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
+          <input type="date" name="date_of_birth" value="{{ dog.date_of_birth | default(value="") }}" required class="w-full border border-gray-200 rounded-lg px-3 py-2">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Personality Description</label>
+        <textarea name="personality_desc" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2">{{ dog.personality_desc | default(value="") }}</textarea>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_primary" id="is_primary_{{ dog.id }}" value="true" {% if dog.is_primary %}checked{% endif %} class="rounded">
+        <label for="is_primary_{{ dog.id }}" class="text-sm text-gray-700">This is my primary dog</label>
+      </div>
+      <div class="flex gap-3 pt-4">
+        <button type="button" onclick="document.getElementById('edit-dog-{{ dog.id }}').classList.add('hidden')" 
+                class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg">
+          Cancel
+        </button>
+        <button type="submit" class="flex-1 bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% include "partials/dog_retirement_modal" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function profilePage() {
+    return {
+        // Profile photo
+        showPhotoModal: false,
+        imageLoaded: false,
+        imagePreview: null,
+        uploading: false,
+        cropX: 150,
+        cropY: 150,
+        cropRadius: 60,
+        isDragging: false,
+        dragOffset: { x: 0, y: 0 },
+        
+        // Dog photo
+        showDogPhotoModal: false,
+        currentDogId: null,
+        dogImageLoaded: false,
+        dogImagePreview: null,
+        dogUploading: false,
+        dogCropX: 150,
+        dogCropY: 150,
+        dogCropRadius: 60,
+        dogIsDragging: false,
+        
+        init() {
+            // Default crop position (center of typical image)
+            this.cropX = 200;
+            this.cropY = 200;
+            this.cropRadius = 60;
+            this.dragMode = null;
+            this.dragStart = { x: 0, y: 0, cropX: 0, cropY: 0, cropRadius: 0 };
+            
+            // Dog crop defaults
+            this.dogCropX = 200;
+            this.dogCropY = 200;
+            this.dogCropRadius = 60;
+            this.dogDragMode = null;
+            this.dogDragStart = { x: 0, y: 0, cropX: 0, cropY: 0, cropRadius: 0 };
+        },
+        
+        // Computed display properties (scaled to displayed image size)
+        get displayScale() {
+            const img = this.$refs.cropImage;
+            if (!img || !img.naturalWidth) return 1;
+            return 400 / Math.max(img.naturalWidth, img.naturalHeight);
+        },
+        
+        get displayCropX() {
+            return this.cropX * this.displayScale;
+        },
+        
+        get displayCropY() {
+            return this.cropY * this.displayScale;
+        },
+        
+        get displayCropRadius() {
+            return this.cropRadius * this.displayScale;
+        },
+        
+        updateCropStyle() {
+            // Update CSS custom properties for the overlay
+            const container = this.$refs.cropImage?.parentElement;
+            if (container) {
+                container.style.setProperty('--crop-x', `${this.displayCropX}px`);
+                container.style.setProperty('--crop-y', `${this.displayCropY}px`);
+                container.style.setProperty('--crop-r', `${this.displayCropRadius}px`);
+            }
+        },
+        
+        openPhotoModal() {
+            this.showPhotoModal = true;
+            document.body.style.overflow = 'hidden';
+        },
+        
+        closePhotoModal() {
+            this.showPhotoModal = false;
+            this.resetImage();
+            document.body.style.overflow = '';
+        },
+        
+        handleDrop(event) {
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.processFile(files[0]);
+            }
+        },
+        
+        handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                this.processFile(files[0]);
+            }
+        },
+        
+        processFile(file) {
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Please select a JPEG, PNG, or WebP image.');
+                return;
+            }
+            
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large. Maximum size is 10MB.');
+                return;
+            }
+            
+            // Create preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.imagePreview = e.target.result;
+                this.imageLoaded = true;
+                
+                // Wait for image to load in DOM
+                this.$nextTick(() => {
+                    const img = this.$refs.cropImage;
+                    img.onload = () => {
+                        // Center crop circle in original image coordinates
+                        this.cropX = img.naturalWidth / 2;
+                        this.cropY = img.naturalHeight / 2;
+                        this.cropRadius = Math.min(60, Math.min(img.naturalWidth, img.naturalHeight) / 4);
+                        this.updateCropStyle();
+                        this.updatePreview();
+                    };
+                });
+            };
+            reader.readAsDataURL(file);
+            
+            // Store file for form submission
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            this.$refs.formFileInput.files = dataTransfer.files;
+        },
+        
+        startCircleMove(event) {
+            this.dragMode = 'move';
+            const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+            this.dragStart = {
+                x: clientX,
+                y: clientY,
+                cropX: this.cropX,
+                cropY: this.cropY,
+                cropRadius: this.cropRadius
+            };
+        },
+        
+        startCircleResize(event) {
+            this.dragMode = 'resize';
+            const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+            this.dragStart = {
+                x: clientX,
+                y: clientY,
+                cropX: this.cropX,
+                cropY: this.cropY,
+                cropRadius: this.cropRadius
+            };
+        },
+        
+        drag(event) {
+            if (!this.dragMode) return;
+            
+            event.preventDefault();
+            const img = this.$refs.cropImage;
+            if (!img) return;
+            
+            const rect = img.getBoundingClientRect();
+            const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+            
+            // Calculate scale factor (displayed size / original size)
+            const scaleX = rect.width / img.naturalWidth;
+            const scaleY = rect.height / img.naturalHeight;
+            
+            if (this.dragMode === 'move') {
+                // Calculate delta in displayed pixels, then convert to original
+                const deltaX = (clientX - this.dragStart.x) / scaleX;
+                const deltaY = (clientY - this.dragStart.y) / scaleY;
+                
+                let newX = this.dragStart.cropX + deltaX;
+                let newY = this.dragStart.cropY + deltaY;
+                
+                // Constrain to image bounds
+                newX = Math.max(this.cropRadius, Math.min(newX, img.naturalWidth - this.cropRadius));
+                newY = Math.max(this.cropRadius, Math.min(newY, img.naturalHeight - this.cropRadius));
+                
+                this.cropX = newX;
+                this.cropY = newY;
+                
+            } else if (this.dragMode === 'resize') {
+                // Calculate distance from center in displayed pixels, convert to original
+                const displayCenterX = rect.left + (this.cropX / img.naturalWidth) * rect.width;
+                const displayCenterY = rect.top + (this.cropY / img.naturalHeight) * rect.height;
+                
+                const dx = clientX - displayCenterX;
+                const dy = clientY - displayCenterY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Convert distance to original image scale
+                const newRadius = Math.max(30, Math.min(distance / Math.min(scaleX, scaleY), 
+                    Math.min(this.cropX, this.cropY, 
+                        img.naturalWidth - this.cropX, 
+                        img.naturalHeight - this.cropY)));
+                
+                this.cropRadius = newRadius;
+            }
+            
+            this.updateCropStyle();
+            this.updatePreview();
+        },
+        
+        endDrag() {
+            this.dragMode = null;
+        },
+        
+        updatePreview() {
+            const canvas = this.$refs.previewCanvas;
+            const ctx = canvas.getContext('2d');
+            const img = this.$refs.cropImage;
+            
+            if (!img || !img.complete) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Create circular clip path
+            ctx.beginPath();
+            ctx.arc(64, 64, 64, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            
+            // Draw the cropped portion of image
+            // Calculate scale to fit the crop area into canvas
+            const scale = 128 / (this.cropRadius * 2);
+            const sourceX = this.cropX - this.cropRadius;
+            const sourceY = this.cropY - this.cropRadius;
+            const sourceSize = this.cropRadius * 2;
+            
+            ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 128, 128);
+        },
+        
+        resetImage() {
+            this.imageLoaded = false;
+            this.imagePreview = null;
+            this.$refs.fileInput.value = '';
+            this.$refs.formFileInput.value = '';
+        },
+        
+        uploadPhoto() {
+            this.uploading = true;
+            this.$refs.uploadForm.submit();
+        },
+        
+        // Dog Photo Methods
+        openDogPhotoModal(dogId) {
+            this.currentDogId = dogId;
+            this.showDogPhotoModal = true;
+            document.body.style.overflow = 'hidden';
+        },
+        
+        closeDogPhotoModal() {
+            this.showDogPhotoModal = false;
+            this.resetDogImage();
+            this.currentDogId = null;
+            document.body.style.overflow = '';
+        },
+        
+        handleDogDrop(event) {
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.processDogFile(files[0]);
+            }
+        },
+        
+        handleDogFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                this.processDogFile(files[0]);
+            }
+        },
+        
+        processDogFile(file) {
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Please select a JPEG, PNG, or WebP image.');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large. Maximum size is 10MB.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.dogImagePreview = e.target.result;
+                this.dogImageLoaded = true;
+                
+                this.$nextTick(() => {
+                    const img = this.$refs.dogCropImage;
+                    img.onload = () => {
+                        this.dogCropX = img.naturalWidth / 2;
+                        this.dogCropY = img.naturalHeight / 2;
+                        this.dogCropRadius = Math.min(60, Math.min(img.naturalWidth, img.naturalHeight) / 4);
+                        this.updateDogCropStyle();
+                        this.updateDogPreview();
+                    };
+                });
+            };
+            reader.readAsDataURL(file);
+            
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            this.$refs.dogFormFileInput.files = dataTransfer.files;
+        },
+        
+        // Computed display properties for dog crop
+        get dogDisplayScale() {
+            const img = this.$refs.dogCropImage;
+            if (!img || !img.naturalWidth) return 1;
+            return 400 / Math.max(img.naturalWidth, img.naturalHeight);
+        },
+        
+        get displayDogCropX() {
+            return this.dogCropX * this.dogDisplayScale;
+        },
+        
+        get displayDogCropY() {
+            return this.dogCropY * this.dogDisplayScale;
+        },
+        
+        get displayDogCropRadius() {
+            return this.dogCropRadius * this.dogDisplayScale;
+        },
+        
+        updateDogCropStyle() {
+            const container = this.$refs.dogCropImage?.parentElement;
+            if (container) {
+                container.style.setProperty('--dog-crop-x', `${this.displayDogCropX}px`);
+                container.style.setProperty('--dog-crop-y', `${this.displayDogCropY}px`);
+                container.style.setProperty('--dog-crop-r', `${this.displayDogCropRadius}px`);
+            }
+        },
+        
+        startDogCircleMove(event) {
+            this.dogDragMode = 'move';
+            const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+            this.dogDragStart = {
+                x: clientX,
+                y: clientY,
+                cropX: this.dogCropX,
+                cropY: this.dogCropY,
+                cropRadius: this.dogCropRadius
+            };
+        },
+        
+        startDogCircleResize(event) {
+            this.dogDragMode = 'resize';
+            const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+            this.dogDragStart = {
+                x: clientX,
+                y: clientY,
+                cropX: this.dogCropX,
+                cropY: this.dogCropY,
+                cropRadius: this.dogCropRadius
+            };
+        },
+        
+        dogDrag(event) {
+            if (!this.dogDragMode) return;
+            
+            event.preventDefault();
+            const img = this.$refs.dogCropImage;
+            if (!img) return;
+            
+            const rect = img.getBoundingClientRect();
+            const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
+            
+            const scaleX = rect.width / img.naturalWidth;
+            const scaleY = rect.height / img.naturalHeight;
+            
+            if (this.dogDragMode === 'move') {
+                const deltaX = (clientX - this.dogDragStart.x) / scaleX;
+                const deltaY = (clientY - this.dogDragStart.y) / scaleY;
+                
+                let newX = this.dogDragStart.cropX + deltaX;
+                let newY = this.dogDragStart.cropY + deltaY;
+                
+                newX = Math.max(this.dogCropRadius, Math.min(newX, img.naturalWidth - this.dogCropRadius));
+                newY = Math.max(this.dogCropRadius, Math.min(newY, img.naturalHeight - this.dogCropRadius));
+                
+                this.dogCropX = newX;
+                this.dogCropY = newY;
+                
+            } else if (this.dogDragMode === 'resize') {
+                const displayCenterX = rect.left + (this.dogCropX / img.naturalWidth) * rect.width;
+                const displayCenterY = rect.top + (this.dogCropY / img.naturalHeight) * rect.height;
+                
+                const dx = clientX - displayCenterX;
+                const dy = clientY - displayCenterY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                const newRadius = Math.max(30, Math.min(distance / Math.min(scaleX, scaleY), 
+                    Math.min(this.dogCropX, this.dogCropY, 
+                        img.naturalWidth - this.dogCropX, 
+                        img.naturalHeight - this.dogCropY)));
+                
+                this.dogCropRadius = newRadius;
+            }
+            
+            this.updateDogCropStyle();
+            this.updateDogPreview();
+        },
+        
+        endDogDrag() {
+            this.dogDragMode = null;
+        },
+        
+        updateDogPreview() {
+            const canvas = this.$refs.dogPreviewCanvas;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const img = this.$refs.dogCropImage;
+            
+            if (!img || !img.complete) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.beginPath();
+            ctx.arc(64, 64, 64, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            
+            const sourceX = this.dogCropX - this.dogCropRadius;
+            const sourceY = this.dogCropY - this.dogCropRadius;
+            const sourceSize = this.dogCropRadius * 2;
+            
+            ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 128, 128);
+        },
+        
+        resetDogImage() {
+            this.dogImageLoaded = false;
+            this.dogImagePreview = null;
+            this.dogDragMode = null;
+            this.$refs.dogFileInput.value = '';
+            this.$refs.dogFormFileInput.value = '';
+        },
+        
+        uploadDogPhoto() {
+            this.dogUploading = true;
+            this.$refs.dogUploadForm.submit();
+        }
+    };
+}
+</script>
+{% if google_maps_api_key %}
+<script>
+  (function () {
+    var script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&loading=async&libraries=places&callback=initPlacesProfile';
+    script.async = true;
+    document.head.appendChild(script);
+  })();
+
+  async function initPlacesProfile() {
+    var mount = document.getElementById('pac-profile-mount');
+    var hidden = document.getElementById('pac-profile-value');
+    var fallback = document.getElementById('pac-profile-fallback');
+    if (!mount) return;
+
+    var { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+    var pac = new PlaceAutocompleteElement();
+    pac.style.width = '100%';
+    mount.appendChild(pac);
+    fallback.style.display = 'none';
+
+    // includedRegionCodes is the PlaceAutocompleteElement equivalent of the
+    // legacy componentRestrictions.country — restrict suggestions to Canada.
+    pac.includedRegionCodes = ['ca'];
+    pac.types = ['address'];
+    pac.locationBias = { north: 56.9, south: 41.6, east: -74.3, west: -95.2 };
+
+    function syncColorScheme() {
+      pac.colorScheme = document.documentElement.classList.contains('dark') ? 'DARK' : 'LIGHT';
+    }
+    syncColorScheme();
+    new MutationObserver(syncColorScheme).observe(document.documentElement, {
+      attributes: true, attributeFilter: ['class']
+    });
+
+    pac.addEventListener('gmp-placeselect', async function (e) {
+      var place = e.placePrediction.toPlace();
+      await place.fetchFields({ fields: ['formattedAddress', 'addressComponents'] });
+      // Guard: reject selections outside Canada
+      var countryComp = (place.addressComponents || []).find(function (c) {
+        return c.types.includes('country');
+      });
+      if (countryComp && countryComp.shortText !== 'CA') {
+        pac.value = '';
+        hidden.value = '';
+        return;
+      }
+      hidden.value = place.formattedAddress;
+    });
+
+    mount.closest('form').addEventListener('submit', function () {
+      var inner = pac.shadowRoot && pac.shadowRoot.querySelector('input');
+      if (inner && inner.value && !hidden.value) hidden.value = inner.value;
+    });
+  }
+</script>
+{% endif %}
+{% endblock %}

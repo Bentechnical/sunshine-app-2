@@ -1,0 +1,62 @@
+{# Tag selector modal. Variables: asset_id, volunteers, dogs #}
+<div id="tag-modal-{{ asset_id }}"
+     x-data="{ open: false }"
+     @keydown.escape.window="open = false">
+
+  <button @click="open = true"
+          class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+    🏷 Tag
+  </button>
+
+  <div x-show="open" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+       @click.self="open = false">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-80 max-h-[80vh] overflow-y-auto space-y-4">
+      <h3 class="text-base font-semibold text-gray-900">Tag in photo</h3>
+
+      {% if volunteers | length > 0 %}
+      <div>
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Volunteers</p>
+        <div class="space-y-1">
+          {% for v in volunteers %}
+          <form hx-post="/assets/{{ asset_id }}/tags"
+                hx-target="#tags-{{ asset_id }}"
+                hx-swap="outerHTML"
+                @submit="open = false">
+            <input type="hidden" name="volunteer_id" value="{{ v.id }}" />
+            <button type="submit"
+                    class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-blue-50 text-gray-700 flex items-center gap-2">
+              👤 {{ v.display_name }}
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if dogs | length > 0 %}
+      <div>
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Dogs</p>
+        <div class="space-y-1">
+          {% for d in dogs %}
+          <form hx-post="/assets/{{ asset_id }}/tags"
+                hx-target="#tags-{{ asset_id }}"
+                hx-swap="outerHTML"
+                @submit="open = false">
+            <input type="hidden" name="dog_id" value="{{ d.id }}" />
+            <button type="submit"
+                    class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-amber-50 text-gray-700 flex items-center gap-2">
+              🐕 {{ d.name }}
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <button @click="open = false" class="w-full text-sm text-gray-400 hover:text-gray-600 pt-2">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>

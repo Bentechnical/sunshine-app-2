@@ -1,0 +1,299 @@
+{% extends "base" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="/admin/agencies" class="text-blue-600 hover:underline">&larr; Back to Agencies</a>
+        <h1 class="text-3xl font-bold mt-2">
+            {% if agency.is_new %}New Agency{% else %}Edit: {{ agency.name }}{% endif %}
+        </h1>
+    </div>
+
+    {% if flash %}
+        <div class="mb-4 p-4 rounded {% if flash.kind == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {{ flash.message }}
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Agency Info Form -->
+        <div class="lg:col-span-2">
+            <div class="bg-white shadow rounded-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold mb-4">Agency Details</h2>
+                <form method="POST" action="{% if agency.is_new %}/admin/agencies{% else %}/admin/agencies/{{ agency.id }}{% endif %}">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Name</label>
+                            <input type="text" name="name" value="{{ agency.name }}" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Slug</label>
+                            <input type="text" name="slug" value="{{ agency.slug }}" required
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Type</label>
+                            <select name="agency_type_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                <option value="">(Select Type)</option>
+                                {% for t in agency_types %}
+                                    <option value="{{ t.id }}" {% if t.id == agency.agency_type_id %}selected{% endif %}>{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Primary Contact</label>
+                            <select name="primary_contact_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                <option value="">(None)</option>
+                                {% for c in contacts %}
+                                    <option value="{{ c.id }}" {% if c.id == agency.primary_contact_id %}selected{% endif %}>{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Description</label>
+                        <textarea name="description" rows="3" 
+                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">{{ agency.description }}</textarea>
+                    </div>
+
+                    <div class="mt-4 flex gap-8">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="is_login_active" class="rounded border-gray-300" {% if agency.is_login_active %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">Login Active</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="can_create_request" class="rounded border-gray-300" {% if agency.can_create_request %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">Can Create Requests</span>
+                        </label>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                            Save Agency
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {% if not agency.is_new %}
+            <!-- Sites Section -->
+            <div class="bg-white shadow rounded-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Sites (Locations)</h2>
+                    <button onclick="addSite()" class="text-blue-600 hover:underline">+ Add Site</button>
+                </div>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-4 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for s in sites %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm">{{ s.name }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-500">{{ s.address }}</td>
+                            <td class="px-4 py-2 text-sm">
+                                {% if s.is_active %}Active{% else %}Inactive{% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-right">
+                                <button onclick="editSite('{{ s.id }}', '{{ s.name }}', '{{ s.address }}', '{{ s.is_active }}')" class="text-blue-600">Edit</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Contacts Section -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Contacts</h2>
+                    <button onclick="addContact()" class="text-blue-600 hover:underline">+ Add Contact</button>
+                </div>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Title/Email</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Primary</th>
+                            <th class="px-4 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for c in contacts %}
+                        <tr>
+                            <td class="px-4 py-2 text-sm font-medium">{{ c.name }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-500">
+                                {{ c.title }}<br>{{ c.email }}
+                            </td>
+                            <td class="px-4 py-2 text-sm">
+                                {% if c.is_primary %}&#10003;{% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-right flex justify-end gap-2">
+                                <button onclick="editContact('{{ c.id }}', '{{ c.name }}', '{{ c.title }}', '{{ c.email }}', '{{ c.phone }}', '{{ c.is_primary }}', '{{ c.is_active }}')" class="text-blue-600">Edit</button>
+                                {% if not c.is_primary %}
+                                <form action="/admin/agencies/{{ agency.id }}/contacts/{{ c.id }}/delete" method="post" onsubmit="return confirm('Permanently delete {{ c.name }}? All their shift assignments will be reassigned to the primary contact.')">
+                                    <button type="submit" class="text-red-600 hover:underline">Delete</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar: Recent Bookings -->
+        <div class="lg:col-span-1">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold mb-4">Recent Bookings</h2>
+                <div class="space-y-4">
+                    {% for s in shifts %}
+                    <div class="border-b pb-3 last:border-0">
+                        <div class="flex justify-between">
+                            <a href="/admin/shifts/{{ s.id }}/edit" class="font-medium text-blue-600 hover:underline">{{ s.title }}</a>
+                            <span class="text-xs uppercase px-2 py-0.5 rounded bg-gray-100">{{ s.state }}</span>
+                        </div>
+                        <div class="text-sm text-gray-500">{{ s.start_at | date(format="%b %d, %H:%M") }}</div>
+                        <div class="text-sm text-gray-500">{{ s.site_name }}</div>
+                        <div class="text-xs text-gray-400 mt-1">
+                            {{ s.slots_confirmed }}/{{ s.slots_requested }} slots
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 italic">No bookings found.</p>
+                    {% endfor %}
+                </div>
+                {% if not agency.is_new %}
+                <div class="mt-6">
+                    <a href="/admin/shifts/new?agency_id={{ agency.id }}" class="block text-center bg-gray-100 text-gray-700 py-2 rounded hover:bg-gray-200">
+                        + Create New Shift
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals (Simple implementation) -->
+<div id="site-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-bold mb-4" id="site-modal-title">Add Site</h3>
+        <form method="POST" action="/admin/agencies/{{ agency.id }}/sites">
+            <input type="hidden" name="id" id="site-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" name="name" id="site-name" required class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Address</label>
+                    <input type="text" name="address" id="site-address" class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" name="is_active" id="site-active" checked class="rounded border-gray-300">
+                    <span class="ml-2 text-sm text-gray-700">Active</span>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('site-modal').classList.add('hidden')" class="px-4 py-2 border rounded">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Save Site</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="contact-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-bold mb-4" id="contact-modal-title">Add Contact</h3>
+        <form method="POST" action="/admin/agencies/{{ agency.id }}/contacts">
+            <input type="hidden" name="id" id="contact-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" name="name" id="contact-name" required class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Title</label>
+                    <input type="text" name="title" id="contact-title" class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" name="email" id="contact-email" class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Phone</label>
+                    <input type="text" name="phone" id="contact-phone" class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div class="flex gap-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_primary" id="contact-primary" class="rounded border-gray-300">
+                        <span class="ml-2 text-sm text-gray-700">Primary Contact</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_active" id="contact-active" checked class="rounded border-gray-300">
+                        <span class="ml-2 text-sm text-gray-700">Active</span>
+                    </label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('contact-modal').classList.add('hidden')" class="px-4 py-2 border rounded">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Save Contact</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function addSite() {
+    document.getElementById('site-id').value = '';
+    document.getElementById('site-name').value = '';
+    document.getElementById('site-address').value = '';
+    document.getElementById('site-active').checked = true;
+    document.getElementById('site-modal-title').innerText = 'Add Site';
+    document.getElementById('site-modal').classList.remove('hidden');
+}
+
+function editSite(id, name, address, active) {
+    document.getElementById('site-id').value = id;
+    document.getElementById('site-name').value = name;
+    document.getElementById('site-address').value = address;
+    document.getElementById('site-active').checked = (active === 'true');
+    document.getElementById('site-modal-title').innerText = 'Edit Site';
+    document.getElementById('site-modal').classList.remove('hidden');
+}
+
+function addContact() {
+    document.getElementById('contact-id').value = '';
+    document.getElementById('contact-name').value = '';
+    document.getElementById('contact-title').value = '';
+    document.getElementById('contact-email').value = '';
+    document.getElementById('contact-phone').value = '';
+    document.getElementById('contact-primary').checked = false;
+    document.getElementById('contact-active').checked = true;
+    document.getElementById('contact-modal-title').innerText = 'Add Contact';
+    document.getElementById('contact-modal').classList.remove('hidden');
+}
+
+function editContact(id, name, title, email, phone, primary, active) {
+    document.getElementById('contact-id').value = id;
+    document.getElementById('contact-name').value = name;
+    document.getElementById('contact-title').value = title;
+    document.getElementById('contact-email').value = email;
+    document.getElementById('contact-phone').value = phone;
+    document.getElementById('contact-primary').checked = (primary === 'true');
+    document.getElementById('contact-active').checked = (active === 'true');
+    document.getElementById('contact-modal-title').innerText = 'Edit Contact';
+    document.getElementById('contact-modal').classList.remove('hidden');
+}
+</script>
+{% endblock content %}

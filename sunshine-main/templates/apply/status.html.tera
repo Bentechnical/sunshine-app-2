@@ -1,0 +1,134 @@
+{% extends "base" %}
+{% block title %}Application Status{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <h1 class="text-2xl font-bold text-gray-900">Application Status</h1>
+
+  {% if application %}
+  <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm space-y-6">
+    <!-- Status Badge -->
+    <div class="flex items-center gap-4">
+      <span class="text-3xl">
+        {% if application.status == "approved" %}🎉
+        {% elif application.status == "rejected" %}❌
+        {% elif application.status == "withdrawn" %}🚫
+        {% elif application.status == "submitted" or application.status == "under_review" %}🔍
+        {% else %}📋{% endif %}
+      </span>
+      <div>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold
+          {% if application.status == "started" or application.status == "personal_info_completed" or application.status == "questionnaire_completed" or application.status == "dog_registration_completed" or application.status == "dog_registration_skipped" %}bg-gray-100 text-gray-700
+          {% elif application.status == "submitted" %}bg-indigo-100 text-indigo-700
+          {% elif application.status == "under_review" %}bg-yellow-100 text-yellow-700
+          {% elif application.status == "pending_vsc" or application.status == "pending_background_check" %}bg-orange-100 text-orange-700
+          {% elif application.status == "pending_assessment" %}bg-amber-100 text-amber-700
+          {% elif application.status == "assessment_scheduled" %}bg-purple-100 text-purple-700
+          {% elif application.status == "approved" %}bg-green-100 text-green-700
+          {% elif application.status == "rejected" %}bg-red-100 text-red-700
+          {% else %}bg-gray-100 text-gray-500{% endif %}">
+          {{ application.status | vol_app_status_label }}
+        </span>
+        <p class="text-sm text-gray-500 mt-1">
+          Applied {{ application.created_at | date(format="%B %-d, %Y") }}
+        </p>
+      </div>
+    </div>
+
+    {% if application.status == "approved" %}
+    <div class="bg-green-50 border border-green-200 rounded-xl p-5">
+      <h3 class="font-bold text-green-900 mb-1">Welcome to Sunshine!</h3>
+      <p class="text-sm text-green-700 mb-3">Your volunteer application has been approved. You can now access the full volunteer portal.</p>
+      <a href="/volunteer/shifts" class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2 rounded-lg transition text-sm">
+        Go to Volunteer Portal →
+      </a>
+    </div>
+    {% endif %}
+
+    {% if application.status == "rejected" %}
+    <div class="bg-red-50 border border-red-200 rounded-xl p-5">
+      <h3 class="font-bold text-red-900 mb-1">Application Not Approved</h3>
+      {% if application.rejection_reason %}
+      <p class="text-sm text-red-700">{{ application.rejection_reason }}</p>
+      {% else %}
+      <p class="text-sm text-red-700">Unfortunately your application was not approved at this time.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Pre-approved items -->
+    {% if application.vsc_waived_visible and application.vsc_waived or application.background_waived_visible and application.background_check_waived or application.dog_health_waived_visible and application.dog_health_check_waived %}
+    <div class="border border-green-100 rounded-lg p-4">
+      <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Pre-approved</h3>
+      {% if application.vsc_waived_visible and application.vsc_waived %}
+      <div class="flex items-center gap-2 text-sm text-green-700"><span>✓</span> Vulnerable Sector Check</div>
+      {% endif %}
+      {% if application.background_waived_visible and application.background_check_waived %}
+      <div class="flex items-center gap-2 text-sm text-green-700"><span>✓</span> Background Check</div>
+      {% endif %}
+      {% if application.dog_health_waived_visible and application.dog_health_check_waived %}
+      <div class="flex items-center gap-2 text-sm text-green-700"><span>✓</span> Dog Health Check</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Progress Timeline -->
+    {% if application.status != "approved" and application.status != "rejected" and application.status != "withdrawn" %}
+    <div class="border-t border-gray-100 pt-6">
+      <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Progress</h3>
+      <div class="space-y-3">
+        {% set phases = ["submitted", "under_review", "pending_vsc", "pending_background_check", "pending_assessment", "assessment_scheduled", "approved"] %}
+        {% set phase_labels = ["Submitted for Review", "Under Review", "Vulnerable Sector Check", "Background Check", "Pending Assessment", "Assessment Scheduled", "Approved"] %}
+        {% set current_found = false %}
+        {% for phase in phases %}
+          {% set is_current = application.status == phase %}
+          {% set is_past = not current_found and not is_current %}
+          {% if is_current %}{% set_global current_found = true %}{% endif %}
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs
+              {% if is_past %}bg-green-500 text-white
+              {% elif is_current %}ring-2 ring-sunshine-500 bg-white
+              {% else %}bg-gray-200{% endif %}">
+              {% if is_past %}✓{% endif %}
+            </div>
+            <span class="text-sm {% if is_current %}font-bold text-gray-900{% elif is_past %}text-gray-500 line-through{% else %}text-gray-400{% endif %}">
+              {{ phase_labels[loop.index0] }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Withdraw -->
+    {% if application.status != "approved" and application.status != "rejected" and application.status != "withdrawn" %}
+    <div class="border-t border-gray-100 pt-6" x-data="{ confirm: false }">
+      <button @click="confirm = true" x-show="!confirm"
+              class="text-sm text-red-600 hover:text-red-700 font-medium">
+        Withdraw Application
+      </button>
+      <div x-show="confirm" x-transition class="flex items-center gap-3">
+        <span class="text-sm text-gray-600">Are you sure?</span>
+        <form method="post" action="/apply/withdraw" class="inline">
+          <button type="submit" class="text-sm bg-red-600 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-red-700 transition">
+            Yes, Withdraw
+          </button>
+        </form>
+        <button @click="confirm = false" class="text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <div class="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+    <div class="text-4xl mb-4">📋</div>
+    <h3 class="font-semibold text-gray-700 mb-2">No application found</h3>
+    <p class="text-sm text-gray-500 mb-4">You haven't started a volunteer application yet.</p>
+    <a href="/apply" class="inline-block bg-sunshine-500 hover:bg-sunshine-600 text-white font-bold px-6 py-3 rounded-lg transition">
+      Start Application
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

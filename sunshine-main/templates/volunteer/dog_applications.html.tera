@@ -1,0 +1,65 @@
+{% extends "base" %}
+{% block title %}My Dog Applications{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-gray-900">My Dog Applications</h1>
+    <a href="/volunteer/dog-applications/new" class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+      + Register New Dog
+    </a>
+  </div>
+
+  <!-- Info Card -->
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+      <span class="text-2xl">ℹ️</span>
+      <div>
+        <p class="font-medium text-blue-900">Registration Process</p>
+        <p class="text-sm text-blue-700 mt-1">
+          All therapy dogs must be approved before attending shifts. Submit your application and our team will 
+          review it. You may be invited for an assessment. Once approved, your dog will be eligible for shifts.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Applications List -->
+  {% if applications | length > 0 %}
+  <div class="space-y-4">
+    {% for app in applications %}
+    <a href="/volunteer/dog-applications/{{ app.0 }}" class="block bg-white rounded-xl border border-gray-200 p-5 hover:border-sunshine-400 hover:shadow-md transition">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-xl">🐕</div>
+          <div>
+            <h3 class="font-semibold text-gray-900">{{ app.1 }}</h3>
+            <p class="text-sm text-gray-500">
+              {% if app.3 %}
+                Submitted {{ app.3 | date(format="%B %-d, %Y") }}
+              {% else %}
+                Created {{ app.4 | date(format="%B %-d, %Y") }} (Draft)
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <span class="px-3 py-1 rounded-full text-sm font-medium {{ app.2 | app_status_color }}">
+          {{ app.2 | app_status_label }}
+        </span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+    <div class="text-5xl mb-4">🐕</div>
+    <h3 class="text-lg font-semibold text-gray-700 mb-2">No Applications Yet</h3>
+    <p class="text-gray-500 mb-4">Start by registering your therapy dog for approval.</p>
+    <a href="/volunteer/dog-applications/new" class="text-sunshine-600 hover:text-sunshine-700 font-medium">
+      Register Your First Dog →
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

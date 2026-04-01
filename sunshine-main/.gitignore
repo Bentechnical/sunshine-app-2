@@ -1,0 +1,15 @@
+/target
+.env
+.env.*
+uploads/
+*.pem
+*.key
+Rocket.toml.local
+geocode_cache.json
+cookies.txt
+*.log
+upload_result.html
+test-results/
+node_modules/
+.gemini/
+.playwright-mcp/

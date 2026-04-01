@@ -1,0 +1,115 @@
+{% extends "base" %}
+{% block title %}Edit Location{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4">
+  <div class="flex items-center gap-3">
+    <a href="/volunteer/profile" class="text-sm text-gray-500 hover:text-gray-700">← Back to Profile</a>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-gray-900 mb-1">
+      Edit Location{% if location.is_home %} — Home{% endif %}
+    </h2>
+    <p class="text-sm text-gray-500 mb-5">Used as a starting point for the distance filter on the shifts page.</p>
+
+    <form method="post" action="/volunteer/locations/{{ location.id }}" class="space-y-4">
+      {% if not location.is_home %}
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Label</label>
+        <input type="text" name="name" value="{{ location.name }}" maxlength="30" required
+               class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 focus:ring-2 focus:ring-sunshine-500 focus:border-sunshine-500 outline-none">
+      </div>
+      {% else %}
+      {# Home name is fixed — pass it as a hidden field so the handler receives it #}
+      <input type="hidden" name="name" value="Home">
+      {% endif %}
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+        <div id="pac-edit-mount"></div>
+        {# Hidden input carries the value to the server; populated by gmp-placeselect or on submit #}
+        <input type="hidden" name="address" id="pac-edit-value" value="{{ location.address }}">
+        {# Plain-text fallback shown before JS / Google loads #}
+        <input id="pac-edit-fallback" type="text" value="{{ location.address }}"
+               placeholder="123 Main St, Toronto, ON M5V 1A1"
+               class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 focus:ring-2 focus:ring-sunshine-500 focus:border-sunshine-500 outline-none">
+        {% if not location.lat %}
+        <p class="text-xs text-amber-600 mt-1">This address has not been geocoded — saving a new address will attempt geocoding again.</p>
+        {% endif %}
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+                class="bg-sunshine-500 hover:bg-sunshine-600 text-white font-medium px-5 py-2 rounded-lg transition-colors text-sm">
+          Save
+        </button>
+        <a href="/volunteer/profile"
+           class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if google_maps_api_key %}
+<script>
+  (function () {
+    var script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&loading=async&libraries=places&callback=initPlacesEdit';
+    script.async = true;
+    document.head.appendChild(script);
+  })();
+
+  async function initPlacesEdit() {
+    var mount = document.getElementById('pac-edit-mount');
+    var hidden = document.getElementById('pac-edit-value');
+    var fallback = document.getElementById('pac-edit-fallback');
+    if (!mount) return;
+
+    var { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+    var pac = new PlaceAutocompleteElement();
+    pac.style.width = '100%';
+    mount.appendChild(pac);
+    fallback.style.display = 'none';
+
+    // includedRegionCodes is the PlaceAutocompleteElement equivalent of the
+    // legacy componentRestrictions.country — restrict suggestions to Canada.
+    pac.includedRegionCodes = ['ca'];
+    pac.types = ['address'];
+    pac.locationBias = { north: 56.9, south: 41.6, east: -74.3, west: -95.2 };
+
+    function syncColorScheme() {
+      pac.colorScheme = document.documentElement.classList.contains('dark') ? 'DARK' : 'LIGHT';
+    }
+    syncColorScheme();
+    new MutationObserver(syncColorScheme).observe(document.documentElement, {
+      attributes: true, attributeFilter: ['class']
+    });
+
+    pac.addEventListener('gmp-placeselect', async function (e) {
+      var place = e.placePrediction.toPlace();
+      await place.fetchFields({ fields: ['formattedAddress', 'addressComponents'] });
+      // Guard: reject selections outside Canada
+      var countryComp = (place.addressComponents || []).find(function (c) {
+        return c.types.includes('country');
+      });
+      if (countryComp && countryComp.shortText !== 'CA') {
+        pac.value = '';
+        hidden.value = '';
+        return;
+      }
+      hidden.value = place.formattedAddress;
+    });
+
+    mount.closest('form').addEventListener('submit', function () {
+      var inner = pac.shadowRoot && pac.shadowRoot.querySelector('input');
+      if (inner && inner.value && !hidden.value) hidden.value = inner.value;
+    });
+  }
+</script>
+{% endif %}
+{% endblock %}

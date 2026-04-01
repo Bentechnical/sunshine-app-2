@@ -73,9 +73,9 @@ export default function TherapyDogCard() {
 
   return (
     <div className="space-y-4 pt-1 px-2 flex flex-col lg:flex-1 pb-3">
-      <h2 className="text-xl font-bold">Set Availability</h2>
-      <div className="flex flex-col bg-white rounded-lg">
-        <div className="relative rounded-lg overflow-hidden shadow-md aspect-[4/3] md:aspect-video lg:aspect-square">
+      <h2 className="text-xl font-bold">My Dog</h2>
+      <div className="flex flex-col bg-white rounded-xl">
+        <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/3] md:aspect-video lg:aspect-square">
           <Image
             src={optimizeSupabaseImage(dog?.dog_picture_url, { width: 600, quality: 80 })}
             alt={dog?.dog_name || 'Therapy Dog'}

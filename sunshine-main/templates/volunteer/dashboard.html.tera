@@ -1,0 +1,223 @@
+{% extends "base" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+
+  <!-- Help Alert Bar (loaded via HTMX) -->
+  <div hx-get="/volunteer/help-alerts" hx-trigger="load" hx-swap="outerHTML"></div>
+
+  <!-- Survey Prompt Alerts -->
+  {% if survey_prompts | length > 0 %}
+  <div class="space-y-3" id="survey-prompt-list">
+    {% for prompt in survey_prompts %}
+    {% set payload = prompt.3 %}
+    <div id="survey-prompt-{{ prompt.0 }}"
+         class="flex items-start gap-4 bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+      <div class="flex-shrink-0 text-2xl">📝</div>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold text-gray-900">{{ prompt.1 }}</p>
+        <p class="text-sm text-gray-600 mt-0.5">{{ prompt.2 }}</p>
+      </div>
+      <div class="flex-shrink-0 flex items-center gap-2">
+        {% if payload.survey_url %}
+        <a href="{{ payload.survey_url }}"
+           class="text-sm font-semibold bg-sunshine-500 hover:bg-sunshine-600 text-white px-4 py-2 rounded-lg transition">
+          Complete Survey
+        </a>
+        {% endif %}
+        <button hx-post="/volunteer/notifications/{{ prompt.0 }}/dismiss"
+                hx-target="#survey-prompt-{{ prompt.0 }}"
+                hx-swap="outerHTML"
+                class="text-sm text-gray-400 hover:text-gray-600 border border-gray-200 bg-white px-3 py-2 rounded-lg transition"
+                title="Dismiss">
+          Dismiss
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Welcome Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Welcome back, {{ user.display_name | default(value=user.email) }}!</h1>
+      <p class="text-gray-500 mt-1">Here's what's happening with your therapy dog volunteering</p>
+    </div>
+    <div class="w-12 h-12 rounded-full bg-sunshine-100 flex items-center justify-center text-2xl">
+      ☀️
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <a href="/volunteer/agenda" class="bg-white rounded-xl border border-gray-200 p-4 text-center hover:border-sunshine-400 hover:shadow-md transition">
+      <div class="text-3xl mb-1">📅</div>
+      <div class="text-sm font-medium text-gray-700">My Shifts</div>
+    </a>
+    <a href="/volunteer/dog-applications" class="bg-white rounded-xl border border-gray-200 p-4 text-center hover:border-sunshine-400 hover:shadow-md transition">
+      <div class="text-3xl mb-1">🐕</div>
+      <div class="text-sm font-medium text-gray-700">My Dogs</div>
+    </a>
+    <a href="/volunteer/shifts" class="bg-white rounded-xl border border-gray-200 p-4 text-center hover:border-sunshine-400 hover:shadow-md transition">
+      <div class="text-3xl mb-1">🔍</div>
+      <div class="text-sm font-medium text-gray-700">Find Shifts</div>
+    </a>
+    <a href="/volunteer/history" class="bg-white rounded-xl border border-gray-200 p-4 text-center hover:border-sunshine-400 hover:shadow-md transition">
+      <div class="text-3xl mb-1">📋</div>
+      <div class="text-sm font-medium text-gray-700">History</div>
+    </a>
+  </div>
+
+  <!-- Pending Invites -->
+  {% if pending_invites | length > 0 %}
+  <div class="bg-indigo-50 rounded-2xl border-2 border-indigo-200 p-6 shadow-sm">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-indigo-200">
+        ✉️
+      </div>
+      <div>
+        <h2 class="text-lg font-black text-indigo-900">New Shift Invites</h2>
+        <p class="text-sm text-indigo-700">You've been invited to join these upcoming visits!</p>
+      </div>
+    </div>
+    
+    <div class="space-y-3">
+      {% for shift in pending_invites %}
+      <div class="bg-white rounded-xl border border-indigo-100 p-4 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">Invited</span>
+            <span class="text-xs font-bold text-gray-500">{{ shift.start_at | date(format="%a %b %-d") }}</span>
+          </div>
+          <h3 class="font-bold text-gray-900 truncate">{{ shift.agency_name }} — {{ shift.title }}</h3>
+          <p class="text-xs text-gray-500 truncate">{{ shift.site_name }} · {{ shift.start_at | date(format="%-I:%M %p") }}</p>
+        </div>
+        <a href="/volunteer/shifts/{{ shift.id }}" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-all shadow-md active:scale-95">
+          View & Confirm
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Upcoming Confirmed -->
+  {% if upcoming_confirmed | length > 0 %}
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+        <span>📅</span> Upcoming Confirmed
+      </h2>
+      <a href="/volunteer/agenda" class="text-xs font-bold text-sunshine-600 hover:text-sunshine-700 uppercase tracking-widest">See All</a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for shift in upcoming_confirmed %}
+      <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-2 py-0.5 rounded-md">Confirmed</span>
+          <span class="text-xs font-bold text-gray-400">{{ shift.start_at | date(format="%a %b %-d") }}</span>
+        </div>
+        <h3 class="font-bold text-gray-900 leading-tight mb-1">{{ shift.agency_name }}</h3>
+        <p class="text-sm text-gray-600 font-medium truncate mb-3">{{ shift.title }}</p>
+        <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-50">
+          <div class="text-xs text-gray-400 font-bold uppercase tracking-tight">
+            {{ shift.start_at | date(format="%-I:%M %p") }} — {{ shift.end_at | date(format="%-I:%M %p") }}
+          </div>
+          <a href="/volunteer/shifts/{{ shift.id }}" class="text-xs font-black text-indigo-600 hover:text-indigo-800">DETAILS →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Recently Completed -->
+  {% if recently_completed | length > 0 %}
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+        <span>✅</span> Recently Completed
+      </h2>
+      <a href="/volunteer/history" class="text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest">History</a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for shift in recently_completed %}
+      <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all {% if shift.my_status == 'completed' %}opacity-75 grayscale-[0.5] hover:grayscale-0 hover:opacity-100{% endif %}">
+        <div class="flex items-center gap-2 mb-3">
+          {% if shift.my_status == 'needs_report' %}
+          <span class="text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md animate-pulse">Needs Report</span>
+          {% else %}
+          <span class="text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">Completed</span>
+          {% endif %}
+          <span class="text-xs font-bold text-gray-400">{{ shift.start_at | date(format="%b %-d") }}</span>
+        </div>
+        <h3 class="font-bold text-gray-900 leading-tight mb-1">{{ shift.agency_name }}</h3>
+        <p class="text-sm text-gray-600 font-medium truncate mb-3">{{ shift.title }}</p>
+        <div class="flex items-center justify-between mt-auto pt-3 border-t border-gray-50">
+          {% if shift.my_status == 'needs_report' %}
+          <span class="text-[10px] text-amber-600 font-bold uppercase tracking-tight italic">Pending your feedback</span>
+          <a href="/volunteer/survey/{{ shift.id }}" class="text-xs font-black bg-sunshine-500 hover:bg-sunshine-600 text-white px-3 py-1 rounded-lg shadow-md active:scale-95 transition-all">FILE REPORT</a>
+          {% else %}
+          <span class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Report Filed</span>
+          <a href="/volunteer/survey/{{ shift.id }}" class="text-xs font-black text-indigo-600 hover:text-indigo-800">VIEW REPORT</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+  {% endif %}
+
+  <!-- Notifications -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Notifications</h2>
+    {% if notifications | length > 0 %}
+    <div class="space-y-3">
+      {% for notif in notifications %}
+      <div class="flex items-start gap-3 p-3 {% if not notif.4 %}bg-blue-50{% else %}bg-gray-50{% endif %} rounded-lg">
+        <div class="w-8 h-8 rounded-full {% if not notif.4 %}bg-blue-100 text-blue-600{% else %}bg-gray-200 text-gray-500{% endif %} flex items-center justify-center text-sm">
+          {% if notif.1 == "booking_confirmed" %}✓{% elif notif.1 == "booking_cancelled" %}✕{% elif notif.1 == "waitlist_promoted" %}🎉{% elif notif.1 == "survey_prompt" %}📝{% else %}📢{% endif %}
+        </div>
+        <div class="flex-1">
+          <p class="font-medium text-gray-900">{{ notif.2 }}</p>
+          <p class="text-sm text-gray-600">{{ notif.3 }}</p>
+        </div>
+        {% if not notif.4 %}
+        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">New</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+      <div class="text-4xl mb-3">📭</div>
+      <p>No notifications yet</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Find Shifts -->
+    <div class="bg-gradient-to-br from-sunshine-500 to-sunshine-600 rounded-xl p-6 text-white">
+      <h3 class="text-xl font-semibold mb-2">Find Shifts</h3>
+      <p class="text-sunshine-100 mb-4">Browse available therapy dog shifts in your area</p>
+      <a href="/volunteer/shifts" class="inline-block bg-white text-sunshine-600 font-medium px-4 py-2 rounded-lg hover:bg-sunshine-50 transition">
+        Browse Shifts →
+      </a>
+    </div>
+
+    <!-- Register a Dog -->
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+      <h3 class="text-xl font-semibold mb-2">Register a New Dog</h3>
+      <p class="text-blue-100 mb-4">Submit your therapy dog for approval</p>
+      <a href="/volunteer/dog-applications/new" class="inline-block bg-white text-blue-600 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition">
+        Register Dog →
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
