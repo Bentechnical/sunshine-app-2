@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
       .from('appointments')
       .select(`
         id, status, proposed_by, start_time, duration_minutes,
+        location_type, location_details,
         individual_id, volunteer_id, chat_request_id,
         chat_request:chat_requests!appointments_chat_request_id_fkey(
           channel_id, requester_id, recipient_id
@@ -112,12 +114,12 @@ export async function POST(request: NextRequest) {
             firstName: proposerRes.data.first_name,
             otherPartyName: confirmerRes.data?.first_name ?? 'Your partner',
             appointmentTime,
-            locationLabel: updated.location_type
-              ? (updated.location_type === 'individual_address' ? "Individual's home" :
-                 updated.location_type === 'public' ? 'Public location' : 'Other') +
-                (updated.location_details ? ` — ${updated.location_details}` : '')
+            locationLabel: appointment.location_type
+              ? (appointment.location_type === 'individual_address' ? "Individual's home" :
+                 appointment.location_type === 'public' ? 'Public location' : 'Other') +
+                (appointment.location_details ? ` — ${appointment.location_details}` : '')
               : 'To be confirmed',
-            dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+            dashboardLink: `${getAppUrl()}/dashboard`,
             year: new Date().getFullYear(),
           },
         });

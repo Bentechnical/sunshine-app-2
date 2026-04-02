@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(request: NextRequest) {
   try {
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
             locationLabel: location_details ? `${locationLabel} — ${location_details}` : locationLabel,
             notes: notes || null,
             isModification,
-            dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+            dashboardLink: `${getAppUrl()}/dashboard`,
             year: new Date().getFullYear(),
           },
         });
