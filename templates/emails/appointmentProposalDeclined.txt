@@ -1,0 +1,17 @@
+Hello {{firstName}},
+
+❌ VISIT PROPOSAL DECLINED
+
+{{otherPartyName}} has declined your visit proposal for {{appointmentTime}}.
+
+Don't worry — you can head to the chat and propose a new time that works better for both of you.
+
+Go to the chat:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

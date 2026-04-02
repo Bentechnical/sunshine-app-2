@@ -1,0 +1,29 @@
+Hello {{firstName}},
+
+{{#if isModification}}
+{{proposerName}} HAS PROPOSED CHANGES TO YOUR VISIT
+
+{{proposerName}} has proposed changes to your upcoming visit. Please review the new details and confirm or decline.
+{{else}}
+{{proposerName}} HAS PROPOSED A VISIT
+
+{{proposerName}} has proposed a visit date and time. Please review the details below and confirm or decline.
+{{/if}}
+
+📆 Date & Time: {{appointmentTime}}
+📍 Location: {{locationLabel}}
+{{#if notes}}📝 Notes: {{notes}}
+{{/if}}
+
+⏰ ACTION REQUIRED
+Sign in to confirm or decline this visit proposal. You can also use the chat to discuss further.
+
+Review the proposal:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

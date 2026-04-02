@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,6 +82,42 @@ export async function POST(request: NextRequest) {
       } catch (msgError) {
         console.warn('[decline-proposal] Failed to post system message:', msgError);
       }
+    }
+
+    // Email the OTHER party (not the one who declined/withdrew)
+    // If proposer withdrew → email the non-proposer
+    // If non-proposer declined → email the proposer
+    const otherUserId = userId === chatRequest.requester_id
+      ? chatRequest.recipient_id
+      : chatRequest.requester_id;
+    try {
+      const [actorRes, otherRes] = await Promise.all([
+        supabase.from('users').select('first_name').eq('id', userId).single(),
+        supabase.from('users').select('first_name, email').eq('id', otherUserId).single(),
+      ]);
+      if (otherRes.data?.email) {
+        const tz = 'America/New_York';
+        const d = new Date(appointment.start_time);
+        const appointmentTime = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+          hour: 'numeric', minute: '2-digit', hour12: true,
+        }).format(d);
+
+        await sendTransactionalEmail({
+          to: otherRes.data.email,
+          subject: `${actorRes.data?.first_name ?? 'Your partner'} declined the visit proposal`,
+          templateName: 'appointmentProposalDeclined',
+          data: {
+            firstName: otherRes.data.first_name,
+            otherPartyName: actorRes.data?.first_name ?? 'Your partner',
+            appointmentTime,
+            dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+            year: new Date().getFullYear(),
+          },
+        });
+      }
+    } catch (emailErr) {
+      console.warn('[decline-proposal] Failed to send email:', emailErr);
     }
 
     return NextResponse.json({ success: true });

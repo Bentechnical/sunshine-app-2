@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,6 +88,42 @@ export async function POST(request: NextRequest) {
       } catch (msgError) {
         console.warn('[confirm-proposal] Failed to post system message:', msgError);
       }
+    }
+
+    // Email the proposer to let them know their proposal was confirmed
+    try {
+      const [proposerRes, confirmerRes] = await Promise.all([
+        supabase.from('users').select('first_name, email').eq('id', appointment.proposed_by).single(),
+        supabase.from('users').select('first_name').eq('id', userId).single(),
+      ]);
+      if (proposerRes.data?.email) {
+        const tz = 'America/New_York';
+        const d = new Date(appointment.start_time);
+        const appointmentTime = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+          hour: 'numeric', minute: '2-digit', hour12: true,
+        }).format(d);
+
+        await sendTransactionalEmail({
+          to: proposerRes.data.email,
+          subject: `${confirmerRes.data?.first_name ?? 'Your partner'} confirmed your visit proposal`,
+          templateName: 'appointmentProposalConfirmed',
+          data: {
+            firstName: proposerRes.data.first_name,
+            otherPartyName: confirmerRes.data?.first_name ?? 'Your partner',
+            appointmentTime,
+            locationLabel: updated.location_type
+              ? (updated.location_type === 'individual_address' ? "Individual's home" :
+                 updated.location_type === 'public' ? 'Public location' : 'Other') +
+                (updated.location_details ? ` — ${updated.location_details}` : '')
+              : 'To be confirmed',
+            dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+            year: new Date().getFullYear(),
+          },
+        });
+      }
+    } catch (emailErr) {
+      console.warn('[confirm-proposal] Failed to send email:', emailErr);
     }
 
     return NextResponse.json({ appointment: updated });

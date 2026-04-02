@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,8 +75,8 @@ export async function POST(request: NextRequest) {
 
     // Determine individual_id and volunteer_id from user roles
     const [requesterRes, recipientRes] = await Promise.all([
-      supabase.from('users').select('id, role, first_name').eq('id', chatRequest.requester_id).single(),
-      supabase.from('users').select('id, role, first_name').eq('id', chatRequest.recipient_id).single(),
+      supabase.from('users').select('id, role, first_name, email').eq('id', chatRequest.requester_id).single(),
+      supabase.from('users').select('id, role, first_name, email').eq('id', chatRequest.recipient_id).single(),
     ]);
 
     const requester = requesterRes.data;
@@ -152,6 +153,43 @@ export async function POST(request: NextRequest) {
         });
       } catch (msgError) {
         console.warn('[appointment/propose] Failed to post system message:', msgError);
+      }
+    }
+
+    // Email the OTHER party (non-proposer) about the proposal
+    const otherParty = userId === requester.id ? recipient : requester;
+    const proposerName = userId === requester.id ? requester.first_name : recipient.first_name;
+    if (otherParty?.email) {
+      try {
+        const tz = 'America/New_York';
+        const d = new Date(start_time);
+        const appointmentTime = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+          hour: 'numeric', minute: '2-digit', hour12: true,
+        }).format(d);
+        const locationLabel =
+          location_type === 'individual_address' ? "Individual's home" :
+          location_type === 'public' ? 'Public location' : 'Other';
+
+        await sendTransactionalEmail({
+          to: otherParty.email,
+          subject: isModification
+            ? `${proposerName} proposed changes to your visit`
+            : `${proposerName} proposed a visit`,
+          templateName: 'appointmentProposed',
+          data: {
+            firstName: otherParty.first_name,
+            proposerName,
+            appointmentTime,
+            locationLabel: location_details ? `${locationLabel} — ${location_details}` : locationLabel,
+            notes: notes || null,
+            isModification,
+            dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+            year: new Date().getFullYear(),
+          },
+        });
+      } catch (emailErr) {
+        console.warn('[appointment/propose] Failed to send email:', emailErr);
       }
     }
 

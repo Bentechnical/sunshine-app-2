@@ -1,0 +1,21 @@
+Hello {{firstName}},
+
+✅ YOUR VISIT HAS BEEN CONFIRMED!
+
+Great news — {{otherPartyName}} has confirmed your visit proposal.
+
+Your visit is now confirmed. Use the chat to coordinate any final details.
+
+📆 Date & Time: {{appointmentTime}}
+📍 Location: {{locationLabel}}
+With: {{otherPartyName}}
+
+View your visit & chat:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca
