@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptError } = await supabase
       .from('appointments')
-      .select('start_time, individual_id, volunteer_id, availability_id, chat_request_id')
+      .select('start_time, end_time, individual_id, volunteer_id, availability_id, chat_request_id')
       .eq('id', appointmentId)
       .maybeSingle();
 
@@ -159,15 +159,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Get appointment details for chat creation
-      // Handle both text and integer availability_id for backward compatibility
-      const availabilityId = parseInt(appointment.availability_id as string);
-      const { data: availability } = await supabase
-        .from('appointment_availability')
-        .select('start_time, end_time')
-        .eq('id', availabilityId)
-        .single();
-
       const { data: dog } = await supabase
         .from('dogs')
         .select('dog_name')
@@ -175,25 +166,24 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (isDev) {
-        console.log('[Chat Creation] Availability:', availability);
         console.log('[Chat Creation] Dog:', dog);
       }
 
-      if (!availability || !dog) {
-        console.error('[Chat Creation] Missing required data for chat creation');
-        throw new Error('Missing availability or dog data for chat creation');
+      if (!dog) {
+        console.error('[Chat Creation] Missing dog data for chat creation');
+        throw new Error('Missing dog data for chat creation');
       }
 
       if (isDev) console.log('[Chat Creation] Creating Stream Chat channel...');
-      
+
       // Create the Stream Chat channel
       const channel = await createAppointmentChat(
         appointmentId,
         appointment.individual_id,
         appointment.volunteer_id,
         {
-          startTime: availability.start_time,
-          endTime: availability.end_time,
+          startTime: appointment.start_time,
+          endTime: appointment.end_time,
           dogName: dog.dog_name,
           individualName: `${individual.first_name} ${individual.last_name}`,
           volunteerName: `${volunteer.first_name} ${volunteer.last_name}`,
