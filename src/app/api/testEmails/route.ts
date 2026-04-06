@@ -117,6 +117,70 @@ const emailTemplates = [
       year: new Date().getFullYear(),
     },
   },
+  {
+    name: 'Chat Request Received',
+    templateName: 'chatRequestReceived',
+    subject: 'New Chat Request',
+    data: {
+      firstName: sampleData.volunteer.first_name,
+      requesterName: sampleData.individual.first_name,
+      dogName: sampleData.dog.dog_name,
+      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      year: new Date().getFullYear(),
+    },
+  },
+  {
+    name: 'Chat Request Accepted',
+    templateName: 'chatRequestAccepted',
+    subject: 'Your Chat Request Was Accepted',
+    data: {
+      firstName: sampleData.individual.first_name,
+      recipientName: sampleData.volunteer.first_name,
+      dogName: sampleData.dog.dog_name,
+      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      year: new Date().getFullYear(),
+    },
+  },
+  {
+    name: 'Appointment Proposed',
+    templateName: 'appointmentProposed',
+    subject: 'Visit Proposed',
+    data: {
+      firstName: sampleData.volunteer.first_name,
+      proposerName: sampleData.individual.first_name,
+      appointmentTime: 'Friday, February 14, 2025 at 2:00 PM',
+      locationLabel: "Individual's home — 123 Main St",
+      notes: 'Please bring treats!',
+      isModification: false,
+      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      year: new Date().getFullYear(),
+    },
+  },
+  {
+    name: 'Appointment Proposal Confirmed',
+    templateName: 'appointmentProposalConfirmed',
+    subject: 'Your Visit Has Been Confirmed',
+    data: {
+      firstName: sampleData.individual.first_name,
+      otherPartyName: sampleData.volunteer.first_name,
+      appointmentTime: 'Friday, February 14, 2025 at 2:00 PM',
+      locationLabel: "Individual's home — 123 Main St",
+      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      year: new Date().getFullYear(),
+    },
+  },
+  {
+    name: 'Appointment Proposal Declined',
+    templateName: 'appointmentProposalDeclined',
+    subject: 'Visit Proposal Declined',
+    data: {
+      firstName: sampleData.individual.first_name,
+      otherPartyName: sampleData.volunteer.first_name,
+      appointmentTime: 'Friday, February 14, 2025 at 2:00 PM',
+      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      year: new Date().getFullYear(),
+    },
+  },
 ];
 
 export async function POST(req: NextRequest) {

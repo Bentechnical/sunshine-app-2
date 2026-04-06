@@ -218,19 +218,28 @@ export default function AdminChats({ onUnreadCountChange }: AdminChatsProps) {
 
   // ─── Initial load + polling ──────────────────────────────────────────────
 
+  // Only fetch appointment chats when that source is first selected (lazy load)
+  const apptChatsLoaded = React.useRef(false);
+
   useEffect(() => {
-    setApptLoading(true);
     setCrLoading(true);
-    fetchApptChats();
     fetchChatRequests();
 
     const interval = setInterval(() => {
-      fetchApptChats();
       fetchChatRequests();
-    }, 10000);
+      if (apptChatsLoaded.current) fetchApptChats();
+    }, 15000);
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (source === 'appointment' && !apptChatsLoaded.current) {
+      apptChatsLoaded.current = true;
+      setApptLoading(true);
+      fetchApptChats();
+    }
+  }, [source]);
 
   // ─── Derived lists ──────────────────────────────────────────────────────
 
@@ -698,28 +707,30 @@ export default function AdminChats({ onUnreadCountChange }: AdminChatsProps) {
               </div>
             </Tabs>
           ) : (
-            <Tabs value={crTab} onValueChange={setCrTab} className="w-full h-full flex flex-col">
-              <div className="p-4 border-b border-gray-200 bg-white">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="active">Active ({crCounts.active})</TabsTrigger>
-                  <TabsTrigger value="pending">Pending ({crCounts.pending})</TabsTrigger>
-                  <TabsTrigger value="closed">Closed ({crCounts.closed})</TabsTrigger>
-                  <TabsTrigger value="declined">Declined ({crCounts.declined})</TabsTrigger>
-                </TabsList>
+            <div className="w-full h-full flex flex-col">
+              <div className="px-4 py-3 border-b border-gray-200 bg-white">
+                <select
+                  value={crTab}
+                  onChange={(e) => setCrTab(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="active">Active ({crCounts.active})</option>
+                  <option value="pending">Pending ({crCounts.pending})</option>
+                  <option value="closed">Closed ({crCounts.closed})</option>
+                  <option value="declined">Declined ({crCounts.declined})</option>
+                </select>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <TabsContent value={crTab} className="mt-0">
-                  {filteredChatRequests.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>No {crTab} chat requests.</p>
-                    </div>
-                  ) : (
-                    filteredChatRequests.map(renderChatRequestItem)
-                  )}
-                </TabsContent>
+                {filteredChatRequests.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>No {crTab} chat requests.</p>
+                  </div>
+                ) : (
+                  filteredChatRequests.map(renderChatRequestItem)
+                )}
               </div>
-            </Tabs>
+            </div>
           )}
         </div>
 

@@ -228,7 +228,7 @@ DROP POLICY IF EXISTS "Recipients can update request status" ON chat_requests;
 ---
 
 ### Script 05 — Remove availability system (DESTRUCTIVE — run last)
-**Status:** [ ] Dev  [ ] Prod
+**Status:** [x] Dev  [ ] Prod
 
 > ⚠️ This is irreversible without a full database backup. Ensure Script 01–04 are working
 > and a backup has been taken before running this.
@@ -454,7 +454,7 @@ ALTER TABLE chat_requests
 ---
 
 ### Script 07 — Fix chat_requests unique constraint
-**Status:** [ ] Dev  [ ] Prod
+**Status:** [x] Dev  [ ] Prod
 
 The original Script 02 constraint `UNIQUE (requester_id, recipient_id)` had no partial filter, permanently blocking re-requests after any previous request. Replaced with a partial unique index.
 
@@ -716,8 +716,8 @@ ALTER TABLE chat_requests
 | 03 | Modify appointments table | [x] | [ ] |
 | 04 | RLS policies for chat_requests | [x] | [ ] |
 | 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [x] | [ ] |
-| 07 | Fix unique constraint (allow re-requesting) | [ ] | [ ] |
+| 07 | Fix unique constraint (allow re-requesting) | [x] | [ ] |
 | 08 | Fix RLS policies (auth.jwt instead of auth.uid) | [x] | [ ] |
-| 05 | **DESTRUCTIVE** — Remove appointment_availability table | [ ] | [ ] |
+| 05 | **DESTRUCTIVE** — Remove appointment_availability table | [x] | [ ] |
 
 > Run Script 05 last, after verifying all other scripts work and code changes are stable.
