@@ -22,12 +22,16 @@
             <h2 style="color: #0e62ae; margin-bottom: 16px;">You Have Unread Messages</h2>
             <p style="margin: 0 0 12px 0;">Hi {{recipientName}},</p>
 
+            {{#if conversations.0.appointmentTime}}
             <p style="margin: 0 0 12px 0;">You have {{conversations.0.messageCount}} unread message{{#if (gt conversations.0.messageCount 1)}}s{{/if}} from <strong>{{conversations.0.senderName}}</strong> about your upcoming appointment with <strong>{{conversations.0.dogName}}</strong>.</p>
 
             <!-- Appointment Details -->
             <div style="background-color: #f8f9fa; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
               <p style="margin: 0; font-size: 14px; color: #6c757d;"><strong>Appointment:</strong> {{conversations.0.appointmentTime}}</p>
             </div>
+            {{else}}
+            <p style="margin: 0 0 12px 0;">You have {{conversations.0.messageCount}} unread message{{#if (gt conversations.0.messageCount 1)}}s{{/if}} from <strong>{{conversations.0.senderName}}</strong> about visiting with <strong>{{conversations.0.dogName}}</strong>.</p>
+            {{/if}}
 
             <!-- Message Preview -->
             <div style="background-color: #f8f9fa; padding: 16px; border-left: 4px solid #0e62ae; border-radius: 4px; margin: 16px 0;">
@@ -51,7 +55,7 @@
             {{#each conversations}}
               <div style="background-color: #f8f9fa; padding: 16px; border-left: 4px solid #0e62ae; border-radius: 4px; margin: 12px 0;">
                 <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">{{this.senderName}} ({{this.dogName}})</p>
-                <p style="margin: 0 0 8px 0; font-size: 13px; color: #6c757d;">Appointment: {{this.appointmentTime}}</p>
+                {{#if this.appointmentTime}}<p style="margin: 0 0 8px 0; font-size: 13px; color: #6c757d;">Appointment: {{this.appointmentTime}}</p>{{/if}}
                 <p style="margin: 0 0 8px 0; font-size: 14px; color: #6c757d;">{{this.messageCount}} new message{{#if (gt this.messageCount 1)}}s{{/if}}</p>
                 <p style="margin: 0; font-style: italic; color: #495057;">"{{this.latestMessage}}"</p>
               </div>

@@ -116,72 +116,99 @@ export async function GET() {
             }
 
             if (hasUnread) {
-              // Messages still unread - include in email
+              const chatRequestId = channelNotifications[0].chat_request_id;
               const appointmentId = channelNotifications[0].appointment_id;
+              const notificationIds = channelNotifications.map((n: NotificationType) => n.id);
+              let pushed = false;
 
-              // Fetch appointment and user details
-              const { data: appointment, error: appointmentError } = await supabase
-                .from('appointments')
-                .select(`
-                  *,
-                  individual:users!appointments_individual_id_fkey(first_name, last_name, email),
-                  volunteer:users!appointments_volunteer_id_fkey(first_name, last_name, email)
-                `)
-                .eq('id', appointmentId)
-                .single();
+              if (chatRequestId) {
+                // Chat request path — no appointment yet, fetch context from chat_requests
+                const { data: chatRequest } = await supabase
+                  .from('chat_requests')
+                  .select('requester_id, recipient_id, dog_id')
+                  .eq('id', chatRequestId)
+                  .single();
 
-              if (appointmentError) {
-                console.error(`[Notification Cron] ❌ ${timestamp} - Error fetching appointment ${appointmentId}:`, appointmentError);
-                continue;
+                if (chatRequest) {
+                  const senderId = chatRequest.requester_id === userId
+                    ? chatRequest.recipient_id
+                    : chatRequest.requester_id;
+
+                  const [{ data: senderUser }, { data: dog }] = await Promise.all([
+                    supabase.from('users').select('first_name').eq('id', senderId).single(),
+                    supabase.from('dogs').select('dog_name').eq('id', chatRequest.dog_id).single()
+                  ]);
+
+                  // Use latest message text from the Stream channel state already queried above
+                  const latestMessageText = lastMessage?.text || 'New messages';
+
+                  conversations.push({
+                    senderName: senderUser?.first_name || 'Someone',
+                    dogName: dog?.dog_name || 'Unknown Dog',
+                    appointmentTime: null,
+                    messageCount: channelNotifications.length,
+                    latestMessage: latestMessageText,
+                  });
+
+                  pushed = true;
+                  console.log(`[Notification Cron] ✅ ${timestamp} - Built chat request conversation for channel ${channelId}`);
+                }
+              } else if (appointmentId) {
+                // Appointment chat path — fetch appointment + user + dog details
+                const { data: appointment, error: appointmentError } = await supabase
+                  .from('appointments')
+                  .select(`
+                    *,
+                    individual:users!appointments_individual_id_fkey(first_name, last_name, email),
+                    volunteer:users!appointments_volunteer_id_fkey(first_name, last_name, email)
+                  `)
+                  .eq('id', appointmentId)
+                  .single();
+
+                if (appointmentError) {
+                  console.error(`[Notification Cron] ❌ ${timestamp} - Error fetching appointment ${appointmentId}:`, appointmentError);
+                }
+
+                if (appointment) {
+                  const individual = appointment.individual as any;
+                  const volunteer = appointment.volunteer as any;
+
+                  const isSenderVolunteer = volunteer.email !== (userId.includes('@') ? userId : undefined);
+                  const senderName = isSenderVolunteer ? volunteer.first_name : individual.first_name;
+
+                  const { data: dogs } = await supabase
+                    .from('dogs')
+                    .select('dog_name')
+                    .eq('volunteer_id', appointment.volunteer_id);
+
+                  const dogName = dogs?.[0]?.dog_name || 'Unknown Dog';
+                  const appointmentTime = formatEmailDateTime(appointment.start_time);
+
+                  const messageIds = channelNotifications.map((n: NotificationType) => n.stream_message_id);
+                  const { data: messages } = await supabase
+                    .from('chat_logs')
+                    .select('content, created_at, stream_message_id')
+                    .in('stream_message_id', messageIds)
+                    .order('created_at', { ascending: true });
+
+                  const messageList = messages?.map(msg => msg.content) || [];
+                  const messagesText = messageList.length > 0 ? messageList.join('\n\n') : 'New messages';
+
+                  conversations.push({
+                    senderName,
+                    dogName,
+                    appointmentTime,
+                    messageCount: channelNotifications.length,
+                    latestMessage: messagesText,
+                    appointmentId
+                  });
+
+                  pushed = true;
+                }
               }
 
-              if (appointment) {
-                // Determine sender (the person who is NOT the recipient)
-                const individual = appointment.individual as any;
-                const volunteer = appointment.volunteer as any;
-
-                const isSenderVolunteer = volunteer.email !== (userId.includes('@') ? userId : undefined);
-
-                const senderName = isSenderVolunteer
-                  ? volunteer.first_name
-                  : individual.first_name;
-
-                // Fetch dog data separately (same pattern as other email endpoints)
-                const { data: dogs } = await supabase
-                  .from('dogs')
-                  .select('dog_name')
-                  .eq('volunteer_id', appointment.volunteer_id);
-
-                const dogName = dogs?.[0]?.dog_name || 'Unknown Dog';
-
-                // Format appointment time
-                const appointmentTime = formatEmailDateTime(appointment.start_time);
-
-                // Get all message contents for this notification batch
-                const messageIds = channelNotifications.map((n: NotificationType) => n.stream_message_id);
-                const { data: messages } = await supabase
-                  .from('chat_logs')
-                  .select('content, created_at, stream_message_id')
-                  .in('stream_message_id', messageIds)
-                  .order('created_at', { ascending: true });
-
-                // Format messages as a list
-                const messageList = messages?.map(msg => msg.content) || [];
-                const messagesText = messageList.length > 0
-                  ? messageList.join('\n\n')
-                  : 'New messages';
-
-                conversations.push({
-                  senderName,
-                  dogName,
-                  appointmentTime,
-                  messageCount: channelNotifications.length,
-                  latestMessage: messagesText,
-                  appointmentId
-                });
-
+              if (pushed) {
                 // Mark all notifications for this channel as sent
-                const notificationIds = channelNotifications.map((n: NotificationType) => n.id);
                 await supabase
                   .from('pending_email_notifications')
                   .update({ status: 'sent', sent_at: now.toISOString() })

@@ -175,6 +175,33 @@ export async function POST(request: NextRequest) {
           .eq('id', chatRequestId);
 
         console.log(`[Stream Chat Webhook] ✅ ${timestamp} - Updated chat_requests stats for ${chatRequestId}`);
+
+        // Create pending email notification for the recipient
+        const channelMembers = channel.members || [];
+        const recipientMember = channelMembers.find((member: any) => member.user_id !== senderId);
+        const recipientId = recipientMember?.user_id;
+
+        if (recipientId) {
+          const scheduledFor = new Date(Date.now() + EMAIL_NOTIFICATION_DELAY_MS);
+          const { error: notificationError } = await supabase
+            .from('pending_email_notifications')
+            .insert({
+              user_id: recipientId,
+              chat_request_id: chatRequestId,
+              stream_message_id: message.id,
+              channel_id: channel.id,
+              scheduled_for: scheduledFor.toISOString(),
+              status: 'pending'
+            });
+
+          if (notificationError) {
+            console.error(`[Stream Chat Webhook] ⚠️ ${timestamp} - Failed to create chat request notification:`, notificationError);
+          } else {
+            console.log(`[Stream Chat Webhook] 📧 ${timestamp} - Created pending notification for ${recipientId}, scheduled for ${scheduledFor.toISOString()}`);
+          }
+        } else {
+          console.warn(`[Stream Chat Webhook] ⚠️ ${timestamp} - Could not determine recipient for chat request notification`);
+        }
       } else {
         console.log('[Stream Chat Webhook] Not an appointment or chat_request channel, skipping');
       }

@@ -707,6 +707,30 @@ ALTER TABLE chat_requests
 
 ---
 
+### Script 09 — Extend pending_email_notifications for chat_requests
+**Status:** [x] Dev  [ ] Prod
+
+Makes `appointment_id` nullable and adds a `chat_request_id` column so the notification table can serve both the old appointment-chat flow and the new chat-request flow.
+
+```sql
+-- Make appointment_id nullable (existing rows unaffected)
+ALTER TABLE pending_email_notifications
+  ALTER COLUMN appointment_id DROP NOT NULL;
+
+-- Add chat_request_id for the new flow
+ALTER TABLE pending_email_notifications
+  ADD COLUMN chat_request_id UUID REFERENCES chat_requests(id) ON DELETE CASCADE;
+```
+
+**Rollback:**
+```sql
+ALTER TABLE pending_email_notifications
+  ALTER COLUMN appointment_id SET NOT NULL,
+  DROP COLUMN IF EXISTS chat_request_id;
+```
+
+---
+
 ## Summary Table
 
 | Script | Description | Dev | Prod |
@@ -718,6 +742,7 @@ ALTER TABLE chat_requests
 | 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [x] | [ ] |
 | 07 | Fix unique constraint (allow re-requesting) | [x] | [ ] |
 | 08 | Fix RLS policies (auth.jwt instead of auth.uid) | [x] | [ ] |
+| 09 | Extend pending_email_notifications for chat_requests | [x] | [ ] |
 | 05 | **DESTRUCTIVE** — Remove appointment_availability table | [x] | [ ] |
 
 > Run Script 05 last, after verifying all other scripts work and code changes are stable.
