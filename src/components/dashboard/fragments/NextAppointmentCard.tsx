@@ -111,7 +111,7 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
       <h2 className="text-xl font-bold">Upcoming Visits</h2>
 
       <div className="rounded-lg p-0 flex flex-col flex-1">
-        <div className="relative w-full overflow-hidden rounded-lg aspect-[4/3] md:aspect-video lg:aspect-square">
+        <div className="relative w-full overflow-hidden rounded-xl aspect-[4/3] md:aspect-video lg:aspect-square">
           <Image
             src={optimizeSupabaseImage(dog_picture_url, { width: 600, quality: 80 })}
             alt={dog_name}
@@ -122,22 +122,40 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
           />
         </div>
 
-        <div className="pt-3 flex-1">
-          <h3 className="text-lg font-bold">{dog_name}</h3>
-          <p className="text-gray-700">
-            {dog_breed ?? 'Unknown breed'}
-            {typeof dog_age === 'number' ? ` | Age: ${dog_age}` : ''}
-          </p>
-          <p className="text-gray-500 italic text-md mb-2">
-            with {volunteerName}
-          </p>
-          {dog_bio && <p className="text-gray-600 text-sm mt-2">{dog_bio}</p>}
-          <p className="text-gray-800 mt-4 text-md">
-            <strong>Visit Time:</strong> {formattedDate} at {formattedTime}
-          </p>
+        <div className="pt-3 flex-1 flex flex-col gap-3">
+          {/* Identity */}
+          <div>
+            <h3 className="text-lg font-bold">{dog_name}</h3>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                {dog_breed ?? 'Unknown breed'}
+              </span>
+              {typeof dog_age === 'number' && (
+                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                  {dog_age} yr{dog_age === 1 ? '' : 's'} old
+                </span>
+              )}
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+
+          {/* Visit time — highlighted */}
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm font-semibold text-blue-900">{formattedDate} at {formattedTime}</p>
+            <p className="text-xs text-blue-700 mt-0.5">with {volunteerName}</p>
+          </div>
+
+          {/* Bio */}
+          {dog_bio && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">About</h4>
+              <p className="text-gray-600 text-sm leading-relaxed">{dog_bio}</p>
+            </div>
+          )}
         </div>
 
-        <div className="pt-3 mt-auto mb-0">
+        <div className="pt-3 mt-auto mb-2">
           <button
             onClick={() => setActiveTab('my-visits')}
             className="w-full px-4 py-2 text-white bg-[#0e62ae] hover:bg-[#094e8b] rounded-lg text-sm font-medium"

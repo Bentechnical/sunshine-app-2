@@ -4,9 +4,13 @@ You Have Unread Messages
 Hi {{recipientName}},
 
 {{#if (eq conversationCount 1)}}
+{{#if conversations.0.appointmentTime}}
 You have {{conversations.0.messageCount}} unread message{{#if (gt conversations.0.messageCount 1)}}s{{/if}} from {{conversations.0.senderName}} about your upcoming appointment with {{conversations.0.dogName}}.
 
 Appointment: {{conversations.0.appointmentTime}}
+{{else}}
+You have {{conversations.0.messageCount}} unread message{{#if (gt conversations.0.messageCount 1)}}s{{/if}} from {{conversations.0.senderName}} about visiting with {{conversations.0.dogName}}.
+{{/if}}
 
 {{#if (eq conversations.0.messageCount 1)}}Latest message:{{else}}Messages:{{/if}}
 "{{conversations.0.latestMessage}}"
@@ -18,8 +22,8 @@ You have unread messages in {{conversationCount}} conversations:
 
 {{#each conversations}}
 • {{this.senderName}} ({{this.dogName}})
-  Appointment: {{this.appointmentTime}}
-  {{this.messageCount}} new message{{#if (gt this.messageCount 1)}}s{{/if}}
+  {{#if this.appointmentTime}}Appointment: {{this.appointmentTime}}
+  {{/if}}{{this.messageCount}} new message{{#if (gt this.messageCount 1)}}s{{/if}}
   "{{this.latestMessage}}"
 
 {{/each}}

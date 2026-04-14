@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Calendar, Clock, User, Mail, Dog, CheckCircle, XCircle, AlertCircle, MapPin, Loader2, MessageSquare } from 'lucide-react';
+import { Calendar, Clock, User, Mail, Dog, CheckCircle, XCircle, AlertCircle, MapPin, Loader2, MessageSquare, Pencil } from 'lucide-react';
+import ScheduleAppointmentModal from './ScheduleAppointmentModal';
 import { formatCardDate, formatCardTime, isAppointmentPast } from '@/utils/timeZone';
 import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
@@ -16,6 +17,11 @@ export interface Appointment {
   status: string;
   cancellation_reason?: string;
   availability_id?: number;
+  location_type?: string;
+  location_details?: string | null;
+  notes?: string | null;
+  chat_request_id?: string | null;
+  proposed_by?: string | null;
   volunteer?: {
     id: string;
     first_name: string;
@@ -48,6 +54,7 @@ export interface Appointment {
 interface AppointmentCardProps {
   appointment: Appointment;
   role: string;
+  userId?: string;
   onApprove: (appointmentId: number) => void;
   onDecline: (appointmentId: number) => void;
   onCancelClick: (appointment: Appointment) => void;
@@ -99,6 +106,7 @@ function getStatusConfig(status: string) {
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
   appointment,
   role,
+  userId,
   onApprove,
   onDecline,
   onCancelClick,
@@ -109,6 +117,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const [isRemoving, setIsRemoving] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [hasProcessed, setHasProcessed] = useState(false);
+  const [showModifyModal, setShowModifyModal] = useState(false);
 
   // Handle card removal animation - only when processing is complete and status changed
   useEffect(() => {
@@ -212,7 +221,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   }
 
   return (
-    <div 
+    <>
+    <div
       className={`bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-500 ease-in-out overflow-hidden relative ${
         isRemoving ? 'transform -translate-y-2 opacity-0 scale-95' : 'transform translate-y-0 opacity-100 scale-100'
       } ${!isVisible ? 'hidden' : ''}`}
@@ -316,17 +326,24 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </div>
             )}
 
-            {/* Location info */}
-            {location && (
+            {/* Location info — prefer appointment-specific location for new chat-based appointments */}
+            {(appointment.location_type || location) && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="text-gray-700">
                   <div className="flex items-center mb-2">
                     <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-600">
-                      {role === 'individual' ? 'Your Location' : 'Requester\'s Location'}:
-                    </span>
+                    <span className="text-sm font-medium text-gray-600">Visit Location:</span>
                   </div>
-                  <p className="ml-6 text-sm text-gray-700">{location}</p>
+                  <p className="ml-6 text-sm text-gray-700">
+                    {appointment.location_type
+                      ? (() => {
+                          const base =
+                            appointment.location_type === 'individual_address' ? "Individual's home" :
+                            appointment.location_type === 'public' ? 'Public place' : 'Other';
+                          return appointment.location_details ? `${base} — ${appointment.location_details}` : base;
+                        })()
+                      : location}
+                  </p>
                 </div>
                 {/* Reason for Visit */}
                 {appointment.individual?.bio && (
@@ -345,8 +362,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </div>
             )}
 
-            {/* Reason for Visit - standalone section when no location */}
-            {!location && appointment.individual?.bio && (
+            {/* Reason for Visit - standalone section when no location of any kind */}
+            {!appointment.location_type && !location && appointment.individual?.bio && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="text-gray-700">
                   <div className="flex items-center mb-2">
@@ -360,6 +377,17 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </div>
             )}
 
+            {/* Notes */}
+            {appointment.notes && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <MessageSquare className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">Notes:</span>
+                </div>
+                <p className="ml-6 text-sm text-gray-700">{appointment.notes}</p>
+              </div>
+            )}
+
             {/* Cancellation reason */}
             {appointment.status === 'canceled' && appointment.cancellation_reason && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -370,103 +398,101 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             )}
 
             {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-gray-100">
-              {role === 'individual' && !isPast && (
-                <button
-                  onClick={() => onCancelClick(appointment)}
-                  disabled={isProcessing}
-                  className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                    isProcessing
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    appointment.status === 'pending' ? 'Cancel Request' : 'Cancel Appointment'
+            {(() => {
+              // For chat-based appointments, whoever didn't propose confirms/denies.
+              // For legacy appointments (no chat_request_id), volunteers always confirm.
+              const isChatBased = !!appointment.chat_request_id;
+              const userIsProposer = !!userId && appointment.proposed_by === userId;
+              const showApproveDecline =
+                !isPast &&
+                appointment.status === 'pending' &&
+                (isChatBased ? !userIsProposer : role === 'volunteer');
+
+              return (
+                <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-gray-100">
+                  {/* Modify — confirmed chat-based only */}
+                  {!isPast && appointment.status === 'confirmed' && appointment.chat_request_id && (
+                    <button
+                      onClick={() => setShowModifyModal(true)}
+                      disabled={isProcessing}
+                      className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
+                        isProcessing ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Modify
+                    </button>
                   )}
-                </button>
-              )}
-              
-              {role === 'volunteer' && appointment.status === 'pending' && !isPast && (
-                <>
-                  <button
-                    onClick={() => onApprove(appointment.id)}
-                    disabled={isProcessing}
-                    className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                      isProcessing
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-700 text-white'
-                    }`}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Confirm Visit
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => onDecline(appointment.id)}
-                    disabled={isProcessing}
-                    className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                      isProcessing
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-red-600 hover:bg-red-700 text-white'
-                    }`}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Deny Request
-                      </>
-                    )}
-                  </button>
-                </>
-              )}
-              
-              {role === 'volunteer' && appointment.status === 'confirmed' && !isPast && (
-                <button
-                  onClick={() => onCancelClick(appointment)}
-                  disabled={cancelButtonDisabled(appointment) || isProcessing}
-                  className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                    cancelButtonDisabled(appointment) || isProcessing
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {isProcessing ? (
+
+                  {/* Confirm + Deny — shown to whoever needs to respond */}
+                  {showApproveDecline && (
                     <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Cancel Appointment
+                      <button
+                        onClick={() => onApprove(appointment.id)}
+                        disabled={isProcessing}
+                        className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
+                          isProcessing ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                      >
+                        {isProcessing ? (
+                          <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>
+                        ) : (
+                          <><CheckCircle className="w-4 h-4 mr-2" />Confirm Visit</>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => onDecline(appointment.id)}
+                        disabled={isProcessing}
+                        className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
+                          isProcessing ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'
+                        }`}
+                      >
+                        {isProcessing ? (
+                          <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>
+                        ) : (
+                          <><XCircle className="w-4 h-4 mr-2" />Deny Request</>
+                        )}
+                      </button>
                     </>
                   )}
-                </button>
-              )}
-            </div>
+
+                  {/* Cancel — shown when not awaiting the other party's response */}
+                  {!isPast && !showApproveDecline && (
+                    <button
+                      onClick={() => onCancelClick(appointment)}
+                      disabled={cancelButtonDisabled(appointment) || isProcessing}
+                      className={`w-full sm:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
+                        cancelButtonDisabled(appointment) || isProcessing
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-red-600 hover:bg-red-700 text-white'
+                      }`}
+                    >
+                      {isProcessing ? (
+                        <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>
+                      ) : appointment.status === 'pending' ? (
+                        'Cancel Request'
+                      ) : (
+                        <><XCircle className="w-4 h-4 mr-2" />Cancel Appointment</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
     </div>
+
+    {showModifyModal && appointment.chat_request_id && (
+      <ScheduleAppointmentModal
+        chatRequestId={appointment.chat_request_id}
+        replacingAppointmentId={appointment.id}
+        onClose={() => setShowModifyModal(false)}
+        onProposed={() => setShowModifyModal(false)}
+      />
+    )}
+    </>
   );
 };
 

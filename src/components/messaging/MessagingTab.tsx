@@ -4,15 +4,90 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Chat,
   Channel,
-  ChannelHeader,
   MessageInput,
   MessageList,
-  Thread,
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft, X, AlertTriangle } from 'lucide-react';
 import { useUnreadCount } from '@/contexts/UnreadCountContext';
+import { useUser } from '@clerk/nextjs';
+import AppointmentPanel from '@/components/appointments/AppointmentPanel';
 import styles from './MessagingTab.module.css';
+
+interface CloseChatModalProps {
+  onClose: () => void;
+  onConfirm: (snooze: boolean) => void;
+  loading: boolean;
+}
+
+function CloseChatModal({ onClose, onConfirm, loading }: CloseChatModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <AlertTriangle size={16} className="text-gray-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Close Conversation</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Choose how to close this chat</p>
+            </div>
+          </div>
+          <button onClick={onClose} disabled={loading} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <p className="text-sm text-gray-600">
+            This will archive the conversation. Either of you can start a new chat request at any time to reconnect.
+          </p>
+
+          {/* Close only */}
+          <button
+            onClick={() => onConfirm(false)}
+            disabled={loading}
+            className="w-full flex items-start gap-3 px-4 py-3 border border-gray-200 rounded-xl text-left hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <div className="mt-0.5 w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <X size={11} className="text-gray-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Close Chat</p>
+              <p className="text-xs text-gray-500 mt-0.5">Archive this conversation. The other person can still send a new request.</p>
+            </div>
+          </button>
+
+          {/* Close and snooze */}
+          <button
+            onClick={() => onConfirm(true)}
+            disabled={loading}
+            className="w-full flex items-start gap-3 px-4 py-3 border border-orange-200 rounded-xl text-left hover:bg-orange-50 disabled:opacity-50 transition-colors"
+          >
+            <div className="mt-0.5 w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+              <AlertTriangle size={11} className="text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Close & Snooze for 30 Days</p>
+              <p className="text-xs text-gray-500 mt-0.5">Closes the chat and hides this person from your search results. They will not be able to send you new chat requests for 30 days.</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface ChatData {
   appointmentId: number;
@@ -25,6 +100,8 @@ interface ChatData {
   lastMessage?: any;
   unreadCount: number;
   isActive: boolean;
+  channelType?: 'appointment' | 'chat_request';
+  chatRequestId?: string;
 }
 
 interface MessagingTabProps {
@@ -32,12 +109,16 @@ interface MessagingTabProps {
 }
 
 export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) {
-  const { client, connectionStatus, updateUnreadFromChannels, refreshChannelData } = useUnreadCount();
+  const { client, connectionStatus, updateUnreadFromChannels } = useUnreadCount();
+  const { user } = useUser();
 
   // Core state
   const [channels, setChannels] = useState<ChatData[]>([]);
   const [activeChannel, setActiveChannel] = useState<any>(null);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [activeChatRequestId, setActiveChatRequestId] = useState<string | null>(null);
+  const [closingChat, setClosingChat] = useState(false);
+  const [showCloseChatModal, setShowCloseChatModal] = useState(false);
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +216,11 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             const channelId = chat.channelId?.split(':')[1] || chat.channelId;
 
             // Find matching channel in unread response
-            const unreadChannel = (unreadResponse as any).channels?.find((uc: any) =>
-              uc.channel_id === channelId || uc.channel_id === chat.channelId
-            );
+            // Normalize uc.channel_id (Stream returns full CID like "messaging:cr-xxx")
+            const unreadChannel = (unreadResponse as any).channels?.find((uc: any) => {
+              const ucNormalized = uc.channel_id?.split(':')[1] || uc.channel_id;
+              return ucNormalized === channelId || uc.channel_id === chat.channelId;
+            });
 
             return {
               ...chat,
@@ -159,12 +242,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       // Update shared context with reliable MessagingTab data
       updateUnreadFromChannels(enrichedChannels);
 
-      // Restore active channel if it exists
-      if (activeChannelId && client) {
-        const channel = client.channel('messaging', activeChannelId);
-        await channel.watch();
-        setActiveChannel(channel);
-      }
     } catch (err) {
       console.error('Failed to load channels:', err);
       setError('Failed to load conversations');
@@ -229,16 +306,19 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     if (!client) return;
 
     try {
-      // Remove 'messaging:' prefix if present
       const cleanChannelId = channelId.replace('messaging:', '');
-      
       const channel = client.channel('messaging', cleanChannelId);
       await channel.watch();
-      
+
       setActiveChannel(channel);
       setActiveChannelId(cleanChannelId);
-      
-      // Mobile: switch to chat view and hide nav
+
+      // Track chat request ID for the close button
+      const chatData = channels.find(
+        (c) => c.channelId === channelId || c.channelId === cleanChannelId
+      );
+      setActiveChatRequestId(chatData?.chatRequestId ?? null);
+
       if (isMobile) {
         setViewMode('activeChat');
         onActiveChatChange?.(true);
@@ -247,13 +327,46 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
       console.error('Failed to select channel:', err);
       setError('Failed to open conversation');
     }
-  }, [client, isMobile, onActiveChatChange]);
+  }, [client, channels, isMobile, onActiveChatChange]);
 
   // Handle back to channel list
   const handleBackToChannelList = useCallback(() => {
     setViewMode('channelList');
+    setActiveChatRequestId(null);
     onActiveChatChange?.(false);
   }, [onActiveChatChange]);
+
+  // Open the close chat modal
+  const handleCloseChat = useCallback(() => {
+    if (!activeChatRequestId) return;
+    setShowCloseChatModal(true);
+  }, [activeChatRequestId]);
+
+  // Called from the modal with snooze flag
+  const handleCloseChatConfirm = useCallback(async (snooze: boolean) => {
+    if (!activeChatRequestId) return;
+    setClosingChat(true);
+    try {
+      const res = await fetch('/api/chat-request/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_request_id: activeChatRequestId, snooze }),
+      });
+      if (res.ok) {
+        setShowCloseChatModal(false);
+        setActiveChannel(null);
+        setActiveChannelId(null);
+        setActiveChatRequestId(null);
+        setViewMode('channelList');
+        onActiveChatChange?.(false);
+        loadChannels();
+      }
+    } catch (err) {
+      console.error('Failed to close chat:', err);
+    } finally {
+      setClosingChat(false);
+    }
+  }, [activeChatRequestId, loadChannels, onActiveChatChange]);
 
   // Format appointment date for display
   const formatAppointmentDate = (dateStr: string) => {
@@ -265,18 +378,6 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     });
   };
 
-
-  // Render loading state
-  if (connectionStatus === 'connecting') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Connecting to chat...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Render error state
   if (error) {
@@ -297,9 +398,16 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
     );
   }
 
-  // If we don't have a client yet, don't render anything
-  if (!client) {
-    return null;
+  // Show spinner whenever the client isn't ready yet (connecting, disconnected, or not yet initialized)
+  if (!client || connectionStatus !== 'connected') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Connecting to chat...</p>
+        </div>
+      </div>
+    );
   }
 
   const chatContent = (
@@ -332,7 +440,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     No Messages Yet
                   </h3>
                   <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
-                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
+                    Your conversations will appear here. Request to chat with a therapy dog volunteer to get started!
                   </p>
                 </div>
               ) : (
@@ -361,12 +469,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                           {chat.dogName}
                         </h3>
                         <div className="flex flex-col items-end space-y-1">
-                          <div className="text-right">
-                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
-                            <div className="text-xs text-gray-400">
-                              {formatAppointmentDate(chat.appointmentTime)}
+                          {chat.channelType !== 'chat_request' && (
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                              <div className="text-xs text-gray-400">
+                                {formatAppointmentDate(chat.appointmentTime)}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           {chat.unreadCount > 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               {chat.unreadCount}
@@ -422,7 +532,20 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                         </div>
                       </div>
                     </div>
+
                   </div>
+                </div>
+
+                {/* Appointment Panel — grid row 2, close chat integrated */}
+                <div style={{ gridRow: 2 }}>
+                  {activeChatRequestId && user?.id && (
+                    <AppointmentPanel
+                      chatRequestId={activeChatRequestId}
+                      currentUserId={user.id}
+                      onCloseChat={handleCloseChat}
+                      closingChat={closingChat}
+                    />
+                  )}
                 </div>
 
                 {/* Chat Messages */}
@@ -466,7 +589,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     No Messages Yet
                   </h3>
                   <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
-                    Your messages will appear here once you have a confirmed appointment. Chat with other users to coordinate your therapy dog visits!
+                    Your conversations will appear here. Request to chat with a therapy dog volunteer to get started!
                   </p>
                 </div>
               ) : (
@@ -494,12 +617,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                           {chat.dogName}
                         </h3>
                         <div className="flex flex-col items-end space-y-1">
-                          <div className="text-right">
-                            <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
-                            <div className="text-xs text-gray-400">
-                              {formatAppointmentDate(chat.appointmentTime)}
+                          {chat.channelType !== 'chat_request' && (
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500 font-medium">Meeting Date:</div>
+                              <div className="text-xs text-gray-400">
+                                {formatAppointmentDate(chat.appointmentTime)}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           {chat.unreadCount > 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               {chat.unreadCount}
@@ -523,6 +648,14 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
             {activeChannel && client && connectionStatus === 'connected' ? (
               <Channel channel={activeChannel}>
                 <div className={styles.desktopChatContent}>
+                  {activeChatRequestId && user?.id && (
+                    <AppointmentPanel
+                      chatRequestId={activeChatRequestId}
+                      currentUserId={user.id}
+                      onCloseChat={handleCloseChat}
+                      closingChat={closingChat}
+                    />
+                  )}
                   <MessageList />
                   <MessageInput />
                 </div>
@@ -542,6 +675,13 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
   return (
     <Chat client={client}>
       {chatContent}
+      {showCloseChatModal && (
+        <CloseChatModal
+          onClose={() => setShowCloseChatModal(false)}
+          onConfirm={handleCloseChatConfirm}
+          loading={closingChat}
+        />
+      )}
     </Chat>
   );
 }

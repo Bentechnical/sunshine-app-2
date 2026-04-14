@@ -13,7 +13,6 @@ import type { ActiveTab } from '@/types/navigation';
 import AdminDashboardHome from '@/components/admin/AdminDashboardHome';
 import AdminManageUsers from '@/components/admin/AdminManageUsers';
 import AdminAppointments from '@/components/admin/AdminAppointments';
-import AdminAvailabilities from '@/components/admin/AdminAvailabilities';
 import AdminUserRequests from '@/components/admin/AdminUserRequests';
 import AdminChats from '@/components/admin/AdminChats';
 import AdminWelcomeMessages from '@/components/admin/AdminWelcomeMessages';
@@ -53,8 +52,6 @@ export default function AdminDashboardPage() {
         return <AdminUserRequests />;
       case 'appointments':
         return <AdminAppointments />;
-      case 'availabilities':
-        return <AdminAvailabilities />;
       case 'chats':
         return <AdminChats onUnreadCountChange={handleUnreadCountChange} />;
       case 'welcome-messages':

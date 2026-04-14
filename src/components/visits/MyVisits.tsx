@@ -37,14 +37,19 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
       let query = supabase
         .from('appointments')
         .select(`
-          id, 
-          individual_id, 
-          volunteer_id, 
-          start_time, 
-          end_time, 
-          status, 
+          id,
+          individual_id,
+          volunteer_id,
+          start_time,
+          end_time,
+          status,
           cancellation_reason,
           availability_id,
+          location_type,
+          location_details,
+          notes,
+          chat_request_id,
+          proposed_by,
           individual:individual_id (
             id, first_name, last_name, email, physical_address, city, visit_recipient_type, dependant_name, relationship_to_recipient, pronouns, bio
           ),
@@ -83,106 +88,115 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
 
   // Handlers
   async function handleApprove(appointmentId: number) {
-    // Add to processing set
     setProcessingAppointments(prev => new Set(prev).add(appointmentId));
-    
+    const apt = appointments.find(a => a.id === appointmentId);
+
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status: 'confirmed' })
-        .eq('id', appointmentId);
-      if (error) {
-        console.error('Error approving appointment:', error);
-        return;
-      }
-
-      setAppointments((prev) =>
-        prev.map((apt) => apt.id === appointmentId ? { ...apt, status: 'confirmed' } : apt)
-      );
-
-      // Create chat channel via API (server-side only operation)
-      try {
-        const chatResponse = await fetch('/api/chat/create', {
+      if (apt?.chat_request_id) {
+        // Chat-based proposal — use the proper API which handles emails + chat message
+        const res = await fetch('/api/appointment/confirm-proposal', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ appointmentId }),
+          body: JSON.stringify({ appointment_id: appointmentId }),
         });
-
-        if (!chatResponse.ok) {
-          const errorData = await chatResponse.json();
-          console.error('[MyVisits] Chat creation failed:', errorData);
+        if (res.ok) {
+          setAppointments(prev =>
+            prev.map(a => a.id === appointmentId ? { ...a, status: 'confirmed' } : a)
+          );
+        } else {
+          console.error('[MyVisits] confirm-proposal failed:', await res.json());
         }
-      } catch (chatError) {
-        console.error('[MyVisits] Error creating chat:', chatError);
-      }
+      } else {
+        // Legacy appointment — direct DB update + old email/chat flow
+        const { error } = await supabase
+          .from('appointments')
+          .update({ status: 'confirmed' })
+          .eq('id', appointmentId);
+        if (error) { console.error('Error approving appointment:', error); return; }
 
-    // Still try to send confirmation emails via API
-    try {
-      await fetch('/api/appointment/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appointmentId }),
-      });
-    } catch (e) {
-      console.error('Error sending confirm email:', e);
-    }
-  } finally {
-    // Remove from processing set
-    setProcessingAppointments(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(appointmentId);
-      return newSet;
-    });
-  }
-}
+        setAppointments(prev =>
+          prev.map(a => a.id === appointmentId ? { ...a, status: 'confirmed' } : a)
+        );
 
-  async function handleDecline(appointmentId: number) {
-    // Add to processing set
-    setProcessingAppointments(prev => new Set(prev).add(appointmentId));
-    
-    try {
-      const reason = 'Declined by volunteer';
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status: 'canceled', cancellation_reason: reason })
-        .eq('id', appointmentId);
-      if (error) {
-        console.error('Error declining appointment:', error);
-        return;
-      }
-
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          apt.id === appointmentId ? { ...apt, status: 'canceled', cancellation_reason: reason } : apt
-        )
-      );
-
-      // Close the chat channel if it exists
-      try {
-        await fetch('/api/chat/close', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ appointmentId }),
-        });
-      } catch (err) {
-        console.error('Error closing chat:', err);
-      }
-
-      try {
-        await fetch('/api/appointment/cancel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ appointmentId, cancellationReason: reason }),
-        });
-      } catch (err) {
-        console.error('Error sending decline cancellation email:', err);
+        try {
+          await fetch('/api/chat/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId }),
+          });
+        } catch (err) {
+          console.error('[MyVisits] Error creating chat:', err);
+        }
+        try {
+          await fetch('/api/appointment/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId }),
+          });
+        } catch (err) {
+          console.error('Error sending confirm email:', err);
+        }
       }
     } finally {
-      // Remove from processing set
       setProcessingAppointments(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(appointmentId);
-        return newSet;
+        const next = new Set(prev); next.delete(appointmentId); return next;
+      });
+    }
+  }
+
+  async function handleDecline(appointmentId: number) {
+    setProcessingAppointments(prev => new Set(prev).add(appointmentId));
+    const apt = appointments.find(a => a.id === appointmentId);
+
+    try {
+      if (apt?.chat_request_id) {
+        // Chat-based proposal — use the proper API
+        const res = await fetch('/api/appointment/decline-proposal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointment_id: appointmentId }),
+        });
+        if (res.ok) {
+          setAppointments(prev =>
+            prev.map(a => a.id === appointmentId ? { ...a, status: 'canceled', cancellation_reason: 'Declined' } : a)
+          );
+        } else {
+          console.error('[MyVisits] decline-proposal failed:', await res.json());
+        }
+      } else {
+        // Legacy appointment
+        const reason = 'Declined by volunteer';
+        const { error } = await supabase
+          .from('appointments')
+          .update({ status: 'canceled', cancellation_reason: reason })
+          .eq('id', appointmentId);
+        if (error) { console.error('Error declining appointment:', error); return; }
+
+        setAppointments(prev =>
+          prev.map(a =>
+            a.id === appointmentId ? { ...a, status: 'canceled', cancellation_reason: reason } : a
+          )
+        );
+
+        try {
+          await fetch('/api/chat/close', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId }),
+          });
+        } catch (err) { console.error('Error closing chat:', err); }
+
+        try {
+          await fetch('/api/appointment/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId, cancellationReason: reason }),
+          });
+        } catch (err) { console.error('Error sending decline email:', err); }
+      }
+    } finally {
+      setProcessingAppointments(prev => {
+        const next = new Set(prev); next.delete(appointmentId); return next;
       });
     }
   }
@@ -338,6 +352,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
             heading="Confirmed Visits"
             appointments={upcomingConfirmed}
             role={role}
+            userId={userId}
             onApprove={wrappedApprove}
             onDecline={wrappedDecline}
             onCancelClick={handleCancelClick}
@@ -351,6 +366,7 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
             heading="Pending Requests"
             appointments={pendingAppointments}
             role={role}
+            userId={userId}
             onApprove={wrappedApprove}
             onDecline={wrappedDecline}
             onCancelClick={handleCancelClick}

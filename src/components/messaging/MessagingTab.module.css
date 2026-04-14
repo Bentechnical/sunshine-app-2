@@ -39,7 +39,7 @@
 /* Mobile Chat View Layout - CSS Grid for clean structure */
 .mobileChatView {
   display: grid;
-  grid-template-rows: min-content 1fr auto;
+  grid-template-rows: min-content min-content 1fr auto;
   height: 100dvh; /* Use dynamic viewport height */
   width: 100%;
   position: fixed;
@@ -60,7 +60,7 @@
 }
 
 .mobileChatMessages {
-  grid-row: 2;
+  grid-row: 3;
   overflow-y: auto;
   background: white;
   padding: 0 0.75rem;
@@ -72,7 +72,7 @@
 }
 
 .mobileChatInput {
-  grid-row: 3;
+  grid-row: 4;
   background: white;
   border-top: 1px solid #e5e7eb;
   padding: 0;

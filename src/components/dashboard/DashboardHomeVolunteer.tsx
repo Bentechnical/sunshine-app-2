@@ -22,10 +22,10 @@ export default function DashboardHomeVolunteer({ userId, role, setActiveTab }: P
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-y-2 lg:gap-2 flex-1">
         <div className="col-span-2 flex flex-col gap-2 lg:max-h-[90vh] lg:overflow-y-auto">
-          <div className="rounded-2xl bg-white p-2">
+          <div className="rounded-2xl bg-white shadow p-2">
             <AppointmentSummaryCard role={role} setActiveTab={setActiveTab} />
           </div>
-          <div className="rounded-2xl bg-white p-2">
+          <div className="rounded-2xl bg-white shadow p-2">
             <ProfileCardBlock />
           </div>
         </div>

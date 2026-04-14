@@ -61,9 +61,10 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           // Update channels with unread counts
           const enrichedChannels = channelsArray.map((chat: any) => {
             const channelId = chat.channelId?.split(':')[1] || chat.channelId;
-            const unreadChannel = unreadResponse.channels?.find((uc: any) =>
-              uc.channel_id === channelId || uc.channel_id === chat.channelId
-            );
+            const unreadChannel = unreadResponse.channels?.find((uc: any) => {
+              const ucNormalized = uc.channel_id?.split(':')[1] || uc.channel_id;
+              return ucNormalized === channelId || uc.channel_id === chat.channelId;
+            });
             return {
               ...chat,
               unreadCount: unreadChannel?.unread_count || 0
@@ -130,6 +131,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
               };
 
               reconnectedClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
+              reconnectedClient.on('message.new', updateUnreadFromRealtimeEvent as any);
               reconnectedClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
               reconnectedClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
 
@@ -195,9 +197,10 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
                 // Update channels with unread counts (same logic as MessagingTab)
                 const enrichedChannels = channelsArray.map((chat: any) => {
                   const channelId = chat.channelId?.split(':')[1] || chat.channelId;
-                  const unreadChannel = (unreadResponse as any).channels?.find((uc: any) =>
-                    uc.channel_id === channelId || uc.channel_id === chat.channelId
-                  );
+                  const unreadChannel = (unreadResponse as any).channels?.find((uc: any) => {
+                    const ucNormalized = uc.channel_id?.split(':')[1] || uc.channel_id;
+                    return ucNormalized === channelId || uc.channel_id === chat.channelId;
+                  });
                   return {
                     ...chat,
                     unreadCount: unreadChannel?.unread_count || 0
@@ -241,7 +244,10 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           };
 
           // Listen for Stream Chat real-time events globally
+          // notification.message_new: fires for channels not yet watched
+          // message.new: fires for channels that have been watched (e.g. previously opened in MessagingTab)
           newClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
+          newClient.on('message.new', updateUnreadFromRealtimeEvent as any);
           newClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
           newClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
 
@@ -251,6 +257,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
           const cleanup = () => {
             try {
               newClient.off('notification.message_new', updateUnreadFromRealtimeEvent as any);
+              newClient.off('message.new', updateUnreadFromRealtimeEvent as any);
               newClient.off('notification.mark_read', updateUnreadFromRealtimeEvent as any);
               newClient.off('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
             } catch (err) {
@@ -270,6 +277,7 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
               try {
                 // Re-attach event listeners to the new client instance
                 currentClient.on('notification.message_new', updateUnreadFromRealtimeEvent as any);
+                currentClient.on('message.new', updateUnreadFromRealtimeEvent as any);
                 currentClient.on('notification.mark_read', updateUnreadFromRealtimeEvent as any);
                 currentClient.on('notification.mark_unread', updateUnreadFromRealtimeEvent as any);
 

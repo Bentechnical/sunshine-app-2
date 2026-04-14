@@ -81,6 +81,39 @@ const templateFields: Record<string, EmailField[]> = {
     { key: 'dogName', label: 'Dog Name', type: 'text', placeholder: 'Buddy', required: true },
     { key: 'cancellationReason', label: 'Cancellation Reason', type: 'textarea', placeholder: 'Volunteer is unavailable due to illness', required: true },
   ],
+  chatRequestReceived: [
+    { key: 'firstName', label: 'Recipient First Name', type: 'text', placeholder: 'Sarah', required: true },
+    { key: 'requesterName', label: 'Requester Name', type: 'text', placeholder: 'John', required: true },
+    { key: 'dogName', label: 'Dog Name', type: 'text', placeholder: 'Buddy', required: true },
+    { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
+  ],
+  chatRequestAccepted: [
+    { key: 'firstName', label: 'Requester First Name', type: 'text', placeholder: 'John', required: true },
+    { key: 'recipientName', label: 'Recipient Name', type: 'text', placeholder: 'Sarah', required: true },
+    { key: 'dogName', label: 'Dog Name', type: 'text', placeholder: 'Buddy', required: true },
+    { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
+  ],
+  appointmentProposed: [
+    { key: 'firstName', label: 'Recipient First Name', type: 'text', placeholder: 'Sarah', required: true },
+    { key: 'proposerName', label: 'Proposer Name', type: 'text', placeholder: 'John', required: true },
+    { key: 'appointmentTime', label: 'Appointment Time', type: 'text', placeholder: 'Friday, February 14, 2025 at 2:00 PM', required: true },
+    { key: 'locationLabel', label: 'Location', type: 'text', placeholder: "Individual's home — 123 Main St", required: true },
+    { key: 'notes', label: 'Notes (optional)', type: 'textarea', placeholder: 'Please bring treats!' },
+    { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
+  ],
+  appointmentProposalConfirmed: [
+    { key: 'firstName', label: 'Proposer First Name', type: 'text', placeholder: 'John', required: true },
+    { key: 'otherPartyName', label: 'Confirmer Name', type: 'text', placeholder: 'Sarah', required: true },
+    { key: 'appointmentTime', label: 'Appointment Time', type: 'text', placeholder: 'Friday, February 14, 2025 at 2:00 PM', required: true },
+    { key: 'locationLabel', label: 'Location', type: 'text', placeholder: "Individual's home — 123 Main St", required: true },
+    { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
+  ],
+  appointmentProposalDeclined: [
+    { key: 'firstName', label: 'Proposer First Name', type: 'text', placeholder: 'John', required: true },
+    { key: 'otherPartyName', label: 'Decliner Name', type: 'text', placeholder: 'Sarah', required: true },
+    { key: 'appointmentTime', label: 'Appointment Time', type: 'text', placeholder: 'Friday, February 14, 2025 at 2:00 PM', required: true },
+    { key: 'dashboardLink', label: 'Dashboard Link', type: 'text', placeholder: 'https://sunshinedogs.app/dashboard', required: true },
+  ],
 };
 
 export default function AdminEmailTesting() {

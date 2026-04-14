@@ -28,13 +28,13 @@ export default function MobileNav({
   }[] = role === 'individual'
     ? [
         { key: 'dashboard-home', label: 'Home', icon: <Home size={20} /> },
-        { key: 'meet-with-dog', label: 'Meet Dogs', icon: <PawPrint size={20} /> },
+        { key: 'meet-with-dog', label: 'Meet a Dog', icon: <PawPrint size={20} /> },
         { key: 'my-visits', label: 'Visits', icon: <CalendarCheck size={20} /> },
         { key: 'messaging', label: 'Messages', icon: <MessageCircle size={20} />, showAlert: hasUnreadMessages },
       ]
     : [
         { key: 'dashboard-home', label: 'Home', icon: <Home size={20} /> },
-        { key: 'my-therapy-dog', label: 'Availability', icon: <PawPrint size={20} /> },
+        { key: 'connect-with-people', label: 'Connect', icon: <PawPrint size={20} /> },
         { key: 'my-visits', label: 'Visits', icon: <CalendarCheck size={20} /> },
         { key: 'messaging', label: 'Messages', icon: <MessageCircle size={20} />, showAlert: hasUnreadMessages },
       ];
