@@ -35,7 +35,7 @@ Or via Supabase Dashboard → Database → Extensions → search "postgis" → E
 ## Scripts
 
 ### Script 01 — Add general_availability and is_browsable to users
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 ```sql
 ALTER TABLE users
@@ -58,7 +58,7 @@ DROP COLUMN is_browsable;
 ---
 
 ### Script 02 — Create chat_requests table
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 ```sql
 CREATE TABLE chat_requests (
@@ -123,7 +123,7 @@ DROP TABLE chat_requests;
 ---
 
 ### Script 03 — Modify appointments table
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 ```sql
 -- Add new fields for chat-based scheduling
@@ -183,7 +183,7 @@ ALTER COLUMN availability_id SET NOT NULL;
 ---
 
 ### Script 04 — RLS policies for chat_requests
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 ```sql
 ALTER TABLE chat_requests ENABLE ROW LEVEL SECURITY;
@@ -228,7 +228,7 @@ DROP POLICY IF EXISTS "Recipients can update request status" ON chat_requests;
 ---
 
 ### Script 05 — Remove availability system (DESTRUCTIVE — run last)
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 > ⚠️ This is irreversible without a full database backup. Ensure Script 01–04 are working
 > and a backup has been taken before running this.
@@ -254,7 +254,7 @@ DROP TABLE appointment_availability;
 ---
 
 ### Script 06 — Add snooze columns + create new search functions
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 Adds the `snoozed_by` / `snoozed_until` columns for the unified snooze system, then creates both search functions with 30-day decline hiding **and** snooze filtering built in.
 
@@ -454,7 +454,7 @@ ALTER TABLE chat_requests
 ---
 
 ### Script 07 — Fix chat_requests unique constraint
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 The original Script 02 constraint `UNIQUE (requester_id, recipient_id)` had no partial filter, permanently blocking re-requests after any previous request. Replaced with a partial unique index.
 
@@ -480,7 +480,7 @@ ADD CONSTRAINT unique_pending_request UNIQUE (requester_id, recipient_id)
 ---
 
 ### Script 08 — Fix chat_requests RLS policies (auth.uid() → auth.jwt())
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 `auth.uid()` in PostgreSQL casts the JWT `sub` claim to UUID. Clerk user IDs are not UUIDs, so this fails. Replaced with `(auth.jwt() ->> 'sub')` which returns the sub claim as text.
 
@@ -708,7 +708,7 @@ ALTER TABLE chat_requests
 ---
 
 ### Script 09 — Extend pending_email_notifications for chat_requests
-**Status:** [x] Dev  [ ] Prod
+**Status:** [x] Dev  [x] Prod
 
 Makes `appointment_id` nullable and adds a `chat_request_id` column so the notification table can serve both the old appointment-chat flow and the new chat-request flow.
 
@@ -731,18 +731,108 @@ ALTER TABLE pending_email_notifications
 
 ---
 
+### Script 10 — Add is_browsable filter to get_dogs_for_individual
+**Status:** [ ] Dev  [ ] Prod
+
+Script 06 added `is_browsable` filtering to `get_individuals_for_volunteer` but missed the volunteer side in `get_dogs_for_individual`. This adds `AND v.is_browsable = TRUE` so hiding a volunteer also hides them from individual search results.
+
+```sql
+CREATE OR REPLACE FUNCTION get_dogs_for_individual(
+  individual_user_id TEXT,
+  max_distance_km FLOAT DEFAULT 50
+)
+RETURNS TABLE (
+  dog_id INTEGER,
+  dog_name TEXT,
+  dog_breed TEXT,
+  dog_age INTEGER,
+  dog_bio TEXT,
+  dog_picture_url TEXT,
+  volunteer_id TEXT,
+  volunteer_first_name TEXT,
+  volunteer_last_initial TEXT,
+  volunteer_city TEXT,
+  general_availability TEXT,
+  distance_km DOUBLE PRECISION,
+  matching_categories TEXT[]
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    d.id as dog_id,
+    d.dog_name::TEXT as dog_name,
+    d.dog_breed::TEXT as dog_breed,
+    d.dog_age as dog_age,
+    d.dog_bio::TEXT as dog_bio,
+    d.dog_picture_url::TEXT as dog_picture_url,
+    v.id as volunteer_id,
+    v.first_name::TEXT as volunteer_first_name,
+    LEFT(v.last_name, 1) as volunteer_last_initial,
+    v.city::TEXT as volunteer_city,
+    v.general_availability::TEXT,
+    ST_Distance(
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      ST_MakePoint(u.location_lng, u.location_lat)::geography
+    ) / 1000 as distance_km,
+    ARRAY_AGG(DISTINCT ac.name) as matching_categories
+  FROM dogs d
+  JOIN users v ON v.id = d.volunteer_id
+  CROSS JOIN users u
+  LEFT JOIN volunteer_audience_preferences vap ON vap.volunteer_id = v.id
+  LEFT JOIN individual_audience_tags iat ON iat.individual_id = individual_user_id
+  LEFT JOIN audience_categories ac ON ac.id = vap.category_id
+  WHERE d.status = 'approved'
+    AND v.status = 'approved'
+    AND v.role = 'volunteer'
+    AND v.is_browsable = TRUE
+    AND u.id = individual_user_id
+    AND u.role = 'individual'
+    AND vap.category_id = iat.category_id
+    AND ST_DWithin(
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      ST_MakePoint(u.location_lng, u.location_lat)::geography,
+      max_distance_km * 1000
+    )
+    AND v.id NOT IN (
+      SELECT recipient_id FROM chat_requests
+      WHERE requester_id = individual_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+      UNION
+      SELECT requester_id FROM chat_requests
+      WHERE recipient_id = individual_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+    )
+    AND v.id NOT IN (
+      SELECT CASE WHEN requester_id = individual_user_id THEN recipient_id ELSE requester_id END
+      FROM chat_requests
+      WHERE (requester_id = individual_user_id OR recipient_id = individual_user_id)
+        AND snoozed_until > NOW()
+    )
+  GROUP BY d.id, v.id, u.location_lng, u.location_lat
+  ORDER BY distance_km ASC;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+```
+
+**Rollback:** Re-run Script 06's version of `get_dogs_for_individual` (remove the `AND v.is_browsable = TRUE` line).
+
+---
+
 ## Summary Table
 
 | Script | Description | Dev | Prod |
 |--------|-------------|-----|------|
-| 01 | Add general_availability + is_browsable to users | [x] | [ ] |
-| 02 | Create chat_requests table | [x] | [ ] |
-| 03 | Modify appointments table | [x] | [ ] |
-| 04 | RLS policies for chat_requests | [x] | [ ] |
-| 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [x] | [ ] |
-| 07 | Fix unique constraint (allow re-requesting) | [x] | [ ] |
-| 08 | Fix RLS policies (auth.jwt instead of auth.uid) | [x] | [ ] |
-| 09 | Extend pending_email_notifications for chat_requests | [x] | [ ] |
+| 01 | Add general_availability + is_browsable to users | [x] | [x] |
+| 02 | Create chat_requests table | [x] | [x] |
+| 03 | Modify appointments table | [x] | [x] |
+| 04 | RLS policies for chat_requests | [x] | [x] |
+| 06 | Add snooze columns + create new search functions (with decline & snooze filters) | [x] | [x] |
+| 07 | Fix unique constraint (allow re-requesting) | [x] | [x] |
+| 08 | Fix RLS policies (auth.jwt instead of auth.uid) | [x] | [x] |
+| 09 | Extend pending_email_notifications for chat_requests | [x] | [x] |
+| 10 | Add is_browsable filter to get_dogs_for_individual | [ ] | [ ] |
 | 05 | **DESTRUCTIVE** — Remove appointment_availability table | [x] | [ ] |
 
 > Run Script 05 last, after verifying all other scripts work and code changes are stable.

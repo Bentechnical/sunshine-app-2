@@ -35,6 +35,7 @@ export async function GET() {
         profile_image,
         travel_distance_km,
         status,
+        is_browsable,
         pronouns,
         birthday,
         physical_address,
@@ -92,6 +93,7 @@ export async function GET() {
         bio: user.bio,
         profile_image: user.profile_image,
         travel_distance_km: user.travel_distance_km,
+        is_browsable: user.is_browsable ?? true,
         // New individual user fields
         pronouns: user.pronouns,
         birthday: user.birthday,
