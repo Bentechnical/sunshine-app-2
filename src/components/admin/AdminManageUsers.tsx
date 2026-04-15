@@ -25,6 +25,7 @@ interface VolunteerUser {
   profile_picture_url: string;
   dog?: DogProfile | null;
   audience_categories: string[];
+  is_browsable: boolean;
 }
 
 interface IndividualUser {
@@ -38,6 +39,7 @@ interface IndividualUser {
   bio: string;
   profile_picture_url: string;
   audience_categories: string[];
+  is_browsable: boolean;
   // New individual user fields
   pronouns?: string;
   birthday?: number;
@@ -139,6 +141,7 @@ export default function ManageUsersTab() {
                 }
               : null,
             audience_categories: u.audience_categories || [],
+            is_browsable: u.is_browsable ?? true,
           }))
           .sort((a: VolunteerUser, b: VolunteerUser) => a.last_name.localeCompare(b.last_name));
 
@@ -155,6 +158,7 @@ export default function ManageUsersTab() {
             bio: u.bio,
             profile_picture_url: u.profile_image,
             audience_categories: u.audience_categories || [],
+            is_browsable: u.is_browsable ?? true,
             // New individual user fields
             pronouns: u.pronouns,
             birthday: u.birthday,
@@ -377,6 +381,27 @@ export default function ManageUsersTab() {
     );
   };
 
+  const handleToggleBrowsable = async (
+    userId: string,
+    current: boolean,
+    setUsers: React.Dispatch<React.SetStateAction<any[]>>
+  ) => {
+    const next = !current;
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_browsable: next } : u));
+
+    const res = await fetch('/api/admin/set-browsable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, is_browsable: next }),
+    });
+
+    if (!res.ok) {
+      // Revert on failure
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_browsable: current } : u));
+      alert('Failed to update visibility');
+    }
+  };
+
   const renderCategoryBubbles = (categories: string[]) => {
     // Sort categories based on the predefined order
     const sortedCategories = categories.sort((a, b) => {
@@ -586,8 +611,17 @@ export default function ManageUsersTab() {
                           </div>
                           {renderAudienceCheckboxes(user.id, 'volunteer', user.audience_categories, setVolunteers)}
 
-                          {/* Archive Button */}
-                          <div className="mt-6 pt-4 border-t border-gray-200">
+                          {/* Admin Controls */}
+                          <div className="mt-6 pt-4 border-t border-gray-200 flex items-center gap-6">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={user.is_browsable}
+                                onChange={() => handleToggleBrowsable(user.id, user.is_browsable, setVolunteers)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="font-medium text-gray-700">Visible in search</span>
+                            </label>
                             <button
                               onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
                               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
@@ -726,8 +760,17 @@ export default function ManageUsersTab() {
 
                           {renderAudienceCheckboxes(user.id, 'individual', user.audience_categories, setIndividuals)}
 
-                          {/* Archive Button */}
-                          <div className="mt-6 pt-4 border-t border-gray-200">
+                          {/* Admin Controls */}
+                          <div className="mt-6 pt-4 border-t border-gray-200 flex items-center gap-6">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={user.is_browsable}
+                                onChange={() => handleToggleBrowsable(user.id, user.is_browsable, setIndividuals)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="font-medium text-gray-700">Visible in search</span>
+                            </label>
                             <button
                               onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
                               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
