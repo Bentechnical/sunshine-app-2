@@ -7,7 +7,6 @@ import {
   MessageInput,
   MessageList,
 } from 'stream-chat-react';
-// @ts-expect-error — Stream Chat CSS import lacks TS declarations
 import 'stream-chat-react/dist/css/v2/index.css';
 import { Loader2, AlertCircle, RefreshCw, ArrowLeft, X, AlertTriangle } from 'lucide-react';
 import { useUnreadCount } from '@/contexts/UnreadCountContext';
