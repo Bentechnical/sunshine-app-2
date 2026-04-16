@@ -34,8 +34,13 @@ export default function MobileNavAdmin({
     { key: 'email-testing', label: 'Settings', icon: <Mail size={20} /> },
   ];
 
+  const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+
   return (
-    <nav className="bg-white border-t border-gray-200 px-4 py-2">
+    <nav
+      className="bg-white border-t border-gray-200 px-4 pt-2"
+      style={isNative ? { paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' } : { paddingBottom: '8px' }}
+    >
       <div className="flex justify-around items-center">
         {tabs.map(({ key, label, icon, showAlert }) => (
           <button

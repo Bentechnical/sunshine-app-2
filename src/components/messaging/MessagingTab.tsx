@@ -555,7 +555,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
 
                 {/* Chat Input */}
                 <div className={styles.mobileChatInput}>
-                  <MessageInput additionalTextareaProps={{ autoComplete: 'new-password', autoCorrect: 'off', autoCapitalize: 'sentences', spellCheck: false, name: 'chat-message-input' }} />
+                  <MessageInput additionalTextareaProps={{ autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'sentences', spellCheck: false, inputMode: 'text', enterKeyHint: 'send', name: 'message', id: 'chat-message' }} />
                 </div>
               </div>
             </Channel>
@@ -657,7 +657,7 @@ export default function MessagingTab({ onActiveChatChange }: MessagingTabProps) 
                     />
                   )}
                   <MessageList />
-                  <MessageInput additionalTextareaProps={{ autoComplete: 'new-password', autoCorrect: 'off', autoCapitalize: 'sentences', spellCheck: false, name: 'chat-message-input' }} />
+                  <MessageInput additionalTextareaProps={{ autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'sentences', spellCheck: false, inputMode: 'text', enterKeyHint: 'send', name: 'message', id: 'chat-message' }} />
                 </div>
               </Channel>
             ) : (

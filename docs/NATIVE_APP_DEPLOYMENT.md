@@ -4,6 +4,67 @@
 
 This document provides a comprehensive, step-by-step guide for converting the existing Next.js web app into native iOS and Android applications using Capacitor. Written for developers with basic native app knowledge.
 Note: this document was written by Claude, so might have errors or an incomplete understanding of functions of the app. Please check with the user/developer if you are unsure.
+
+---
+
+## Progress Tracker
+
+_Update this section as work progresses across sessions._
+
+### Phase 1: Setup & Configuration
+- [x] Capacitor packages installed (v7.4.4 — core, cli, ios, android, camera, push-notifications, network, status-bar, splash-screen, keyboard, haptics)
+- [x] `capacitor.config.ts` configured with remote URL (`https://sunshinedogs.app`)
+- [x] iOS native project scaffolded (`/ios/`)
+- [x] Android native project scaffolded (`/android/`)
+- [x] NPM scripts added (`cap:sync`, `cap:open:ios`, `cap:open:android`, etc.)
+- [ ] Apple Developer Account set up ($99/yr — needed before any iOS device/store work)
+- [ ] Google Play Developer Account set up ($25 one-time)
+
+### Phase 2: Native Project Configuration
+- [ ] iOS: Xcode signing configured (team, bundle ID, auto-managed certs)
+- [ ] iOS: Push Notifications + Background Modes capabilities added in Xcode
+- [ ] iOS: `Info.plist` permissions added (camera, photos, etc.)
+- [ ] iOS: Deep link URL scheme added (`sunshinetherapydogs://`) for Clerk OAuth
+- [ ] Android: Signing keystore generated and configured (keep backup!)
+- [ ] Android: `AndroidManifest.xml` permissions added
+- [ ] Android: Deep link intent filter added for Clerk OAuth
+- [ ] Both: Clerk Dashboard updated with redirect URLs
+
+### Phase 3: Assets & Branding
+- [ ] App icon created (1024×1024 PNG source)
+- [ ] Icons generated for all iOS/Android sizes
+- [ ] Splash screen image created
+- [ ] Icons and splash installed in native projects
+
+### Phase 4: Testing
+- [ ] App loads in iOS Simulator
+- [ ] App loads in Android Emulator
+- [x] App loads on physical Android device (Samsung Galaxy S22) ✓
+- [ ] Clerk OAuth working on Android (deep link not yet configured)
+- [ ] Layout bugs resolved on Android
+- [ ] Clerk authentication works end-to-end in native shell
+- [ ] Stream Chat connects and messages send/receive
+- [ ] Tested on physical iOS device
+
+### Phase 5: Beta Distribution
+- [ ] TestFlight (iOS) set up, beta testers invited
+- [ ] Play Internal Testing (Android) set up, testers invited
+- [ ] Beta feedback collected and issues resolved
+
+### Phase 6: Push Notifications (Native)
+- [ ] APNs certificate generated (Apple Developer Portal)
+- [ ] Firebase project set up for Android FCM
+- [ ] `google-services.json` added to Android project
+- [ ] Push notification registration code added to app
+- [ ] Device tokens sent to backend / Stream Chat
+
+### Phase 7: Store Submission
+- [ ] App Store listing created (screenshots, description, privacy policy URL)
+- [ ] Play Store listing created (screenshots, description, privacy policy URL)
+- [ ] iOS app submitted for review
+- [ ] Android app submitted for review
+- [ ] Apps approved and live
+
 ---
 
 ## Table of Contents
@@ -231,6 +292,7 @@ We're using **Capacitor** (by Ionic) to wrap our existing Next.js web app into n
    ```bash
    sudo gem install cocoapods
    ```
+   > **Note:** CocoaPods is being slowly deprecated in favour of Swift Package Manager (SPM). The current Capacitor 7 iOS project in this repo uses CocoaPods (a `Podfile` is present), so CocoaPods is still required. A future Capacitor version may migrate to SPM, at which point this step would be replaced by letting Xcode resolve packages automatically.
 
 **Verify installation:**
 ```bash
@@ -450,8 +512,8 @@ export default config;
     "cap:sync:android": "npx cap sync android",
     "cap:open:ios": "npx cap open ios",
     "cap:open:android": "npx cap open android",
-    "cap:run:ios": "npx cap run ios --external",
-    "cap:run:android": "npx cap run android --external",
+    "cap:run:ios": "npx cap run ios --external",   // --external = run on device over WiFi (both must be on same network); omit flag for USB
+    "cap:run:android": "npx cap run android --external",  // same as above
 
     // Convenience wrappers:
     "native:sync": "npm run cap:sync",
@@ -700,12 +762,12 @@ Ensure these settings:
 
 ```gradle
 android {
-    compileSdkVersion 34
+    compileSdkVersion 35
 
     defaultConfig {
         applicationId "com.sunshinetherapydogs.app"
-        minSdkVersion 22  // Android 5.1+ (covers 95%+ devices)
-        targetSdkVersion 34
+        minSdkVersion 23  // Android 6.0+ — matches variables.gradle; required by Capacitor 7
+        targetSdkVersion 35
         versionCode 1
         versionName "0.1.0"  // Match package.json version
     }
@@ -927,7 +989,9 @@ if (isNativeApp()) {
 
 ### Clerk Authentication in Native
 
-Clerk should work with configured deep links, but test:
+> ⚠️ **Test this first.** Clerk auth inside a Capacitor WebView is one of the most common failure points in this type of setup. Verify it works before investing time in other native configuration — if it breaks, it blocks everything else.
+
+Clerk should work with configured deep links, but the OAuth redirect chain (sign in → external/in-app browser → redirect back to app) can behave differently across iOS and Android WebView contexts, especially with social OAuth providers (Google, Apple).
 
 **OAuth flow:**
 1. User taps "Sign In"
@@ -938,8 +1002,9 @@ Clerk should work with configured deep links, but test:
 
 **If issues occur:**
 - Verify deep link configuration (done above)
-- Check Clerk Dashboard redirect URLs
-- May need to use Clerk's Capacitor plugin if available
+- Check Clerk Dashboard redirect URLs include `sunshinetherapydogs://oauth-callback`
+- Check Clerk's documentation for Capacitor-specific guidance — they may have an official plugin or updated recommendations
+- Email/password login will likely work before OAuth providers; test that path first to isolate the issue
 
 ### Push Notifications Setup (Future)
 
@@ -1471,8 +1536,8 @@ android {
 #!/bin/bash
 set -e
 
-echo "Building Next.js..."
-npm run build
+# Note: no `npm run build` needed here — the app loads from the remote URL (sunshinedogs.app),
+# not from bundled assets. cap sync only copies Capacitor config into the native project.
 
 echo "Syncing to iOS..."
 npx cap sync ios
@@ -1488,8 +1553,8 @@ echo "✅ Ready to archive in Xcode"
 #!/bin/bash
 set -e
 
-echo "Building Next.js..."
-npm run build
+# Note: no `npm run build` needed here — the app loads from the remote URL (sunshinedogs.app),
+# not from bundled assets. cap sync only copies Capacitor config into the native project.
 
 echo "Syncing to Android..."
 npx cap sync android
@@ -2269,8 +2334,8 @@ android/app/src/main/res/                    # Icons and images
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2025-11-11
+**Document Version:** 1.1.0
+**Last Updated:** 2026-04-16
 **Maintained By:** Claude Code (for future reference)
 
 **Related Documentation:**

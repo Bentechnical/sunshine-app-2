@@ -51,6 +51,8 @@ export default function DashboardLayout({
   hideMobileNav = false,
   noMobileTopPadding = false,
 }: DashboardLayoutProps) {
+  const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+
   return (
     <UnreadCountProvider>
       <div className="flex h-screen relative" data-active-tab={activeTab}>
@@ -94,22 +96,25 @@ export default function DashboardLayout({
       <main className="relative z-10 flex-1 flex flex-col h-full overflow-y-auto">
         {/* Mobile top bar */}
         <div
-          className="md:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 py-2 shadow-sm"
-          style={{ backgroundColor: '#0e62ae' }}
+          className="md:hidden fixed top-0 inset-x-0 z-50 shadow-sm"
+          style={{ backgroundColor: '#0e62ae', ...(isNative ? { paddingTop: 'env(safe-area-inset-top)' } : {}) }}
         >
-          <div className="relative h-8 w-24">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt="Sunshine logo"
-              src="/images/sunshine-logo-small.png"
-              className="absolute inset-0 w-full h-full object-contain"
-            />
+          <div className="flex items-center justify-between px-4 py-2">
+            <div className="relative h-8 w-24">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt="Sunshine logo"
+                src="/images/sunshine-logo-small.png"
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            </div>
           </div>
         </div>
 
         {/* Page content (offset for top + bottom bars on mobile) */}
         <div
           className={getMainContentClasses(activeTab, noMobileTopPadding)}
+          style={isNative && !noMobileTopPadding ? { paddingTop: 'calc(env(safe-area-inset-top) + 3rem)' } : undefined}
         >
           {children}
         </div>
