@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
     url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://sunshinedogs.app',
     cleartext: false,
     androidScheme: 'https',
+    allowNavigation: ['sunshinedogs.app', '*.sunshinedogs.app'],
   },
   plugins: {
     SplashScreen: {
