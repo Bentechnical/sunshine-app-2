@@ -27,10 +27,11 @@ export default function CustomSignIn() {
 
   const handleGoogleSignIn = async () => {
     if (!signIn) return;
+    const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google' as OAuthStrategy,
-        redirectUrl: '/sso-callback',
+        redirectUrl: isNative ? 'sunshinetherapydogs://sso-callback' : '/sso-callback',
         redirectUrlComplete: '/dashboard',
       });
     } catch (err: any) {
