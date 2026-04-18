@@ -9,6 +9,8 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { OAuthStrategy } from '@clerk/types';
 
+const WEB_CLIENT_ID = '142761696447-2gervhsatt4eme82dblrsodg9luvnn1q.apps.googleusercontent.com';
+
 export default function CustomSignIn() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const { isSignedIn } = useAuth();
@@ -27,17 +29,41 @@ export default function CustomSignIn() {
 
   const handleGoogleSignIn = async () => {
     if (!signIn) return;
+
     const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
-    const redirectUrl = isNative ? 'clerk://com.sunshinetherapydogs.app.callback' : '/sso-callback';
-    console.log('[OAuth] isNative:', isNative, '| redirectUrl:', redirectUrl);
-    try {
-      await signIn.authenticateWithRedirect({
-        strategy: 'oauth_google' as OAuthStrategy,
-        redirectUrl,
-        redirectUrlComplete: '/dashboard',
-      });
-    } catch (err: any) {
-      console.error('OAuth sign-in error:', err.errors || err);
+
+    if (isNative) {
+      // Native path: use Capawesome Google Sign-In to get ID token, then authenticate with Clerk
+      try {
+        const { GoogleSignIn } = await import('@capawesome/capacitor-google-sign-in');
+        await GoogleSignIn.initialize({ clientId: WEB_CLIENT_ID });
+        const result = await GoogleSignIn.signIn();
+        const idToken = result.idToken;
+        if (!idToken) throw new Error('No ID token returned from Google Sign-In');
+        console.log('[NativeGoogleSignIn] Got ID token, authenticating with Clerk...');
+        const signInResult = await (signIn as any).authenticateWithGoogleOneTap({ token: idToken });
+        if (signInResult.status === 'complete') {
+          await setActive({ session: signInResult.createdSessionId });
+          router.push('/dashboard');
+        } else {
+          console.error('[NativeGoogleSignIn] Unexpected status:', signInResult.status);
+          setError('Sign-in incomplete. Please try again.');
+        }
+      } catch (err: any) {
+        console.error('[NativeGoogleSignIn] Error:', err);
+        setError(err?.message || 'Google sign-in failed. Please try again.');
+      }
+    } else {
+      // Web path: standard OAuth redirect
+      try {
+        await signIn.authenticateWithRedirect({
+          strategy: 'oauth_google' as OAuthStrategy,
+          redirectUrl: '/sso-callback',
+          redirectUrlComplete: '/dashboard',
+        });
+      } catch (err: any) {
+        console.error('OAuth sign-in error:', err.errors || err);
+      }
     }
   };
 
