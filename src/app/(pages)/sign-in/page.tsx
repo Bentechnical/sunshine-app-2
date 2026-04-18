@@ -1,6 +1,6 @@
 'use client';
 
-import { useSignIn, useAuth, useClerk } from '@clerk/nextjs';
+import { useSignIn, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ const WEB_CLIENT_ID = '142761696447-2gervhsatt4eme82dblrsodg9luvnn1q.apps.google
 export default function CustomSignIn() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const { isSignedIn } = useAuth();
-  const clerk = useClerk();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -34,15 +33,25 @@ export default function CustomSignIn() {
     const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 
     if (isNative) {
-      // Native path: use Capawesome Google Sign-In to get ID token, then authenticate with Clerk
+      // Native path: get Google ID token → exchange via backend → Clerk ticket sign-in
       try {
         const { GoogleSignIn } = await import('@capawesome/capacitor-google-sign-in');
         await GoogleSignIn.initialize({ clientId: WEB_CLIENT_ID });
         const result = await GoogleSignIn.signIn();
         const idToken = result.idToken;
         if (!idToken) throw new Error('No ID token returned from Google Sign-In');
-        console.log('[NativeGoogleSignIn] Got ID token, authenticating with Clerk...');
-        const signInResult = await clerk.authenticateWithGoogleOneTap({ token: idToken });
+
+        console.log('[NativeGoogleSignIn] Got ID token, exchanging via backend...');
+        const res = await fetch('/api/auth/google-native', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Token exchange failed');
+
+        console.log('[NativeGoogleSignIn] Got Clerk ticket, signing in...');
+        const signInResult = await signIn!.create({ strategy: 'ticket', ticket: data.token });
         if (signInResult.status === 'complete') {
           await setActive({ session: signInResult.createdSessionId });
           router.push('/dashboard');
