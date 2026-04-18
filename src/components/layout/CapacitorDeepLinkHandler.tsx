@@ -23,9 +23,11 @@ export default function CapacitorDeepLinkHandler() {
     import('@capacitor/app').then(({ App }) => {
       App.addListener('appUrlOpen', (data) => {
         const url = data.url;
+        console.log('[DeepLink] appUrlOpen fired:', url);
         if (url.startsWith('clerk://')) {
           const queryStart = url.indexOf('?');
           const queryString = queryStart !== -1 ? url.slice(queryStart) : '';
+          console.log('[DeepLink] navigating to /sso-callback', queryString);
           router.push(`/sso-callback${queryString}`);
         }
       }).then((listener) => {
