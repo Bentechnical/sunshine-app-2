@@ -1,6 +1,6 @@
 'use client';
 
-import { useSignIn, useAuth } from '@clerk/nextjs';
+import { useSignIn, useAuth, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ const WEB_CLIENT_ID = '142761696447-2gervhsatt4eme82dblrsodg9luvnn1q.apps.google
 export default function CustomSignIn() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const { isSignedIn } = useAuth();
+  const clerk = useClerk();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -41,7 +42,7 @@ export default function CustomSignIn() {
         const idToken = result.idToken;
         if (!idToken) throw new Error('No ID token returned from Google Sign-In');
         console.log('[NativeGoogleSignIn] Got ID token, authenticating with Clerk...');
-        const signInResult = await (signIn as any).authenticateWithGoogleOneTap({ token: idToken });
+        const signInResult = await clerk.authenticateWithGoogleOneTap({ token: idToken });
         if (signInResult.status === 'complete') {
           await setActive({ session: signInResult.createdSessionId });
           router.push('/dashboard');
