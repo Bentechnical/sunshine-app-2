@@ -28,11 +28,14 @@ export default function CustomSignIn() {
   const handleGoogleSignIn = async () => {
     if (!signIn) return;
     const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    const redirectUrl = isNative ? 'sunshinetherapydogs://sso-callback' : '/sso-callback';
+    const redirectUrlComplete = isNative ? 'https://sunshinedogs.app/dashboard' : '/dashboard';
+    console.log('[OAuth] isNative:', isNative, '| redirectUrl:', redirectUrl);
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google' as OAuthStrategy,
-        redirectUrl: isNative ? 'sunshinetherapydogs://sso-callback' : '/sso-callback',
-        redirectUrlComplete: '/dashboard',
+        redirectUrl,
+        redirectUrlComplete,
       });
     } catch (err: any) {
       console.error('OAuth sign-in error:', err.errors || err);
