@@ -5,10 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Sunshine Therapy Dogs',
   webDir: 'dist', // fallback assets only; real app served remotely
   server: {
-    url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://sunshinedogs.app',
+    url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://sunshine-app-2-git-dev-native-app-bentechnicals-projects.vercel.app',
     cleartext: false,
     androidScheme: 'https',
-    allowNavigation: ['sunshinedogs.app', '*.sunshinedogs.app'],
+    allowNavigation: ['sunshinedogs.app', '*.sunshinedogs.app', '*.vercel.app'],
   },
   plugins: {
     SplashScreen: {

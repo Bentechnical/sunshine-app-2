@@ -52,11 +52,16 @@ _Update this section as work progresses across sessions._
 - [ ] Beta feedback collected and issues resolved
 
 ### Phase 6: Push Notifications (Native)
-- [ ] APNs certificate generated (Apple Developer Portal)
-- [ ] Firebase project set up for Android FCM
+_Architecture: FCM direct (not OneSignal). Push supplements existing email notifications — ~50% of users are web-only so email remains the backbone. See Push Notifications section below for full design._
+- [ ] Firebase project created (dev + prod)
+- [ ] APNs auth key generated (Apple Developer Portal) → uploaded to Firebase
 - [ ] `google-services.json` added to Android project
-- [ ] Push notification registration code added to app
-- [ ] Device tokens sent to backend / Stream Chat
+- [ ] `GoogleService-Info.plist` added to iOS project
+- [ ] `device_tokens` table created in Supabase (both envs)
+- [ ] `/api/push/register` API route added (upsert token on app launch)
+- [ ] Push notification registration code added to Capacitor app
+- [ ] Stream Chat webhook updated to send FCM push on new message
+- [ ] Stale token cleanup implemented (handle FCM invalid token errors)
 
 ### Phase 7: Store Submission
 - [ ] App Store listing created (screenshots, description, privacy policy URL)
@@ -1008,19 +1013,65 @@ Clerk should work with configured deep links, but the OAuth redirect chain (sign
 
 ### Push Notifications Setup (Future)
 
-**Not needed for initial release**, but here's how to set up later:
+**Not needed for initial release**, but here's how to set up later.
 
-**iOS:**
-1. Generate APNs certificate in Apple Developer Portal
-2. Upload to Stream Chat dashboard (if using Stream for push)
-3. Register device token in app
+#### Architecture Decision: FCM Direct (recommended)
 
-**Android:**
-1. Set up Firebase Cloud Messaging (FCM)
-2. Add `google-services.json` to Android project
-3. Configure FCM in Stream Chat dashboard
+Use **Firebase Cloud Messaging (FCM) directly** rather than a third-party service like OneSignal. FCM is free, handles both iOS and Android from a single API, and is manageable given the existing Next.js + Supabase backend.
 
-**Code:**
+**How it works:**
+- iOS push still goes through Apple APNs under the hood — FCM manages that complexity for you
+- From your server's perspective, one FCM API call handles both platforms
+- FCM is free for push delivery; no subscriber limits
+
+**Why not OneSignal:** OneSignal adds token management and a dashboard on top of FCM, but we can store tokens in Supabase ourselves and don't need the extra vendor dependency or marketing features.
+
+#### Notification Strategy: Push + Email Fallback
+
+~50% of users will be web-only, so push notifications cannot replace email — they are an additional layer:
+
+1. Stream Chat webhook fires when a message arrives (already implemented)
+2. Send push notification immediately to native app users
+3. Email notification still queues as normal (1-hour delay)
+4. If user reads the message (checked via Stream Chat API), email is canceled
+5. If user opens the app (FCM open tracking), email can also be canceled
+
+This means the existing `pending_email_notifications` system stays as the backbone — push is just a faster path for native users.
+
+#### Token Storage Schema (Supabase)
+
+```
+device_tokens table:
+- user_id
+- platform (ios / android)
+- push_token
+- app_build / environment (dev, prod)
+- device_id (generated installation id)
+- created_at
+- last_seen_at
+- notifications_enabled
+```
+
+Token management notes:
+- Upsert token on app launch (tokens can rotate)
+- Handle FCM error responses: mark invalid tokens inactive or delete
+- Tokens can expire after long inactivity on Android — pruning matters
+
+#### Dev vs Prod Isolation
+
+- Dev Firebase project → tokens stored in dev Supabase
+- Prod Firebase project → tokens stored in prod Supabase
+- iOS note: APNs has two environments (sandbox for dev/Xcode builds, production for App Store). Firebase handles this distinction automatically based on build type.
+
+#### Implementation Steps (when ready)
+
+**Setup:**
+1. Create Firebase project (free)
+2. Generate APNs auth key in Apple Developer Portal → upload to Firebase
+3. Add `google-services.json` to Android project
+4. Add `GoogleService-Info.plist` to iOS project
+
+**App-side (Capacitor):**
 ```typescript
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -1030,12 +1081,21 @@ await PushNotifications.requestPermissions();
 // Register with platform
 await PushNotifications.register();
 
-// Handle tokens
+// Send token to your backend
 PushNotifications.addListener('registration', (token) => {
-  console.log('Push token:', token.value);
-  // Send to Stream Chat or your backend
+  // POST token to /api/push/register → store in Supabase device_tokens
+});
+
+// Handle token refresh
+PushNotifications.addListener('registrationError', (err) => {
+  console.error('Push registration error:', err);
 });
 ```
+
+**Server-side:**
+- Add `/api/push/register` route to upsert device tokens
+- Modify Stream Chat webhook handler to also call FCM when message arrives
+- Keep this in Next.js API routes (not Supabase Edge Functions) for consistency with existing webhook infrastructure
 
 ---
 
