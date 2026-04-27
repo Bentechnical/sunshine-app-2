@@ -7,9 +7,25 @@ import { useRouter } from 'next/navigation';
 import { SignOutButton } from '@clerk/nextjs';
 
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { DashboardUIProvider } from '@/contexts/DashboardUIContext';
+import { DashboardUIProvider, useDashboardUI } from '@/contexts/DashboardUIContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useSupabaseClient } from '@/utils/supabase/client';
+
+// Reads UI state from context and passes it as props to DashboardLayout.
+// Must be rendered inside DashboardUIProvider.
+function DashboardInner({ children, profileImage, role }: { children: ReactNode; profileImage: string; role: 'individual' | 'volunteer' | 'admin' }) {
+  const { hideMobileNav, noMobileTopPadding } = useDashboardUI();
+  return (
+    <DashboardLayout
+      profileImage={profileImage}
+      role={role}
+      hideMobileNav={hideMobileNav}
+      noMobileTopPadding={noMobileTopPadding}
+    >
+      {children}
+    </DashboardLayout>
+  );
+}
 
 export default function DashboardRootLayout({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
@@ -106,9 +122,9 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
 
   return (
     <DashboardUIProvider>
-      <DashboardLayout profileImage={profileImage} role={role as 'individual' | 'volunteer' | 'admin'}>
+      <DashboardInner profileImage={profileImage} role={role as 'individual' | 'volunteer' | 'admin'}>
         {children}
-      </DashboardLayout>
+      </DashboardInner>
     </DashboardUIProvider>
   );
 }

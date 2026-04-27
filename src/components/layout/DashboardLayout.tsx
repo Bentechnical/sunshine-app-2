@@ -10,7 +10,6 @@ import MobileNav from './MobileNav';
 import MobileNavAdmin from './MobileNavAdmin';
 import { SignOutButton } from '@clerk/clerk-react';
 import { UnreadCountProvider } from '@/contexts/UnreadCountContext';
-import { useDashboardUI } from '@/contexts/DashboardUIContext';
 
 // Maps URL pathnames to ActiveTab keys (used by admin nav and layout styling)
 export function pathnameToActiveTab(pathname: string): ActiveTab {
@@ -25,6 +24,8 @@ interface DashboardLayoutProps {
   profileImage: string;
   role: 'individual' | 'volunteer' | 'admin';
   children: ReactNode;
+  hideMobileNav?: boolean;
+  noMobileTopPadding?: boolean;
   // Admin page passes these directly since it manages its own tab state
   activeTab?: ActiveTab;
   setActiveTab?: React.Dispatch<React.SetStateAction<ActiveTab>>;
@@ -46,25 +47,14 @@ export default function DashboardLayout({
   profileImage,
   role,
   children,
+  hideMobileNav = false,
+  noMobileTopPadding = false,
   activeTab: adminActiveTab,
   setActiveTab: adminSetActiveTab,
   refreshTrigger,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const activeTab = adminActiveTab ?? pathnameToActiveTab(pathname);
-
-  // hideMobileNav and noMobileTopPadding come from context (set by sub-pages like MessagingTab)
-  // Admin renders DashboardLayout outside DashboardUIProvider so we fall back gracefully
-  let hideMobileNav = false;
-  let noMobileTopPadding = false;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const ui = useDashboardUI();
-    hideMobileNav = ui.hideMobileNav;
-    noMobileTopPadding = ui.noMobileTopPadding;
-  } catch {
-    // Admin page doesn't wrap with DashboardUIProvider — use defaults
-  }
 
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 

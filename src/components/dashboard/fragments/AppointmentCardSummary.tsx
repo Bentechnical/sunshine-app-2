@@ -9,9 +9,6 @@ import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface Props {}
-
 interface Appointment {
   id: number;
   start_time: string;
@@ -21,7 +18,7 @@ interface Appointment {
   status: 'pending' | 'confirmed' | 'cancelled';
 }
 
-export default function AppointmentSummaryCard({}: Props) {
+export default function AppointmentSummaryCard() {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const { user } = useUser();
