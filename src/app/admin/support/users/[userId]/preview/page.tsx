@@ -102,7 +102,7 @@ export default async function SupportPreviewRoute({ params }: PageProps) {
       adminUserId={adminUserId}
       targetUser={targetUser as UserProfile}
       dog={dog}
-      appointments={(appointments ?? []) as AppointmentRow[]}
+      appointments={(appointments ?? []) as unknown as AppointmentRow[]}
     />
   );
 }
