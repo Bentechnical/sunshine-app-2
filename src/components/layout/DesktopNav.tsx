@@ -1,60 +1,59 @@
-  // src/components/layout/DesktopNav.tsx
-  import { Dispatch, SetStateAction } from 'react';
-  import { ActiveTab } from '@/types/navigation';
-  import { useNavNotifications } from '@/hooks/useNavNotifications';
+// src/components/layout/DesktopNav.tsx
+'use client';
 
-  export interface DesktopNavProps {
-    role: 'individual' | 'volunteer' | 'admin';
-    activeTab: ActiveTab;
-    setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
-  }
+import { useRouter, usePathname } from 'next/navigation';
+import { useNavNotifications } from '@/hooks/useNavNotifications';
 
-  export function DesktopNav({ role, activeTab, setActiveTab }: DesktopNavProps) {
-    const { hasUnreadMessages } = useNavNotifications(activeTab);
+export interface DesktopNavProps {
+  role: 'individual' | 'volunteer' | 'admin';
+}
 
-    // Only log when showing alert
-    if (hasUnreadMessages) {
-      console.log('[DesktopNav] Showing unread alert:', { activeTab, hasUnreadMessages });
-    }
+export function DesktopNav({ role }: DesktopNavProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { hasUnreadMessages } = useNavNotifications();
 
-    const tabs: { label: string; key: ActiveTab; showAlert?: boolean }[] =
+  const tabs: { label: string; path: string; showAlert?: boolean }[] =
     role === 'individual'
       ? [
-          { key: 'dashboard-home', label: 'Home' },
-          { key: 'meet-with-dog', label: 'Meet a Dog' },
-          { key: 'my-visits', label: 'My Visits' },
-          { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
+          { path: '/dashboard', label: 'Home' },
+          { path: '/dashboard/meet', label: 'Meet a Dog' },
+          { path: '/dashboard/visits', label: 'My Visits' },
+          { path: '/dashboard/messages', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : role === 'volunteer'
       ? [
-          { key: 'dashboard-home', label: 'Home' },
-          { key: 'connect-with-people', label: 'Connect with People' },
-          { key: 'my-visits', label: 'My Visits' },
-          { key: 'messaging', label: 'Messages', showAlert: hasUnreadMessages },
+          { path: '/dashboard', label: 'Home' },
+          { path: '/dashboard/connect', label: 'Connect with People' },
+          { path: '/dashboard/visits', label: 'My Visits' },
+          { path: '/dashboard/messages', label: 'Messages', showAlert: hasUnreadMessages },
         ]
       : [];
 
-    return (
-      <nav className="flex flex-col gap-2 text-base">
-        {tabs.map(({ key, label, showAlert }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`inline-flex items-center gap-2 whitespace-nowrap text-sm h-9 w-full justify-start rounded-lg px-4 py-2 text-left font-medium transition-colors relative
-              ${
-                activeTab === key
-                  ? 'bg-[var(--card)] text-[var(--primary)]'
-                  : 'text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
-              }`}
-          >
-            {label}
-            {showAlert && (
-              <span className="absolute top-1/2 -translate-y-1/2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                !
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
-    );
-  }
+  const isActive = (path: string) =>
+    path === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(path);
+
+  return (
+    <nav className="flex flex-col gap-2 text-base">
+      {tabs.map(({ path, label, showAlert }) => (
+        <button
+          key={path}
+          onClick={() => router.push(path)}
+          className={`inline-flex items-center gap-2 whitespace-nowrap text-sm h-9 w-full justify-start rounded-lg px-4 py-2 text-left font-medium transition-colors relative
+            ${
+              isActive(path)
+                ? 'bg-[var(--card)] text-[var(--primary)]'
+                : 'text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
+            }`}
+        >
+          {label}
+          {showAlert && (
+            <span className="absolute top-1/2 -translate-y-1/2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              !
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
+  );
+}

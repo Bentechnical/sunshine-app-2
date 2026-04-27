@@ -2,18 +2,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
-interface Props {
-  role: 'volunteer';
-  setActiveTab: (
-    tab: 'dashboard-home' | 'my-visits' | 'messaging' | 'my-therapy-dog'
-  ) => void;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface Props {}
 
 interface Appointment {
   id: number;
@@ -24,7 +21,8 @@ interface Appointment {
   status: 'pending' | 'confirmed' | 'cancelled';
 }
 
-export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
+export default function AppointmentSummaryCard({}: Props) {
+  const router = useRouter();
   const supabase = useSupabaseClient();
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
@@ -95,7 +93,7 @@ export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
             <p className="text-sm text-blue-800 mb-3">
               Please review and respond promptly.
             </p>
-            <Button onClick={() => setActiveTab('my-visits')}>Review Requests</Button>
+            <Button onClick={() => router.push('/dashboard/visits')}>Review Requests</Button>
           </>
         ) : (
           <p className="text-sm text-muted-foreground italic">

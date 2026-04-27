@@ -20,11 +20,7 @@ interface IndividualResult {
   matching_categories: string[] | null;
 }
 
-interface IndividualDirectoryProps {
-  onGoToChat: () => void;
-}
-
-export default function IndividualDirectory({ onGoToChat }: IndividualDirectoryProps) {
+export default function IndividualDirectory() {
   const supabase = useSupabaseClient();
   const { user } = useUser();
 
@@ -74,7 +70,6 @@ export default function IndividualDirectory({ onGoToChat }: IndividualDirectoryP
         dogId={myDogId}
         distanceKm={selectedDistance}
         onBack={() => setSelectedId(null)}
-        onGoToChat={onGoToChat}
       />
     );
   }

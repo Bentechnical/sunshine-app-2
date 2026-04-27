@@ -3,17 +3,14 @@
 
 import AnnouncementBanner from './fragments/AnnouncementBanner';
 import NextAppointmentCard from './fragments/NextAppointmentCard';
-import SuggestedDogsPreview from './fragments/SuggestedDogsPreview';
 import ProfileCardBlock from './fragments/ProfileCardBlock';
-import type { ActiveTab } from '@/types/navigation';
 
 interface Props {
   userId: string;
   role: 'individual';
-  setActiveTab: (tab: ActiveTab) => void;
 }
 
-export default function DashboardHomeIndividual({ userId, role, setActiveTab }: Props) {
+export default function DashboardHomeIndividual({ role }: Props) {
   return (
     <div className="flex flex-col gap-2 px-2 md:px-4 h-auto lg:h-[90vh] pb-4">
       {/* Banner */}
@@ -26,7 +23,7 @@ export default function DashboardHomeIndividual({ userId, role, setActiveTab }: 
 
         {/* Left Column: Upcoming Appointment */}
         <div className="col-span-1 rounded-2xl bg-white shadow p-2 max-h-[90vh] overflow-y-auto">
-          <NextAppointmentCard role={role} setActiveTab={setActiveTab} />
+          <NextAppointmentCard role={role} />
         </div>
 
         {/* Right Column: Profile */}

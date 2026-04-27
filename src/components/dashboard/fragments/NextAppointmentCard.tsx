@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
 import { Loader2 } from 'lucide-react';
@@ -10,9 +11,6 @@ import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization'
 
 interface Props {
   role: 'individual' | 'volunteer';
-  setActiveTab: (
-    tab: 'dashboard-home' | 'my-visits' | 'meet-with-dog' | 'messaging' | 'my-therapy-dog'
-  ) => void;
 }
 
 interface AppointmentData {
@@ -26,7 +24,8 @@ interface AppointmentData {
   volunteer_last_name?: string;
 }
 
-export default function NextAppointmentCard({ role, setActiveTab }: Props) {
+export default function NextAppointmentCard({ role }: Props) {
+  const router = useRouter();
   const supabase = useSupabaseClient();
   const { user } = useUser();
 
@@ -82,7 +81,7 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
         Looks like you don't have any visits scheduled yet. Once you request or confirm a session, you'll see it here!
       </p>
       <button
-        onClick={() => setActiveTab(role === 'individual' ? 'meet-with-dog' : 'my-visits')}
+        onClick={() => router.push(role === 'individual' ? '/dashboard/meet' : '/dashboard/visits')}
         className="mt-2 px-4 py-2 bg-[#0e62ae] hover:bg-[#094e8b] text-white text-sm rounded-md"
       >
         {role === 'individual' ? 'Explore Therapy Dogs' : 'View My Visits'}
@@ -157,7 +156,7 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
 
         <div className="pt-3 mt-auto mb-2">
           <button
-            onClick={() => setActiveTab('my-visits')}
+            onClick={() => router.push('/dashboard/visits')}
             className="w-full px-4 py-2 text-white bg-[#0e62ae] hover:bg-[#094e8b] rounded-lg text-sm font-medium"
           >
             Manage Visits
