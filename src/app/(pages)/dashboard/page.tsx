@@ -3,8 +3,6 @@
 
 import { useUser } from '@clerk/clerk-react';
 import { SignOutButton } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
-
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import PendingChatRequests from '@/components/chat/PendingChatRequests';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -12,7 +10,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 export default function DashboardHomePage() {
   const { user } = useUser();
   const { role } = useUserProfile();
-  const router = useRouter();
 
   const userId = user?.id ?? '';
 
@@ -20,10 +17,7 @@ export default function DashboardHomePage() {
 
   return (
     <main className="flex-grow p-4">
-      <PendingChatRequests
-        onGoToChat={() => router.push('/dashboard/messages')}
-        onGoToVisits={() => router.push('/dashboard/visits')}
-      />
+      <PendingChatRequests />
       <DashboardHome
         userId={userId}
         role={role as 'volunteer' | 'individual'}
