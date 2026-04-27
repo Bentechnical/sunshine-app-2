@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface DogProfile {
@@ -622,6 +623,15 @@ export default function ManageUsersTab() {
                               />
                               <span className="font-medium text-gray-700">Visible in search</span>
                             </label>
+                            <Link
+                              href={`/admin/support/users/${user.id}/preview`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition"
+                            >
+                              Preview Dashboard
+                            </Link>
                             <button
                               onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
                               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
@@ -771,6 +781,15 @@ export default function ManageUsersTab() {
                               />
                               <span className="font-medium text-gray-700">Visible in search</span>
                             </label>
+                            <Link
+                              href={`/admin/support/users/${user.id}/preview`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition"
+                            >
+                              Preview Dashboard
+                            </Link>
                             <button
                               onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
                               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"

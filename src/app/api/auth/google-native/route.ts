@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 
-const WEB_CLIENT_ID = '142761696447-2gervhsatt4eme82dblrsodg9luvnn1q.apps.googleusercontent.com';
-const ANDROID_CLIENT_ID = '142761696447-au3r05jvvm94rkijvb215vlj094hag2e.apps.googleusercontent.com';
+const WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID!;
+const ANDROID_CLIENT_ID = process.env.GOOGLE_ANDROID_CLIENT_ID!;
 
 export async function POST(request: NextRequest) {
   try {
