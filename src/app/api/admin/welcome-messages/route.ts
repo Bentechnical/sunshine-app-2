@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { requireAdmin } from '@/utils/requireAdmin';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const supabase = createSupabaseAdminClient();
     
@@ -23,6 +27,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const supabase = createSupabaseAdminClient();
     const { userType, message, isActive } = await request.json();

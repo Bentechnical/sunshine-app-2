@@ -1,8 +1,12 @@
 import { getAppUrl } from '@/app/utils/getAppUrl';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 export async function POST(req: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const { to, subject, templateName, data } = await req.json();
 

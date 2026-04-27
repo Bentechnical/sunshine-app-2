@@ -1,8 +1,12 @@
 // src/app/api/admin/approved-users/route.ts
 import { NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 export async function GET() {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   const supabase = createSupabaseAdminClient();
 
   try {

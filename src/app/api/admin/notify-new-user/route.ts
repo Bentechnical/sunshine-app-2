@@ -1,8 +1,12 @@
 // src/app/api/admin/notify-new-user/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '../../../utils/mailer';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 export async function POST(req: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     console.log('[notify-new-user] 📥 Received request');
     const body = await req.json();

@@ -1,5 +1,32 @@
 import type { NextConfig } from 'next';
 
+const securityHeaders = [
+  {
+    key: 'X-Content-Type-Options',
+    value: 'nosniff',
+  },
+  {
+    key: 'X-Frame-Options',
+    value: 'DENY',
+  },
+  {
+    key: 'Referrer-Policy',
+    value: 'strict-origin-when-cross-origin',
+  },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+  },
+  {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=63072000; includeSubDomains; preload',
+  },
+  {
+    key: 'X-DNS-Prefetch-Control',
+    value: 'on',
+  },
+];
+
 const nextConfig: NextConfig = {
   // Disable React Strict Mode in development to avoid double-invoking effects
   // which can interfere with websocket initialization timing. It has no
@@ -9,7 +36,19 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    domains: ['img.clerk.com', 'rodqnqzfjixznlblnlpe.supabase.co', 'gwuqfhpkncwzykhlcvcp.supabase.co'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'img.clerk.com' },
+      { protocol: 'https', hostname: 'rodqnqzfjixznlblnlpe.supabase.co' },
+      { protocol: 'https', hostname: 'gwuqfhpkncwzykhlcvcp.supabase.co' },
+    ],
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ];
   },
   webpack: (config) => {
     // Suppress known dev-only warnings from supabase realtime client
