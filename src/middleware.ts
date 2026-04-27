@@ -21,8 +21,7 @@ const isApiRoute = (path:string) =>
 
 // Admin dashboard routes that should be accessible to authenticated admin users
 const isAdminDashboardRoute = (path: string) =>
-  path.startsWith('/dashboard/admin') ||
-  path.startsWith('/admin/support');
+  path.startsWith('/dashboard/admin');
 
 // Skip routes that shouldn't trigger middleware logic
 const isBypassablePath = (path: string) =>
