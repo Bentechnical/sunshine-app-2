@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { EMAIL_NOTIFICATION_DELAY_MS } from '@/utils/notificationConfig';
 
+function verifyStreamSignature(body: string, signature: string): boolean {
+  const secret = process.env.STREAM_CHAT_SECRET;
+  if (!secret) return false;
+  const hmac = createHmac('sha256', secret);
+  hmac.update(body);
+  return hmac.digest('hex') === signature;
+}
+
 export async function POST(request: NextRequest) {
   const timestamp = new Date().toISOString();
-  console.log(`[Stream Chat Webhook] 🔗 ${timestamp} - Webhook request received:`, {
-    method: request.method,
-    url: request.url,
-    timestamp,
-    headers: {
-      'content-type': request.headers.get('content-type'),
-      'user-agent': request.headers.get('user-agent'),
-      host: request.headers.get('host'),
-      origin: request.headers.get('origin'),
-      'x-forwarded-for': request.headers.get('x-forwarded-for'),
-      'x-vercel-id': request.headers.get('x-vercel-id')
-    }
-  });
+
+  const signature = request.headers.get('x-signature') ?? '';
+  const rawBody = await request.text();
+
+  if (!verifyStreamSignature(rawBody, signature)) {
+    console.warn(`[Stream Chat Webhook] Invalid signature - rejecting request`);
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
 
   try {
-    const payload = await request.json();
-
-    // TODO: Add Stream Chat webhook signature verification
-    // For now, we'll process the webhook without verification
-    // In production, you should verify the webhook signature
+    const payload = JSON.parse(rawBody);
 
     console.log(`[Stream Chat Webhook] ✅ ${timestamp} - Received event:`, {
       type: payload.type,

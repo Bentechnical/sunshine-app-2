@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '../../utils/mailer';
 import { formatAppointmentTime } from '@/utils/dateFormat';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 // Sample data for testing
 const sampleData = {
@@ -184,6 +185,9 @@ const emailTemplates = [
 ];
 
 export async function POST(req: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const { testEmail, templateName, customData } = await req.json();
     
@@ -280,7 +284,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  // Return available templates for reference
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   return NextResponse.json({
     success: true,
     templates: emailTemplates.map(t => ({

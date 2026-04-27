@@ -1,8 +1,12 @@
 // src/app/api/admin/appointments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 export async function GET(req: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const supabase = createSupabaseAdminClient();
     const { searchParams } = new URL(req.url);

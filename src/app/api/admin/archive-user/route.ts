@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { formatAppointmentTime } from '@/utils/dateFormat';
 import { closeAppointmentChat } from '@/utils/stream-chat';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 interface ActiveAppointment {
   id: number;
@@ -17,6 +18,9 @@ interface ActiveAppointment {
 }
 
 export async function POST(req: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const supabase = createSupabaseAdminClient();
     const body = await req.json();

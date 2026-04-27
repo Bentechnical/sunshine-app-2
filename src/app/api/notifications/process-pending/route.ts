@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
@@ -7,15 +7,14 @@ import { formatEmailDateTime } from '@/utils/dateUtils';
 /**
  * Cron job to process pending email notifications
  * Runs every 30 minutes via Vercel Cron
- *
- * Strategy:
- * 1. Find all pending notifications that are ready (scheduled_for <= now)
- * 2. Group by user_id
- * 3. For each user, grab ALL their pending notifications (look-ahead batching)
- * 4. Group by channel and check Stream Chat for unread status
- * 5. Send ONE email per user with all unread conversations
+ * Protected by CRON_SECRET bearer token (same as close-chats cron).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const timestamp = new Date().toISOString();
   console.log(`[Notification Cron] 🔔 ${timestamp} - Starting notification processing`);
 

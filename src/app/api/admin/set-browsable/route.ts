@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { requireAdmin } from '@/utils/requireAdmin';
 
 export async function POST(request: NextRequest) {
+  const check = await requireAdmin();
+  if ('error' in check) return check.error;
+
   try {
     const { user_id, is_browsable } = await request.json();
 
