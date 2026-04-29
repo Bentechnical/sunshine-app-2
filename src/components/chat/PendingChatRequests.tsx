@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -25,12 +26,8 @@ interface PendingProposal {
   proposer_first_name: string;
 }
 
-interface PendingChatRequestsProps {
-  onGoToChat: () => void;
-  onGoToVisits?: () => void;
-}
-
-export default function PendingChatRequests({ onGoToChat, onGoToVisits }: PendingChatRequestsProps) {
+export default function PendingChatRequests() {
+  const router = useRouter();
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
@@ -119,7 +116,7 @@ export default function PendingChatRequests({ onGoToChat, onGoToVisits }: Pendin
       });
       if (res.ok) {
         setRequests((prev) => prev.filter((r) => r.id !== requestId));
-        onGoToChat();
+        router.push('/dashboard/messages');
       }
     } finally {
       setSubmitting(null);
@@ -229,7 +226,7 @@ export default function PendingChatRequests({ onGoToChat, onGoToVisits }: Pendin
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={onGoToVisits}
+                    onClick={() => router.push('/dashboard/visits')}
                   >
                     Review
                   </Button>

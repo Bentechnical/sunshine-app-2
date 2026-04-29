@@ -2,17 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
-import { Loader2 } from 'lucide-react';
 import { formatDashboardDate, formatDashboardTime } from '@/utils/timeZone';
 import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
 interface Props {
   role: 'individual' | 'volunteer';
-  setActiveTab: (
-    tab: 'dashboard-home' | 'my-visits' | 'meet-with-dog' | 'messaging' | 'my-therapy-dog'
-  ) => void;
 }
 
 interface AppointmentData {
@@ -26,7 +23,8 @@ interface AppointmentData {
   volunteer_last_name?: string;
 }
 
-export default function NextAppointmentCard({ role, setActiveTab }: Props) {
+export default function NextAppointmentCard({ role }: Props) {
+  const router = useRouter();
   const supabase = useSupabaseClient();
   const { user } = useUser();
 
@@ -57,8 +55,22 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[150px]">
-        <Loader2 className="animate-spin text-gray-500" />
+      <div className="space-y-4 pt-1 px-2 animate-pulse">
+        <div className="h-7 w-40 bg-gray-200 rounded" />
+        <div className="w-full aspect-[4/3] md:aspect-video lg:aspect-square bg-gray-200 rounded-xl" />
+        <div className="space-y-2 pt-1">
+          <div className="h-5 w-32 bg-gray-200 rounded" />
+          <div className="flex gap-2">
+            <div className="h-5 w-24 bg-gray-200 rounded-full" />
+            <div className="h-5 w-16 bg-gray-200 rounded-full" />
+          </div>
+        </div>
+        <div className="h-px bg-gray-100" />
+        <div className="p-3 bg-blue-50 rounded-lg space-y-1.5">
+          <div className="h-4 w-48 bg-blue-100 rounded" />
+          <div className="h-3 w-24 bg-blue-100 rounded" />
+        </div>
+        <div className="h-9 w-full bg-gray-200 rounded-lg" />
       </div>
     );
   }
@@ -82,7 +94,7 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
         Looks like you don't have any visits scheduled yet. Once you request or confirm a session, you'll see it here!
       </p>
       <button
-        onClick={() => setActiveTab(role === 'individual' ? 'meet-with-dog' : 'my-visits')}
+        onClick={() => router.push(role === 'individual' ? '/dashboard/meet' : '/dashboard/visits')}
         className="mt-2 px-4 py-2 bg-[#0e62ae] hover:bg-[#094e8b] text-white text-sm rounded-md"
       >
         {role === 'individual' ? 'Explore Therapy Dogs' : 'View My Visits'}
@@ -157,7 +169,7 @@ export default function NextAppointmentCard({ role, setActiveTab }: Props) {
 
         <div className="pt-3 mt-auto mb-2">
           <button
-            onClick={() => setActiveTab('my-visits')}
+            onClick={() => router.push('/dashboard/visits')}
             className="w-full px-4 py-2 text-white bg-[#0e62ae] hover:bg-[#094e8b] rounded-lg text-sm font-medium"
           >
             Manage Visits

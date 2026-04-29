@@ -6,6 +6,7 @@ import StreamChatCleanup from '@/components/layout/StreamChatCleanup';
 import OrientationLock from '@/components/layout/OrientationLock';
 import MobileDebugger from '@/components/layout/MobileDebugger';
 import CapacitorDeepLinkHandler from '@/components/layout/CapacitorDeepLinkHandler';
+import Providers from '@/components/layout/Providers';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -46,7 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <StreamChatCleanup />
           <OrientationLock />
           <CapacitorDeepLinkHandler />
-          {children}
+          <Providers>
+            {children}
+          </Providers>
         </body>
       </html>
     </ClerkProvider>

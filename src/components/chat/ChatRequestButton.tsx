@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,14 +16,13 @@ type RequestStatus =
 interface ChatRequestButtonProps {
   recipientId: string;
   dogId: number;
-  onGoToChat: () => void;
 }
 
 export default function ChatRequestButton({
   recipientId,
   dogId,
-  onGoToChat,
 }: ChatRequestButtonProps) {
+  const router = useRouter();
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
@@ -122,7 +122,7 @@ export default function ChatRequestButton({
         setError(data.error ?? 'Failed to accept request');
       } else {
         setStatus('accepted');
-        onGoToChat();
+        router.push('/dashboard/messages');
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -199,7 +199,7 @@ export default function ChatRequestButton({
       )}
 
       {status === 'accepted' && (
-        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={onGoToChat}>
+        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => router.push('/dashboard/messages')}>
           Go to Chat
         </Button>
       )}

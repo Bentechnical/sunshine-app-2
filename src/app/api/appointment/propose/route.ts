@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
             locationLabel: location_details ? `${locationLabel} — ${location_details}` : locationLabel,
             notes: notes || null,
             isModification,
-            dashboardLink: `${getAppUrl()}/dashboard`,
+            dashboardLink: `${getAppUrl()}/dashboard/visits`,
             year: new Date().getFullYear(),
           },
         });

@@ -29,10 +29,9 @@ interface Volunteer {
 interface DogProfileProps {
   dogId: string;
   onBack: () => void;
-  onGoToChat: () => void;
 }
 
-export default function DogProfile({ dogId, onBack, onGoToChat }: DogProfileProps) {
+export default function DogProfile({ dogId, onBack }: DogProfileProps) {
   const supabase = useSupabaseClient();
 
   const [dog, setDog] = useState<Dog | null>(null);
@@ -168,7 +167,6 @@ export default function DogProfile({ dogId, onBack, onGoToChat }: DogProfileProp
                 <ChatRequestButton
                   recipientId={dog.volunteer_id}
                   dogId={dog.id}
-                  onGoToChat={onGoToChat}
                 />
               )}
             </div>

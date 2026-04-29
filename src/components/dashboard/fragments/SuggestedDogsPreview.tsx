@@ -3,6 +3,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -14,13 +15,8 @@ interface Dog {
   dog_picture_url: string;
 }
 
-interface Props {
-  setActiveTab: (
-    tab: 'dashboard-home' | 'my-visits' | 'meet-with-dog' | 'messaging' | 'my-therapy-dog'
-  ) => void;
-}
-
-export default function SuggestedDogsPreview({ setActiveTab }: Props) {
+export default function SuggestedDogsPreview() {
+  const router = useRouter();
   const supabase = useSupabaseClient();
   const { user } = useUser();
   const [dogs, setDogs] = useState<Dog[]>([]);
@@ -66,7 +62,7 @@ export default function SuggestedDogsPreview({ setActiveTab }: Props) {
 
       <Button
         className="w-full mt-auto"
-        onClick={() => setActiveTab('meet-with-dog')}
+        onClick={() => router.push('/dashboard/meet')}
       >
         Explore Dogs
       </Button>

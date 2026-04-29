@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
             firstName: requester.first_name,
             recipientName: recipient?.first_name ?? 'your match',
             dogName,
-            dashboardLink: getAppUrl() + '/dashboard',
+            dashboardLink: getAppUrl() + '/dashboard/messages',
             year: new Date().getFullYear(),
           },
         });

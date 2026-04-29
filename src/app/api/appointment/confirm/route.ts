@@ -1,6 +1,7 @@
 //src/app/api/appointment/confirm/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
@@ -9,6 +10,11 @@ import { formatAppointmentTime } from '@/utils/dateFormat';
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const supabase = createSupabaseAdminClient();
 
     const { appointmentId } = await req.json();
@@ -35,6 +41,10 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Appointment not found.' },
         { status: 404 }
       );
+    }
+
+    if (userId !== appointment.individual_id && userId !== appointment.volunteer_id) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const { data: individual, error: individualError } = await supabase
@@ -111,7 +121,7 @@ export async function POST(req: NextRequest) {
       dogName: dogData?.dog_name || 'N/A',
       firstName: volunteer.first_name,
       individualName: individual.first_name,
-      dashboardLink: `${getAppUrl()}/dashboard`,
+      dashboardLink: `${getAppUrl()}/dashboard/visits`,
       year: new Date().getFullYear(),
     };
 

@@ -120,10 +120,7 @@ export async function POST(request: NextRequest) {
     console.error('[Chat Create API] Error details:', { message: errorMessage, stack: errorStack });
 
     return NextResponse.json(
-      {
-        error: 'Failed to create chat channel',
-        details: errorMessage // Include error details in response for debugging
-      },
+      { error: 'Failed to create chat channel' },
       { status: 500 }
     );
   }

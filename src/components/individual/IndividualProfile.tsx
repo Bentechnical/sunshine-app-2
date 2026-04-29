@@ -27,7 +27,6 @@ interface IndividualProfileProps {
   dogId: number | null;
   distanceKm: number;
   onBack: () => void;
-  onGoToChat: () => void;
 }
 
 export default function IndividualProfile({
@@ -35,7 +34,6 @@ export default function IndividualProfile({
   dogId,
   distanceKm,
   onBack,
-  onGoToChat,
 }: IndividualProfileProps) {
   const supabase = useSupabaseClient();
   const [profile, setProfile] = useState<IndividualProfileData | null>(null);
@@ -203,7 +201,6 @@ export default function IndividualProfile({
                 <ChatRequestButton
                   recipientId={individualId}
                   dogId={dogId}
-                  onGoToChat={onGoToChat}
                 />
               </div>
             )}

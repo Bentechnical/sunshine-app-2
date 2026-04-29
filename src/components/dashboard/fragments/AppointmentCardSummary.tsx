@@ -2,18 +2,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
-import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-
-interface Props {
-  role: 'volunteer';
-  setActiveTab: (
-    tab: 'dashboard-home' | 'my-visits' | 'messaging' | 'my-therapy-dog'
-  ) => void;
-}
 
 interface Appointment {
   id: number;
@@ -24,7 +17,8 @@ interface Appointment {
   status: 'pending' | 'confirmed' | 'cancelled';
 }
 
-export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
+export default function AppointmentSummaryCard() {
+  const router = useRouter();
   const supabase = useSupabaseClient();
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
@@ -76,8 +70,17 @@ export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <Loader2 className="animate-spin w-5 h-5 text-muted-foreground" />
+      <div className="space-y-4 p-2 pb-3 animate-pulse">
+        <div className="h-7 w-36 bg-gray-200 rounded" />
+        <div className="rounded-lg bg-blue-50 p-4 space-y-2">
+          <div className="h-4 w-48 bg-blue-100 rounded" />
+          <div className="h-3 w-64 bg-blue-100 rounded" />
+        </div>
+        <div className="rounded-lg bg-green-50 p-4 space-y-2">
+          <div className="h-4 w-24 bg-green-100 rounded" />
+          <div className="h-3 w-40 bg-green-100 rounded" />
+          <div className="h-3 w-48 bg-green-100 rounded" />
+        </div>
       </div>
     );
   }
@@ -95,7 +98,7 @@ export default function AppointmentSummaryCard({ role, setActiveTab }: Props) {
             <p className="text-sm text-blue-800 mb-3">
               Please review and respond promptly.
             </p>
-            <Button onClick={() => setActiveTab('my-visits')}>Review Requests</Button>
+            <Button onClick={() => router.push('/dashboard/visits')}>Review Requests</Button>
           </>
         ) : (
           <p className="text-sm text-muted-foreground italic">

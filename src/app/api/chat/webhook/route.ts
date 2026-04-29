@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { EMAIL_NOTIFICATION_DELAY_MS } from '@/utils/notificationConfig';
 
@@ -8,7 +8,10 @@ function verifyStreamSignature(body: string, signature: string): boolean {
   if (!secret) return false;
   const hmac = createHmac('sha256', secret);
   hmac.update(body);
-  return hmac.digest('hex') === signature;
+  const digest = Buffer.from(hmac.digest('hex'));
+  const sig = Buffer.from(signature);
+  if (digest.length !== sig.length) return false;
+  return timingSafeEqual(digest, sig);
 }
 
 export async function POST(request: NextRequest) {
