@@ -262,7 +262,7 @@
 }
 
 .page-enter {
-  animation: pageEnter 150ms ease-out both;
+  animation: pageEnter 800ms ease-out both;
 }
 
 /* Improve event click consistency on mobile */
