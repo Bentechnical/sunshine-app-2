@@ -42,13 +42,6 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
     }
   }, [isLoaded, user, router]);
 
-  // Redirect admins to admin dashboard
-  useEffect(() => {
-    if (!loading && role === 'admin') {
-      router.push('/dashboard/admin');
-    }
-  }, [role, loading, router]);
-
   // Redirect to /complete-profile if profile is incomplete
   useEffect(() => {
     const checkProfileComplete = async () => {
@@ -74,6 +67,9 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
   }, [isLoaded, user, supabase, router]);
 
   if (!user || loading) return null;
+
+  // Admin page manages its own DashboardLayout — skip wrapping to avoid double sidebar
+  if (role === 'admin') return <>{children}</>;
 
   // Block access if user is archived
   if (status === 'archived') {

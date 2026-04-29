@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
-import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
@@ -71,8 +70,17 @@ export default function AppointmentSummaryCard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <Loader2 className="animate-spin w-5 h-5 text-muted-foreground" />
+      <div className="space-y-4 p-2 pb-3 animate-pulse">
+        <div className="h-7 w-36 bg-gray-200 rounded" />
+        <div className="rounded-lg bg-blue-50 p-4 space-y-2">
+          <div className="h-4 w-48 bg-blue-100 rounded" />
+          <div className="h-3 w-64 bg-blue-100 rounded" />
+        </div>
+        <div className="rounded-lg bg-green-50 p-4 space-y-2">
+          <div className="h-4 w-24 bg-green-100 rounded" />
+          <div className="h-3 w-40 bg-green-100 rounded" />
+          <div className="h-3 w-48 bg-green-100 rounded" />
+        </div>
       </div>
     );
   }

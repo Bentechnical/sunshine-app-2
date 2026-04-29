@@ -16,7 +16,7 @@ export default function DashboardHomePage() {
   if (!user || !role) return null;
 
   return (
-    <main className="flex-grow p-4">
+    <main className="flex-grow p-4 page-enter">
       <PendingChatRequests />
       <DashboardHome
         userId={userId}

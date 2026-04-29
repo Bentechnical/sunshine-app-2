@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { useUser } from '@clerk/clerk-react';
-import { Loader2 } from 'lucide-react';
 import { formatDashboardDate, formatDashboardTime } from '@/utils/timeZone';
 import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
@@ -56,8 +55,22 @@ export default function NextAppointmentCard({ role }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[150px]">
-        <Loader2 className="animate-spin text-gray-500" />
+      <div className="space-y-4 pt-1 px-2 animate-pulse">
+        <div className="h-7 w-40 bg-gray-200 rounded" />
+        <div className="w-full aspect-[4/3] md:aspect-video lg:aspect-square bg-gray-200 rounded-xl" />
+        <div className="space-y-2 pt-1">
+          <div className="h-5 w-32 bg-gray-200 rounded" />
+          <div className="flex gap-2">
+            <div className="h-5 w-24 bg-gray-200 rounded-full" />
+            <div className="h-5 w-16 bg-gray-200 rounded-full" />
+          </div>
+        </div>
+        <div className="h-px bg-gray-100" />
+        <div className="p-3 bg-blue-50 rounded-lg space-y-1.5">
+          <div className="h-4 w-48 bg-blue-100 rounded" />
+          <div className="h-3 w-24 bg-blue-100 rounded" />
+        </div>
+        <div className="h-9 w-full bg-gray-200 rounded-lg" />
       </div>
     );
   }

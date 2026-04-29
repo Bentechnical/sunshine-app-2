@@ -12,7 +12,7 @@ export default function VisitsPage() {
   if (!user || !role) return null;
 
   return (
-    <main className="flex-grow p-4">
+    <main className="flex-grow p-4 page-enter">
       <MyVisits userId={user.id} role={role as 'volunteer' | 'individual'} />
       <div className="md:hidden pb-20" />
     </main>

@@ -5,7 +5,7 @@ import IndividualDirectory from '@/components/individual/IndividualDirectory';
 
 export default function ConnectPage() {
   return (
-    <main className="flex-grow">
+    <main className="flex-grow page-enter">
       <IndividualDirectory />
       <div className="md:hidden pb-20" />
     </main>
