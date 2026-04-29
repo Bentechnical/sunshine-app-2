@@ -9,7 +9,13 @@ function verifyStreamSignature(body: string, signature: string): boolean {
   if (!secret) return false;
   const hmac = createHmac('sha256', secret);
   hmac.update(body);
-  const digest = Buffer.from(hmac.digest('hex'));
+  const computedHex = hmac.digest('hex');
+  console.log('[Stream Chat Webhook] Signature debug:', {
+    computed: computedHex.substring(0, 20),
+    received: signature.substring(0, 20),
+    match: computedHex === signature,
+  });
+  const digest = Buffer.from(computedHex);
   const sig = Buffer.from(signature);
   if (digest.length !== sig.length) return false;
   return timingSafeEqual(digest, sig);
