@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
             firstName: otherRes.data.first_name,
             otherPartyName: actorRes.data?.first_name ?? 'Your partner',
             appointmentTime,
-            dashboardLink: `${getAppUrl()}/dashboard`,
+            dashboardLink: `${getAppUrl()}/dashboard/messages`,
             year: new Date().getFullYear(),
           },
         });

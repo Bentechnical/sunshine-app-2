@@ -253,7 +253,7 @@ export async function GET(request: NextRequest) {
                   recipientName: user.first_name,
                   conversationCount: conversations.length,
                   conversations,
-                  dashboardLink: 'https://sunshinedogs.app/dashboard?tab=messages',
+                  dashboardLink: 'https://sunshinedogs.app/dashboard/messages',
                   year: new Date().getFullYear()
                 }
               });

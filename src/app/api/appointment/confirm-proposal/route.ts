@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
                  appointment.location_type === 'public' ? 'Public location' : 'Other') +
                 (appointment.location_details ? ` — ${appointment.location_details}` : '')
               : 'To be confirmed',
-            dashboardLink: `${getAppUrl()}/dashboard`,
+            dashboardLink: `${getAppUrl()}/dashboard/visits`,
             year: new Date().getFullYear(),
           },
         });

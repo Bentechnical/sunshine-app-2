@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       dogName: dogData?.dog_name || 'N/A',
       firstName: volunteer.first_name,
       individualName: individual.first_name,
-      dashboardLink: `${getAppUrl()}/dashboard`,
+      dashboardLink: `${getAppUrl()}/dashboard/visits`,
       year: new Date().getFullYear(),
     };
 
