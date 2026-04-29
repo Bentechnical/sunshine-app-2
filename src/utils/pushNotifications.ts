@@ -40,7 +40,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     .eq('user_id', userId)
     .eq('notifications_enabled', true);
 
-  if (error || !tokens || tokens.length === 0) return;
+  if (error || !tokens || tokens.length === 0) {
+    console.log(`[Push] No tokens found for user ${userId}`, { error: error?.message });
+    return;
+  }
+  console.log(`[Push] Sending to ${tokens.length} device(s) for user ${userId}`);
 
   let app: admin.app.App;
   try {

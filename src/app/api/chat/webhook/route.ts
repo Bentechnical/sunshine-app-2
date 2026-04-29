@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
           if (recipientId) {
             // Send push notification immediately
             const senderName = message.user?.name || message.user?.id || 'Someone';
-            sendPushToUser(recipientId, {
+            await sendPushToUser(recipientId, {
               title: senderName,
               body: content.length > 100 ? content.substring(0, 97) + '...' : content,
               data: { url: '/dashboard/messages' },
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
           // Send push notification immediately
           const senderName = message.user?.name || message.user?.id || 'Someone';
           const msgText = message.text || '';
-          sendPushToUser(recipientId, {
+          await sendPushToUser(recipientId, {
             title: senderName,
             body: msgText.length > 100 ? msgText.substring(0, 97) + '...' : msgText || 'New message',
             data: { url: '/dashboard/messages' },
