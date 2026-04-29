@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { EMAIL_NOTIFICATION_DELAY_MS } from '@/utils/notificationConfig';
+import { sendPushToUser } from '@/utils/pushNotifications';
 
 function verifyStreamSignature(body: string, signature: string): boolean {
   const secret = process.env.STREAM_CHAT_SECRET;
@@ -118,6 +119,14 @@ export async function POST(request: NextRequest) {
           });
 
           if (recipientId) {
+            // Send push notification immediately
+            const senderName = message.user?.name || message.user?.id || 'Someone';
+            sendPushToUser(recipientId, {
+              title: senderName,
+              body: content.length > 100 ? content.substring(0, 97) + '...' : content,
+              data: { url: '/dashboard/messages' },
+            }).catch(err => console.error('[Stream Chat Webhook] Push error:', err));
+
             const scheduledFor = new Date(Date.now() + EMAIL_NOTIFICATION_DELAY_MS);
 
             const { error: notificationError } = await supabase
@@ -185,6 +194,15 @@ export async function POST(request: NextRequest) {
         const recipientId = recipientMember?.user_id;
 
         if (recipientId) {
+          // Send push notification immediately
+          const senderName = message.user?.name || message.user?.id || 'Someone';
+          const msgText = message.text || '';
+          sendPushToUser(recipientId, {
+            title: senderName,
+            body: msgText.length > 100 ? msgText.substring(0, 97) + '...' : msgText || 'New message',
+            data: { url: '/dashboard/messages' },
+          }).catch(err => console.error('[Stream Chat Webhook] Push error (chat request):', err));
+
           const scheduledFor = new Date(Date.now() + EMAIL_NOTIFICATION_DELAY_MS);
           const { error: notificationError } = await supabase
             .from('pending_email_notifications')

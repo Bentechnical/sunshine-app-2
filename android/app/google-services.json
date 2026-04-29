@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "142761696447",
+    "project_id": "sunshine-app-2",
+    "storage_bucket": "sunshine-app-2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:142761696447:android:a1c320f29d7f2df98e7a0a",
+        "android_client_info": {
+          "package_name": "com.sunshinetherapydogs.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "142761696447-2gervhsatt4eme82dblrsodg9luvnn1q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpA1wyisw511AZTYWGlghl3TthBcG2b18"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "142761696447-2gervhsatt4eme82dblrsodg9luvnn1q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

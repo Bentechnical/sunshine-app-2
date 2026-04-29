@@ -5,10 +5,17 @@
 
 import { ReactNode } from 'react';
 import { UserProfileProvider } from '@/contexts/UserProfileContext';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+
+function PushNotificationRegistrar() {
+  usePushNotifications();
+  return null;
+}
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <UserProfileProvider>
+      <PushNotificationRegistrar />
       {children}
     </UserProfileProvider>
   );
