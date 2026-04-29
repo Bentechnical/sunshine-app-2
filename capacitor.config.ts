@@ -8,7 +8,15 @@ const config: CapacitorConfig = {
     url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://sunshine-app-2-git-dev-native-app-bentechnicals-projects.vercel.app',
     cleartext: false,
     androidScheme: 'https',
-    allowNavigation: ['sunshinedogs.app', '*.sunshinedogs.app', '*.vercel.app'],
+    allowNavigation: [
+      'sunshinedogs.app',
+      '*.sunshinedogs.app',
+      '*.vercel.app',
+      '*.clerk.accounts.dev',  // Clerk development mode session syncing
+      '*.clerk.com',           // Clerk production
+      'clerk.sunshinedogs.app', // Clerk custom domain if configured
+      'accounts.dev',          // Clerk dev
+    ],
   },
   plugins: {
     SplashScreen: {

@@ -22,7 +22,15 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
   if (!verifyStreamSignature(rawBody, signature)) {
-    console.warn(`[Stream Chat Webhook] Invalid signature - rejecting request`);
+    const secret = process.env.STREAM_CHAT_SECRET ?? '';
+    console.warn(`[Stream Chat Webhook] Invalid signature - rejecting request`, {
+      signatureReceived: signature.substring(0, 20) + '...',
+      signatureLength: signature.length,
+      secretLength: secret.length,
+      secretFirst4: secret.substring(0, 4),
+      bodyLength: rawBody.length,
+      bodyFirst50: rawBody.substring(0, 50),
+    });
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
