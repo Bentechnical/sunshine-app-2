@@ -349,6 +349,11 @@
     min-height: -webkit-fill-available !important;
   }
   
+  /* Prevent iOS auto-zoom on input focus (triggers when font-size < 16px) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
   /* Prevent iOS Safari from adding extra padding */
   .str-chat__input-flat {
     position: static !important;
