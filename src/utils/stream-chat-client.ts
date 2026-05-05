@@ -425,7 +425,7 @@ export class StreamChatClientManager {
   }
 
   async reconnectIfNeeded(): Promise<void> {
-    if (!this.currentUserId || this.isConnecting) {
+    if ((!this.currentUserId && !this.lastKnownUserId) || this.isConnecting) {
       return;
     }
 

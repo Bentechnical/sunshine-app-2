@@ -325,6 +325,10 @@ export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
     const handleDisconnect = () => {
       setConnectionStatus('disconnected');
       cleanupChatState();
+      // If the page is still visible (inactivity timeout case), reconnect immediately
+      if (!document.hidden) {
+        handleVisibilityChange();
+      }
     };
 
     // Register disconnect handler and initialize

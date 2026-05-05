@@ -125,7 +125,8 @@ export async function POST(request: NextRequest) {
 
           if (recipientId) {
             // Send push notification immediately
-            const senderName = message.user?.name || message.user?.id || 'Someone';
+            const { data: senderData } = await supabase.from('users').select('first_name').eq('id', senderId).single();
+            const senderName = senderData?.first_name || 'New message';
             await sendPushToUser(recipientId, {
               title: senderName,
               body: content.length > 100 ? content.substring(0, 97) + '...' : content,
@@ -200,7 +201,8 @@ export async function POST(request: NextRequest) {
 
         if (recipientId) {
           // Send push notification immediately
-          const senderName = message.user?.name || message.user?.id || 'Someone';
+          const { data: senderData } = await supabase.from('users').select('first_name').eq('id', senderId).single();
+          const senderName = senderData?.first_name || 'New message';
           const msgText = message.text || '';
           await sendPushToUser(recipientId, {
             title: senderName,
