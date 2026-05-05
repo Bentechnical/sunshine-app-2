@@ -1,6 +1,8 @@
 // src/app/(pages)/dashboard/page.tsx
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 import { SignOutButton } from '@clerk/nextjs';
 import DashboardHome from '@/components/dashboard/DashboardHome';
@@ -10,10 +12,17 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 export default function DashboardHomePage() {
   const { user } = useUser();
   const { role } = useUserProfile();
+  const router = useRouter();
 
   const userId = user?.id ?? '';
 
-  if (!user || !role) return null;
+  useEffect(() => {
+    if (role === 'admin') {
+      router.replace('/dashboard/admin');
+    }
+  }, [role, router]);
+
+  if (!user || !role || role === 'admin') return null;
 
   return (
     <main className="flex-grow p-4 page-enter">
