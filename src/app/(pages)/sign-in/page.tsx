@@ -115,10 +115,7 @@ export default function CustomSignIn() {
           />
         </div>
 
-        <h2 className="text-2xl font-bold text-center text-[#0e62ae] mb-2">Sign In</h2>
-        <p className="text-sm text-center text-gray-600 mb-6">
-          Choose a sign-in method below
-        </p>
+        <h2 className="text-2xl font-bold text-center text-[#0e62ae] mb-6">Sign In</h2>
 
         <div className="mb-6">
           <Button
@@ -177,8 +174,8 @@ export default function CustomSignIn() {
           </Button>
         </form>
 
-        <p className="text-md text-center text-gray-700 mt-6">
-          Don’t have an account?{' '}
+        <p className="text-sm text-center text-gray-600 mt-6">
+          Don&apos;t have an account?{" "}
           <Link
             href="/sign-up"
             className="text-[#0e62ae] font-semibold underline hover:text-[#094f91]"

@@ -63,6 +63,28 @@ export default function SignUpPage() {
           },
         }}
       />
+
+      <div className="w-full max-w-md mt-5 px-1">
+        <p className="text-xs text-center text-[#4a7a8a] mb-3 font-medium uppercase tracking-wide">New to Sunshine? Read our guides first</p>
+        <div className="flex flex-col gap-2">
+          <a
+            href="/guides/volunteer-guide-register.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center w-full bg-white/60 border border-white text-[#0e62ae] text-sm font-medium rounded-xl px-4 py-2.5 hover:bg-white transition-colors shadow-sm"
+          >
+            How to register as a Volunteer
+          </a>
+          <a
+            href="/guides/user-guide-register.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center w-full bg-white/60 border border-white text-[#0e62ae] text-sm font-medium rounded-xl px-4 py-2.5 hover:bg-white transition-colors shadow-sm"
+          >
+            How to register as an Individual
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

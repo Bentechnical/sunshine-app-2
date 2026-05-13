@@ -83,7 +83,21 @@ export default function DashboardLayout({
             <DesktopNav role={role} />
           )}
 
-          <div className="mt-auto pt-6">
+          <div className="mt-auto pt-6 flex flex-col gap-2">
+            {role !== 'admin' && (
+              <a
+                href={
+                  role === 'volunteer'
+                    ? '/guides/volunteer-guide.pdf'
+                    : '/guides/user-guide.pdf'
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center w-full rounded-md text-sm font-medium bg-white text-gray-800 hover:bg-gray-100 transition-colors px-4 py-2"
+              >
+                User Guide
+              </a>
+            )}
             <SignOutButton>
               <button
                 data-slot="button"

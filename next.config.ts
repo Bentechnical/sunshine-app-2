@@ -42,6 +42,15 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'gwuqfhpkncwzykhlcvcp.supabase.co' },
     ],
   },
+  async rewrites() {
+    const supabaseBase = 'https://rodqnqzfjixznlblnlpe.supabase.co/storage/v1/object/public/docs/guides';
+    return [
+      { source: '/guides/volunteer-guide-register.pdf', destination: `${supabaseBase}/sunshine-volunteer-guide-register.pdf` },
+      { source: '/guides/user-guide-register.pdf',      destination: `${supabaseBase}/sunshine-user-guide-register.pdf` },
+      { source: '/guides/volunteer-guide.pdf',          destination: `${supabaseBase}/sunshine-volunteer-guide.pdf` },
+      { source: '/guides/user-guide.pdf',               destination: `${supabaseBase}/sunshine-user-guide.pdf` },
+    ];
+  },
   async headers() {
     return [
       {
