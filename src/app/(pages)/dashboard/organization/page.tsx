@@ -1,0 +1,102 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/clerk-react';
+import { SignOutButton } from '@clerk/nextjs';
+
+import { useUserProfile } from '@/hooks/useUserProfile';
+
+export default function OrganizationDashboardPage() {
+  const { user } = useUser();
+  const { role, status, loading } = useUserProfile();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/sign-in');
+    } else if (!loading && role !== 'organization') {
+      // Not an org user — redirect to main dashboard for proper handling
+      router.push('/dashboard');
+    }
+  }, [user, router, role, loading]);
+
+  if (!user || loading || role !== 'organization') return null;
+
+  // Shared header used in all org states
+  const Header = () => (
+    <header className="bg-[#0e62ae] text-white px-6 py-4 flex items-center justify-between shadow">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/sunshine-logo-white.png"
+        alt="Sunshine Therapy Dogs"
+        className="h-10 object-contain"
+      />
+      <SignOutButton>
+        <button className="text-sm bg-white text-[#0e62ae] font-medium px-4 py-2 rounded hover:bg-gray-100 transition-colors">
+          Log Out
+        </button>
+      </SignOutButton>
+    </header>
+  );
+
+  // Pending approval
+  if (status === 'pending') {
+    return (
+      <div className="min-h-dvh flex flex-col bg-gray-50">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white p-8 rounded-lg shadow text-center">
+            <div className="mb-4">
+              <svg className="mx-auto h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Account Under Review</h2>
+            <p className="text-gray-600">
+              Thanks for registering your organization! Our team is reviewing your information and
+              will be in touch once your account is approved.
+            </p>
+            <p className="text-sm text-gray-500 mt-4">
+              Questions? Contact us at{' '}
+              <a href="mailto:info@sunshinetherapydogs.ca" className="text-blue-600 hover:underline">
+                info@sunshinetherapydogs.ca
+              </a>
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Archived
+  if (status === 'archived') {
+    return (
+      <div className="min-h-dvh flex flex-col bg-gray-50">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white p-8 rounded-lg shadow text-center border-t-4 border-orange-500">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Account Archived</h2>
+            <p className="text-gray-600 mb-4">
+              Your organization account is no longer active. Please contact us to reactivate.
+            </p>
+            <a href="mailto:info@sunshinetherapydogs.ca" className="text-blue-600 hover:underline text-sm">
+              info@sunshinetherapydogs.ca
+            </a>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Approved dashboard
+  return (
+    <div className="min-h-dvh flex flex-col bg-gray-50">
+      <Header />
+      <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Organization Dashboard</h1>
+        <p className="text-gray-500">Visit request tools coming soon.</p>
+      </main>
+    </div>
+  );
+}

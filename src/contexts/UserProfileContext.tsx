@@ -8,7 +8,7 @@ import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
 
 interface UserProfileValue {
-  role: 'admin' | 'volunteer' | 'individual' | null;
+  role: 'admin' | 'volunteer' | 'individual' | 'organization' | 'pd' | null;
   status: 'pending' | 'approved' | 'denied' | 'archived' | null;
   profileComplete: boolean;
   loading: boolean;
@@ -48,9 +48,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         .eq('id', user.id)
         .single();
 
-      if (error || !data) {
-        console.error('[UserProfileContext] Error fetching user profile:', error);
-      } else {
+      if (error) {
+        // PGRST116 = no row found — expected for new users whose profile doesn't exist yet
+        if (error.code !== 'PGRST116') {
+          console.error('[UserProfileContext] Error fetching user profile:', error.message, error.code);
+        }
+      } else if (data) {
         setRole(data.role);
         setStatus(data.status);
         setProfileComplete(data.profile_complete ?? false);

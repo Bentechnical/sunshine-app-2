@@ -19,10 +19,14 @@ export default function DashboardHomePage() {
   useEffect(() => {
     if (role === 'admin') {
       router.replace('/dashboard/admin');
+    } else if (role === 'pd') {
+      router.replace('/dashboard/pd');
+    } else if (role === 'organization') {
+      router.replace('/dashboard/organization');
     }
   }, [role, router]);
 
-  if (!user || !role || role === 'admin') return null;
+  if (!user || !role || role === 'admin' || role === 'pd' || role === 'organization') return null;
 
   return (
     <main className="flex-grow p-4 page-enter">

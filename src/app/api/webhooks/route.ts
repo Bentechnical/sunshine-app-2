@@ -56,9 +56,11 @@ export async function POST(req: Request) {
       phone_number?: string;
     };
 
-    const { id: userId, email_addresses, first_name, last_name, image_url, public_metadata, unsafe_metadata, phone_number } = data;
+    const { id: userId, email_addresses, first_name, last_name, image_url, unsafe_metadata, phone_number } = data;
     const email = email_addresses?.[0]?.email_address ?? null;
-    const role = unsafe_metadata?.role ?? "individual";
+    // Role is null until explicitly chosen in ProfileCompleteForm.
+    // Previously defaulted to 'individual', which caused the role selection screen to be skipped.
+    const role = unsafe_metadata?.role ?? null;
 
     console.log(`🟢 Processing ${evt.type} for user ${userId}`);
 

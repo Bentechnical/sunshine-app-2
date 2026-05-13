@@ -22,7 +22,7 @@ export function pathnameToActiveTab(pathname: string): ActiveTab {
 
 interface DashboardLayoutProps {
   profileImage: string;
-  role: 'individual' | 'volunteer' | 'admin';
+  role: 'individual' | 'volunteer' | 'admin' | 'pd' | 'organization';
   children: ReactNode;
   hideMobileNav?: boolean;
   noMobileTopPadding?: boolean;
@@ -72,15 +72,15 @@ export default function DashboardLayout({
             />
           </div>
 
-          {role === 'admin' ? (
+          {(role === 'admin' || role === 'pd') ? (
             <>
               <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-6">
-                <span className="text-sm font-medium">Admin Mode</span>
+                <span className="text-sm font-medium">{role === 'pd' ? 'Program Director' : 'Admin Mode'}</span>
               </div>
               <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} refreshTrigger={refreshTrigger} />
             </>
           ) : (
-            <DesktopNav role={role} />
+            <DesktopNav role={role as 'individual' | 'volunteer'} />
           )}
 
           <div className="mt-auto pt-6 flex flex-col gap-2">
@@ -139,7 +139,7 @@ export default function DashboardLayout({
         {/* Mobile bottom nav */}
         {!hideMobileNav && (
           <div className="md:hidden fixed inset-x-0 bottom-0 z-50">
-            {role === 'admin' ? (
+            {(role === 'admin' || role === 'pd') ? (
               <MobileNavAdmin
                 activeTab={activeTab}
                 setActiveTab={adminSetActiveTab!}
@@ -147,7 +147,7 @@ export default function DashboardLayout({
                 refreshTrigger={refreshTrigger}
               />
             ) : (
-              <MobileNav role={role} profileImage={profileImage} />
+              <MobileNav role={role as 'individual' | 'volunteer'} profileImage={profileImage} />
             )}
           </div>
         )}

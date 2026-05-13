@@ -13,4 +13,14 @@ export type ActiveTab =
   | 'chats' // admin
   | 'email-testing' // admin
   | 'welcome-messages' // admin
-  | 'system-logs'; // admin
+  | 'system-logs' // admin
+  // PD tabs
+  | 'pd-dashboard-home'
+  | 'pd-visits'
+  | 'pd-volunteers'
+  | 'pd-organizations'
+  | 'pd-compliance'
+  // Organization tabs
+  | 'org-dashboard-home'
+  | 'org-request-visit'
+  | 'org-my-visits';

@@ -68,8 +68,8 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
 
   if (!user || loading) return null;
 
-  // Admin page manages its own DashboardLayout — skip wrapping to avoid double sidebar
-  if (role === 'admin') return <>{children}</>;
+  // Admin, PD, and Organization pages manage their own DashboardLayout — skip wrapping to avoid double sidebar
+  if (role === 'admin' || role === 'pd' || role === 'organization') return <>{children}</>;
 
   // Block access if user is archived
   if (status === 'archived') {
