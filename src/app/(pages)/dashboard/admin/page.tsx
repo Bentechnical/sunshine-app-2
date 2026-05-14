@@ -17,6 +17,8 @@ import AdminUserRequests from '@/components/admin/AdminUserRequests';
 import AdminChats from '@/components/admin/AdminChats';
 import AdminWelcomeMessages from '@/components/admin/AdminWelcomeMessages';
 import AdminEmailTesting from '@/components/admin/AdminEmailTesting';
+import AdminVisits from '@/components/admin/AdminVisits';
+import AdminCompliance from '@/components/admin/AdminCompliance';
 
 export default function AdminDashboardPage() {
   const { user } = useUser();
@@ -46,6 +48,10 @@ export default function AdminDashboardPage() {
     switch (activeTab) {
       case 'dashboard-home':
         return <AdminDashboardHome />;
+      case 'admin-visits':
+        return <AdminVisits />;
+      case 'admin-compliance':
+        return <AdminCompliance />;
       case 'manage-users':
         return <AdminManageUsers />;
       case 'user-requests':

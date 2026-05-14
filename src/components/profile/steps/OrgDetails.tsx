@@ -1,5 +1,7 @@
 'use client';
 
+import AvatarUpload from '@/components/profile/AvatarUpload';
+
 const formatPhoneNumber = (value: string) => {
   const cleaned = value.replace(/\D/g, '').slice(0, 10);
   const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
@@ -32,8 +34,14 @@ interface OrgDetailsProps {
   setOrgType: (v: string) => void;
   orgAddress: string;
   setOrgAddress: (v: string) => void;
+  orgContactName: string;
+  setOrgContactName: (v: string) => void;
   orgContactPhone: string;
   setOrgContactPhone: (v: string) => void;
+  postalCode: string;
+  setPostalCode: (v: string) => void;
+  profilePictureUrl: string;
+  setProfilePictureUrl: (url: string) => void;
   isLoading: boolean;
 }
 
@@ -44,16 +52,37 @@ export default function OrgDetails({
   setOrgType,
   orgAddress,
   setOrgAddress,
+  orgContactName,
+  setOrgContactName,
   orgContactPhone,
   setOrgContactPhone,
+  postalCode,
+  setPostalCode,
+  profilePictureUrl,
+  setProfilePictureUrl,
   isLoading,
 }: OrgDetailsProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <p className="text-sm text-gray-600">
         Tell us about your organization. Once submitted, your account will be reviewed by our team
         before you can request visits.
       </p>
+
+      {/* Logo Upload */}
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-sm font-semibold text-gray-700 self-start">Organization Logo</p>
+        <div className="flex flex-col items-center gap-1">
+          <AvatarUpload
+            initialUrl={profilePictureUrl && !profilePictureUrl.includes('clerk.com') ? profilePictureUrl : ''}
+            onUpload={setProfilePictureUrl}
+            size={96}
+            altText="Organization logo"
+            variant="org"
+          />
+          <p className="text-xs text-gray-400">Click to upload logo</p>
+        </div>
+      </div>
 
       <div>
         <label htmlFor="orgName" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -91,17 +120,17 @@ export default function OrgDetails({
       </div>
 
       <div>
-        <label htmlFor="orgAddress" className="block text-sm font-semibold text-gray-700 mb-2">
-          Address <span className="text-red-500">*</span>
+        <label htmlFor="orgContactName" className="block text-sm font-semibold text-gray-700 mb-2">
+          Primary Contact Name <span className="text-red-500">*</span>
         </label>
-        <textarea
-          id="orgAddress"
-          value={orgAddress}
-          onChange={(e) => setOrgAddress(e.target.value)}
+        <input
+          id="orgContactName"
+          type="text"
+          value={orgContactName}
+          onChange={(e) => setOrgContactName(e.target.value)}
           className="w-full px-4 py-2 border rounded-lg"
           disabled={isLoading}
-          placeholder="Full address of your organization"
-          rows={2}
+          placeholder="e.g., Jane Smith"
         />
       </div>
 
@@ -118,6 +147,38 @@ export default function OrgDetails({
           disabled={isLoading}
           placeholder="(123) 456-7890"
         />
+      </div>
+
+      <div>
+        <label htmlFor="orgAddress" className="block text-sm font-semibold text-gray-700 mb-2">
+          Address <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          id="orgAddress"
+          value={orgAddress}
+          onChange={(e) => setOrgAddress(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg"
+          disabled={isLoading}
+          placeholder="Full address of your organization"
+          rows={2}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="orgPostalCode" className="block text-sm font-semibold text-gray-700 mb-2">
+          Postal Code <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="orgPostalCode"
+          type="text"
+          value={postalCode}
+          onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
+          className="w-full px-4 py-2 border rounded-lg"
+          disabled={isLoading}
+          placeholder="A1A 1A1"
+          maxLength={7}
+        />
+        <p className="text-xs text-gray-400 mt-1">Used to match visits with nearby volunteers.</p>
       </div>
     </div>
   );

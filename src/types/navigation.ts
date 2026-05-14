@@ -14,6 +14,8 @@ export type ActiveTab =
   | 'email-testing' // admin
   | 'welcome-messages' // admin
   | 'system-logs' // admin
+  | 'admin-visits' // admin + pd: organization visits management
+  | 'admin-compliance' // admin + pd: volunteer VSC/vaccine compliance
   // PD tabs
   | 'pd-dashboard-home'
   | 'pd-visits'

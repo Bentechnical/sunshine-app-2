@@ -10,23 +10,13 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
 
   try {
-    // Fetch category lookup table
-    const { data: categoryData, error: catErr } = await supabase
-      .from('audience_categories')
-      .select('id, name');
-
-    if (catErr || !categoryData) {
-      console.error('[approved-users] Error loading audience_categories:', catErr?.message);
-      return NextResponse.json({ error: 'Failed to load categories' }, { status: 500 });
-    }
-
-    const categoryMap = new Map<number, string>();
-    categoryData.forEach((c) => categoryMap.set(c.id, c.name));
-
-    // Fetch approved users with dog + audience join tables
-    const { data: userData, error: userErr } = await supabase
-      .from('users')
-      .select(`
+    // Fetch categories and users in parallel
+    const [
+      { data: categoryData, error: catErr },
+      { data: userData, error: userErr },
+    ] = await Promise.all([
+      supabase.from('audience_categories').select('id, name'),
+      supabase.from('users').select(`
         id,
         first_name,
         last_name,
@@ -52,6 +42,11 @@ export async function GET() {
         visit_recipient_type,
         relationship_to_recipient,
         dependant_name,
+        org_name,
+        org_type,
+        org_address,
+        org_contact_name,
+        org_contact_phone,
         dogs (
           dog_name,
           dog_breed,
@@ -67,12 +62,21 @@ export async function GET() {
         )
       `)
       .eq('status', 'approved')
-      .eq('profile_complete', true);
+      .eq('profile_complete', true),
+    ]);
+
+    if (catErr || !categoryData) {
+      console.error('[approved-users] Error loading audience_categories:', catErr?.message);
+      return NextResponse.json({ error: 'Failed to load categories' }, { status: 500 });
+    }
 
     if (userErr || !userData) {
       console.error('[approved-users] Error fetching data:', userErr?.message);
       return NextResponse.json({ error: 'Failed to fetch approved users' }, { status: 500 });
     }
+
+    const categoryMap = new Map<number, string>();
+    categoryData.forEach((c) => categoryMap.set(c.id, c.name));
 
     // Map raw results into normalized structure
     const users = userData.map((user) => {
@@ -114,6 +118,11 @@ export async function GET() {
         dependant_name: user.dependant_name,
         dogs: user.dogs || [],
         audience_categories,
+        org_name: user.org_name,
+        org_type: user.org_type,
+        org_address: user.org_address,
+        org_contact_name: user.org_contact_name,
+        org_contact_phone: user.org_contact_phone,
       };
     });
 

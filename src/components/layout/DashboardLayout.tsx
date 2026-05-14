@@ -10,6 +10,7 @@ import MobileNav from './MobileNav';
 import MobileNavAdmin from './MobileNavAdmin';
 import { SignOutButton } from '@clerk/clerk-react';
 import { UnreadCountProvider } from '@/contexts/UnreadCountContext';
+import { useAdminUnreadCount } from '@/hooks/useAdminUnreadCount';
 
 // Maps URL pathnames to ActiveTab keys (used by admin nav and layout styling)
 export function pathnameToActiveTab(pathname: string): ActiveTab {
@@ -56,6 +57,9 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const activeTab = adminActiveTab ?? pathnameToActiveTab(pathname);
 
+  const isAdminRole = role === 'admin' || role === 'pd';
+  const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger, isAdminRole);
+
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 
   return (
@@ -77,7 +81,7 @@ export default function DashboardLayout({
               <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-6">
                 <span className="text-sm font-medium">{role === 'pd' ? 'Program Director' : 'Admin Mode'}</span>
               </div>
-              <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} refreshTrigger={refreshTrigger} />
+              <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} unreadCount={unreadCount} />
             </>
           ) : (
             <DesktopNav role={role as 'individual' | 'volunteer'} />
@@ -144,7 +148,7 @@ export default function DashboardLayout({
                 activeTab={activeTab}
                 setActiveTab={adminSetActiveTab!}
                 profileImage={profileImage}
-                refreshTrigger={refreshTrigger}
+                unreadCount={unreadCount}
               />
             ) : (
               <MobileNav role={role as 'individual' | 'volunteer'} profileImage={profileImage} />

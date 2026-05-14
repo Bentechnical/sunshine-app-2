@@ -1,19 +1,19 @@
 // src/components/layout/DesktopNavAdmin.tsx
 import { Dispatch, SetStateAction } from 'react';
 import { ActiveTab } from '@/types/navigation';
-import { useAdminUnreadCount } from '@/hooks/useAdminUnreadCount';
 
 interface Props {
   activeTab: ActiveTab;
   setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
-  refreshTrigger?: number;
+  unreadCount: number;
 }
 
-export default function DesktopNavAdmin({ activeTab, setActiveTab, refreshTrigger }: Props) {
-  const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger);
+export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount }: Props) {
   
   const tabs: { key: ActiveTab; label: string; showAlert?: boolean }[] = [
     { key: 'dashboard-home', label: 'Overview' },
+    { key: 'admin-visits', label: 'Organization Visits' },
+    { key: 'admin-compliance', label: 'Compliance' },
     { key: 'user-requests', label: 'New User Requests' },
     { key: 'manage-users', label: 'Manage Users' },
     { key: 'appointments', label: 'Appointments' },

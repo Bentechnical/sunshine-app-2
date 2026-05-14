@@ -17,6 +17,7 @@ export async function GET() {
       pronouns, birthday, physical_address, other_pets_on_site, other_pets_description,
       third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at,
       visit_recipient_type, relationship_to_recipient, dependant_name,
+      org_name, org_type, org_address, org_contact_name, org_contact_phone,
       dogs (
         dog_name, dog_breed, dog_bio, dog_picture_url, dog_age, status
       )

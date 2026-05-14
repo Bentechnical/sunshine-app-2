@@ -66,6 +66,12 @@ export async function POST(req: Request) {
 
     try {
       if (evt.type === "user.created") {
+        const { data: existingUser } = await supabase.from("users").select("id").eq("id", userId).single();
+        if (existingUser) {
+          console.log(`User ${userId} already exists — skipping (likely a webhook retry)`);
+          return new Response("Webhook processed", { status: 200 });
+        }
+
         const { error } = await supabase.from("users").insert([{
           id: userId,
           first_name: first_name ?? null,

@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, PawPrint, MessageCircle, CalendarCheck } from 'lucide-react';
+import { Home, PawPrint, MessageCircle, CalendarCheck, Building2 } from 'lucide-react';
 import { useNavNotifications } from '@/hooks/useNavNotifications';
 
 interface MobileNavProps {
@@ -26,7 +26,8 @@ export default function MobileNav({ role }: MobileNavProps) {
       : [
           { path: '/dashboard', label: 'Home', icon: <Home size={20} /> },
           { path: '/dashboard/connect', label: 'Connect', icon: <PawPrint size={20} /> },
-          { path: '/dashboard/visits', label: 'Visits', icon: <CalendarCheck size={20} /> },
+          { path: '/dashboard/browse-visits', label: 'Visits', icon: <Building2 size={20} /> },
+          { path: '/dashboard/visits', label: 'My Visits', icon: <CalendarCheck size={20} /> },
           { path: '/dashboard/messages', label: 'Messages', icon: <MessageCircle size={20} />, showAlert: hasUnreadMessages },
         ];
 

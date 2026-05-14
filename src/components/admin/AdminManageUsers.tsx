@@ -56,6 +56,19 @@ interface IndividualUser {
   dependant_name?: string;
 }
 
+interface OrganizationUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  org_name: string;
+  org_type: string;
+  org_address: string;
+  org_contact_name: string;
+  org_contact_phone: string;
+}
+
 interface ArchivedUser {
   id: string;
   first_name: string;
@@ -78,9 +91,10 @@ interface ActiveAppointment {
 }
 
 export default function ManageUsersTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'archived'>('individual');
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'archived'>('individual');
   const [volunteers, setVolunteers] = useState<VolunteerUser[]>([]);
   const [individuals, setIndividuals] = useState<IndividualUser[]>([]);
+  const [organizations, setOrganizations] = useState<OrganizationUser[]>([]);
   const [archivedUsers, setArchivedUsers] = useState<ArchivedUser[]>([]);
   const [expandedUserIds, setExpandedUserIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,8 +190,25 @@ export default function ManageUsersTab() {
           }))
           .sort((a: IndividualUser, b: IndividualUser) => a.last_name.localeCompare(b.last_name));
 
+        const sortedOrganizations = data
+          .filter((u: any) => u.role === 'organization')
+          .map((u: any) => ({
+            id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            email: u.email,
+            phone: u.phone_number,
+            org_name: u.org_name,
+            org_type: u.org_type,
+            org_address: u.org_address,
+            org_contact_name: u.org_contact_name,
+            org_contact_phone: u.org_contact_phone,
+          }))
+          .sort((a: OrganizationUser, b: OrganizationUser) => (a.org_name || '').localeCompare(b.org_name || ''));
+
         setVolunteers(sortedVolunteers);
         setIndividuals(sortedIndividuals);
+        setOrganizations(sortedOrganizations);
       } catch (err) {
         console.error('[Admin] Error fetching users:', err);
         setError('Failed to load users');
@@ -265,6 +296,7 @@ export default function ManageUsersTab() {
         // Refresh user lists
         setVolunteers(prev => prev.filter(u => u.id !== userId));
         setIndividuals(prev => prev.filter(u => u.id !== userId));
+        setOrganizations(prev => prev.filter(u => u.id !== userId));
         alert('User archived successfully');
       } else {
         alert(`Failed to archive user: ${result.error}`);
@@ -294,6 +326,7 @@ export default function ManageUsersTab() {
         // Remove from current lists
         setVolunteers(prev => prev.filter(u => u.id !== userToArchive.id));
         setIndividuals(prev => prev.filter(u => u.id !== userToArchive.id));
+        setOrganizations(prev => prev.filter(u => u.id !== userToArchive.id));
 
         // Close modal
         setArchiveModalOpen(false);
@@ -459,6 +492,12 @@ export default function ManageUsersTab() {
       .includes(searchQuery.toLowerCase())
   );
 
+  const filteredOrganizations = organizations.filter((u) =>
+    `${u.org_name} ${u.email} ${u.org_contact_name} ${u.org_address}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
+
   const filteredArchivedUsers = archivedUsers.filter((u) =>
     `${u.first_name} ${u.last_name} ${u.email} ${u.city}`
       .toLowerCase()
@@ -490,6 +529,16 @@ export default function ManageUsersTab() {
               }`}
             >
               Volunteer Users
+            </button>
+            <button
+              onClick={() => setActiveSubtab('organization')}
+              className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                activeSubtab === 'organization'
+                  ? 'bg-[#0e62ae] text-white'
+                  : 'bg-gray-200 text-gray-800'
+              }`}
+            >
+              Organizations
             </button>
             <button
               onClick={() => setActiveSubtab('archived')}
@@ -784,6 +833,74 @@ export default function ManageUsersTab() {
                   </React.Fragment>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+
+        {/* Organizations Table */}
+        {activeSubtab === 'organization' && (
+          <table className="w-full text-sm border border-gray-200 rounded-md">
+            <thead className="bg-gray-100 text-left">
+              <tr>
+                <th className="px-4 py-2">Organization</th>
+                <th className="px-4 py-2">Type</th>
+                <th className="px-4 py-2">Contact</th>
+                <th className="px-4 py-2">Email</th>
+                <th className="px-2 py-2 w-6" />
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrganizations.map((org) => {
+                const isExpanded = expandedUserIds.includes(org.id);
+                return (
+                  <React.Fragment key={org.id}>
+                    <tr
+                      className="border-t hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleExpand(org.id)}
+                    >
+                      <td className="px-4 py-2 font-medium">{org.org_name || '—'}</td>
+                      <td className="px-4 py-2 capitalize">{org.org_type || '—'}</td>
+                      <td className="px-4 py-2">{org.org_contact_name || `${org.first_name} ${org.last_name}`}</td>
+                      <td className="px-4 py-2">{org.email}</td>
+                      <td className="px-2 py-2">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-gray-50 border-t">
+                        <td colSpan={5} className="px-6 py-4">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+                            <div className="space-y-2">
+                              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Organization Details</h3>
+                              <p><span className="font-semibold text-gray-700">Name:</span> <span className="text-gray-900">{org.org_name || '—'}</span></p>
+                              <p><span className="font-semibold text-gray-700">Type:</span> <span className="text-gray-900 capitalize">{org.org_type || '—'}</span></p>
+                              <p><span className="font-semibold text-gray-700">Address:</span> <span className="text-gray-900">{org.org_address || '—'}</span></p>
+                            </div>
+                            <div className="space-y-2">
+                              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Contact</h3>
+                              <p><span className="font-semibold text-gray-700">Contact Name:</span> <span className="text-gray-900">{org.org_contact_name || '—'}</span></p>
+                              <p><span className="font-semibold text-gray-700">Contact Phone:</span> <span className="text-gray-900">{org.org_contact_phone || '—'}</span></p>
+                              <p><span className="font-semibold text-gray-700">Account Email:</span> <span className="text-gray-900">{org.email}</span></p>
+                              <p><span className="font-semibold text-gray-700">Account Phone:</span> <span className="text-gray-900">{org.phone || '—'}</span></p>
+                            </div>
+                          </div>
+                          <div className="mt-6 pt-4 border-t border-gray-200 flex items-center gap-6">
+                            <button
+                              onClick={() => handleArchiveUser(org.id, org.org_name || `${org.first_name} ${org.last_name}`)}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
+                            >
+                              Archive Organization
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {filteredOrganizations.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">No approved organizations found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}

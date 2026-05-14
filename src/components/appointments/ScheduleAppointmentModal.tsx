@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Calendar, MapPin, FileText } from 'lucide-react';
+import { APPOINTMENT_TIME_OPTIONS } from '@/utils/timeOptions';
 
 interface ScheduleAppointmentModalProps {
   chatRequestId: string;
@@ -15,23 +16,6 @@ const LOCATION_TYPES = [
   { value: 'public', label: 'Public place' },
   { value: 'other', label: 'Other' },
 ];
-
-function buildTimeOptions(): { value: string; label: string }[] {
-  const options = [];
-  for (let h = 7; h <= 21; h++) {
-    for (const m of [0, 30]) {
-      if (h === 21 && m === 30) break;
-      const hour12 = h % 12 === 0 ? 12 : h % 12;
-      const ampm = h < 12 ? 'AM' : 'PM';
-      const label = `${hour12}:${m === 0 ? '00' : '30'} ${ampm}`;
-      const value = `${String(h).padStart(2, '0')}:${m === 0 ? '00' : '30'}`;
-      options.push({ value, label });
-    }
-  }
-  return options;
-}
-
-const TIME_OPTIONS = buildTimeOptions();
 
 function todayString() {
   return new Date().toISOString().split('T')[0];
@@ -140,7 +124,7 @@ export default function ScheduleAppointmentModal({
                 onChange={e => setTime(e.target.value)}
                 className="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {TIME_OPTIONS.map(opt => (
+                {APPOINTMENT_TIME_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>

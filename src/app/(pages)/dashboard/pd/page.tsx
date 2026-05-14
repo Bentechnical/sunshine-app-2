@@ -7,12 +7,14 @@ import { useUser } from '@clerk/clerk-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { ActiveTab } from '@/types/navigation';
+import AdminVisits from '@/components/admin/AdminVisits';
+import AdminCompliance from '@/components/admin/AdminCompliance';
 
 export default function PDDashboardPage() {
   const { user } = useUser();
   const { role, status, loading } = useUserProfile();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('pd-dashboard-home');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('admin-visits');
 
   const profileImage = user?.imageUrl ?? '';
 
@@ -28,41 +30,10 @@ export default function PDDashboardPage() {
 
   const renderActiveTab = () => {
     switch (activeTab) {
-      case 'pd-dashboard-home':
-        return (
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Program Director Dashboard</h1>
-            <p className="text-gray-500">Visit management tools coming soon.</p>
-          </div>
-        );
-      case 'pd-visits':
-        return (
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Manage Visits</h1>
-            <p className="text-gray-500">Visit management coming soon.</p>
-          </div>
-        );
-      case 'pd-volunteers':
-        return (
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Manage Volunteers</h1>
-            <p className="text-gray-500">Volunteer management coming soon.</p>
-          </div>
-        );
-      case 'pd-organizations':
-        return (
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Manage Organizations</h1>
-            <p className="text-gray-500">Organization management coming soon.</p>
-          </div>
-        );
-      case 'pd-compliance':
-        return (
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Compliance</h1>
-            <p className="text-gray-500">VSC and vaccine record tracking coming soon.</p>
-          </div>
-        );
+      case 'admin-visits':
+        return <AdminVisits />;
+      case 'admin-compliance':
+        return <AdminCompliance />;
       default:
         return (
           <div className="p-4 text-red-600">

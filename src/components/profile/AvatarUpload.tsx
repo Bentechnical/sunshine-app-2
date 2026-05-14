@@ -13,6 +13,7 @@ interface AvatarUploadProps {
   onUpload: (url: string) => void;
   size?: number;
   altText?: string;
+  variant?: 'person' | 'org';
 }
 
 export interface AvatarUploadHandle {
@@ -25,6 +26,7 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
   onUpload,
   size = 100,
   altText = 'Avatar',
+  variant = 'person',
 }, ref) => {
   const supabase = useSupabaseClient();
 
@@ -178,15 +180,40 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
         style={{ width: size, height: size }}
         onClick={isUploading ? undefined : handleClick}
       >
-        <img
-          src={previewUrl}
-          alt={altText}
-          className="object-cover w-full h-full transition-opacity group-hover:opacity-60 border"
-        />
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt={altText}
+            className="object-cover w-full h-full transition-opacity group-hover:opacity-60 border"
+          />
+        ) : (
+          <div className={`w-full h-full flex items-center justify-center transition-opacity group-hover:opacity-60 ${
+            variant === 'org'
+              ? 'bg-blue-50 border border-blue-100'
+              : 'bg-gray-100 border border-gray-200'
+          }`}>
+            {variant === 'org' ? (
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-1/2 h-1/2" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+                <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+                <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+                <path d="M10 6h4"/>
+                <path d="M10 10h4"/>
+                <path d="M10 14h4"/>
+                <path d="M10 18h4"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-1/2 h-1/2 text-gray-400" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8"/>
+              </svg>
+            )}
+          </div>
+        )}
         <div className={`absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-sm transition-opacity ${
           isUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}>
-          {isUploading ? 'Processing...' : 'Change'}
+          {isUploading ? 'Processing...' : previewUrl ? 'Change' : 'Upload'}
         </div>
 
         {/* Gallery input - used on all platforms */}
@@ -237,7 +264,7 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
               <button
                 type="button"
                 onClick={(e) => handleSourceSelect(e, 'camera')}
-                className="w-full flex items-center gap-4 px-5 py-4 bg-gradient-to-r from-[#0e62ae] to-[#0a4d8a] text-white rounded-xl hover:from-[#094e8b] hover:to-[#073a6a] active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30"
+                className="w-full flex items-center gap-4 px-5 py-4 bg-linear-to-r from-[#0e62ae] to-[#0a4d8a] text-white rounded-xl hover:from-[#094e8b] hover:to-[#073a6a] active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />

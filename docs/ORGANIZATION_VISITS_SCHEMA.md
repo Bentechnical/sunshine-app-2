@@ -585,6 +585,18 @@ ALTER TABLE users ADD CONSTRAINT users_role_check
 
 ---
 
+### Migration 9 — Add `postal_code` to `visits` table
+
+Required for volunteer distance filtering. Stored separately from `address` so it can be geocoded independently.
+
+```sql
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS postal_code VARCHAR(10);
+
+CREATE INDEX IF NOT EXISTS visits_postal_code_idx ON visits (postal_code);
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -602,3 +614,6 @@ ALTER TABLE users ADD CONSTRAINT users_role_check
 | May 2026 | Form | Volunteer audience preferences: submitting with none selected now silently saves all categories ("open to all") |
 | May 2026 | Form | VSC date field label: "VSC Issue Date" (field: `vsc_date_issued`); vaccine date field: "Vaccine Expiry Date" (field: `vaccine_expiry_date` on `dogs` table) |
 | May 2026 | Webhook | Changed default role from `'individual'` to `null` on `user.created` — role is now explicitly set only via ProfileCompleteForm |
+| May 2026 | 9 | Added `postal_code` column to `visits` table for volunteer distance filtering; added index |
+| May 2026 | Form | OrgDetails profile step now collects `org_contact_name` (required), `postal_code` (required), and org logo (`profile_image`) via AvatarUpload |
+| May 2026 | Form | Org submit payload updated: `org_contact_name`, `profile_image`, `postal_code` now saved on submit; org postal code geocoded to lat/lng |

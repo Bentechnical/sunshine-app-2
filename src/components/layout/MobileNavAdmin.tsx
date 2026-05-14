@@ -1,24 +1,22 @@
 // src/components/layout/MobileNavAdmin.tsx
 'use client';
 
-import { Home, Users, MessageCircle, CalendarCheck, Mail, MessageSquare } from 'lucide-react';
+import { Home, Users, MessageCircle, CalendarCheck, Mail, Building2 } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
-import { useAdminUnreadCount } from '@/hooks/useAdminUnreadCount';
 
 interface MobileNavAdminProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   profileImage: string;
-  refreshTrigger?: number;
+  unreadCount: number;
 }
 
 export default function MobileNavAdmin({
   activeTab,
   setActiveTab,
   profileImage,
-  refreshTrigger,
+  unreadCount,
 }: MobileNavAdminProps) {
-  const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger);
 
   const tabs: {
     key: ActiveTab;
@@ -27,10 +25,10 @@ export default function MobileNavAdmin({
     showAlert?: boolean;
   }[] = [
     { key: 'dashboard-home', label: 'Overview', icon: <Home size={20} /> },
+    { key: 'admin-visits', label: 'Visits', icon: <Building2 size={20} /> },
     { key: 'user-requests', label: 'Requests', icon: <Users size={20} /> },
     { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0 },
     { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} /> },
-    { key: 'welcome-messages', label: 'Messages', icon: <MessageSquare size={20} /> },
     { key: 'email-testing', label: 'Settings', icon: <Mail size={20} /> },
   ];
 

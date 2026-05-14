@@ -25,6 +25,7 @@ export function DesktopNav({ role }: DesktopNavProps) {
       ? [
           { path: '/dashboard', label: 'Home' },
           { path: '/dashboard/connect', label: 'Connect with People' },
+          { path: '/dashboard/browse-visits', label: 'Browse Visits' },
           { path: '/dashboard/visits', label: 'My Visits' },
           { path: '/dashboard/messages', label: 'Messages', showAlert: hasUnreadMessages },
         ]

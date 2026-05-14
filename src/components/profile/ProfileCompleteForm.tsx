@@ -118,6 +118,7 @@ export default function ProfileCompleteForm() {
   const [orgName, setOrgName] = useState('');
   const [orgType, setOrgType] = useState('');
   const [orgAddress, setOrgAddress] = useState('');
+  const [orgContactName, setOrgContactName] = useState('');
   const [orgContactPhone, setOrgContactPhone] = useState('');
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -165,6 +166,7 @@ export default function ProfileCompleteForm() {
         setOrgName(userData.org_name || '');
         setOrgType(userData.org_type || '');
         setOrgAddress(userData.org_address || '');
+        setOrgContactName(userData.org_contact_name || '');
         setOrgContactPhone(userData.org_contact_phone || '');
 
         setVscDocumentUrl(userData.vsc_document_url || '');
@@ -287,8 +289,10 @@ export default function ProfileCompleteForm() {
       if (currentStep === 2) {
         if (!orgName.trim()) { setSubmitError('Please enter your organization name.'); return false; }
         if (!orgType) { setSubmitError('Please select your organization type.'); return false; }
-        if (!orgAddress.trim()) { setSubmitError("Please enter your organization's address."); return false; }
+        if (!orgContactName.trim()) { setSubmitError('Please enter your primary contact name.'); return false; }
         if (!orgContactPhone.trim()) { setSubmitError('Please enter a contact phone number.'); return false; }
+        if (!orgAddress.trim()) { setSubmitError("Please enter your organization's address."); return false; }
+        if (!validatePostalCode(postalCode)) { setSubmitError('Postal code must be in the format A1A 1A1.'); return false; }
       }
     }
 
@@ -359,7 +363,10 @@ export default function ProfileCompleteForm() {
           org_name: orgName,
           org_type: orgType,
           org_address: orgAddress,
+          org_contact_name: orgContactName,
           org_contact_phone: orgContactPhone,
+          postal_code: normalizePostalCode(postalCode),
+          profile_image: profilePictureUrl || null,
         };
       }
 
@@ -442,6 +449,10 @@ export default function ProfileCompleteForm() {
       }
 
       if (selectedRole === 'individual') {
+        await geocodePostalCode(normalizePostalCode(postalCode), user.id);
+      }
+
+      if (selectedRole === 'organization') {
         await geocodePostalCode(normalizePostalCode(postalCode), user.id);
       }
 
@@ -573,7 +584,10 @@ export default function ProfileCompleteForm() {
           orgName={orgName} setOrgName={setOrgName}
           orgType={orgType} setOrgType={setOrgType}
           orgAddress={orgAddress} setOrgAddress={setOrgAddress}
+          orgContactName={orgContactName} setOrgContactName={setOrgContactName}
           orgContactPhone={orgContactPhone} setOrgContactPhone={setOrgContactPhone}
+          postalCode={postalCode} setPostalCode={setPostalCode}
+          profilePictureUrl={profilePictureUrl} setProfilePictureUrl={setProfilePictureUrl}
           isLoading={isLoading}
         />
       );

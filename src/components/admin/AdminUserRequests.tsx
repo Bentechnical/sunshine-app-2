@@ -51,6 +51,18 @@ interface IndividualRequest {
   dependant_name?: string;
 }
 
+interface OrganizationRequest {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  org_name: string | null;
+  org_type: string | null;
+  org_address: string | null;
+  org_contact_name: string | null;
+  org_contact_phone: string | null;
+}
+
 interface IncompleteSignup {
   id: string;
   first_name: string | null;
@@ -61,9 +73,10 @@ interface IncompleteSignup {
 }
 
 export default function UserRequestsTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'incomplete'>('individual');
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'incomplete'>('individual');
   const [volunteerRequests, setVolunteerRequests] = useState<VolunteerRequest[]>([]);
   const [individualRequests, setIndividualRequests] = useState<IndividualRequest[]>([]);
+  const [organizationRequests, setOrganizationRequests] = useState<OrganizationRequest[]>([]);
   const [incompleteSignups, setIncompleteSignups] = useState<IncompleteSignup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,8 +152,23 @@ export default function UserRequestsTab() {
             dependant_name: u.dependant_name,
           }));
 
+        const organizations = data
+          .filter((u: any) => u.role === 'organization')
+          .map((u: any) => ({
+            id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            email: u.email,
+            org_name: u.org_name,
+            org_type: u.org_type,
+            org_address: u.org_address,
+            org_contact_name: u.org_contact_name,
+            org_contact_phone: u.org_contact_phone,
+          }));
+
         setVolunteerRequests(volunteers);
         setIndividualRequests(individuals);
+        setOrganizationRequests(organizations);
 
         // Fetch incomplete signups
         const incompleteRes = await fetch('/api/admin/incomplete-signups');
@@ -173,6 +201,7 @@ export default function UserRequestsTab() {
       if (res.ok) {
         setVolunteerRequests((prev) => prev.filter((v) => v.id !== userId));
         setIndividualRequests((prev) => prev.filter((i) => i.id !== userId));
+        setOrganizationRequests((prev) => prev.filter((o) => o.id !== userId));
       } else {
         console.error('[Admin] Failed to update user status');
       }
@@ -198,6 +227,13 @@ export default function UserRequestsTab() {
             }`}
         >
           Volunteer Requests
+        </button>
+        <button
+          onClick={() => setActiveSubtab('organization')}
+          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'organization' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
+            }`}
+        >
+          Organization Requests {organizationRequests.length > 0 && `(${organizationRequests.length})`}
         </button>
         <button
           onClick={() => setActiveSubtab('incomplete')}
@@ -456,6 +492,63 @@ export default function UserRequestsTab() {
                       </button>
                       <button
                         onClick={() => handleStatusChange(user.id, 'denied')}
+                        className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm"
+                      >
+                        Deny
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Organization Requests */}
+          {activeSubtab === 'organization' && (
+            <div className="grid grid-cols-1 gap-6">
+              {organizationRequests.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No pending organization requests</p>
+                </div>
+              ) : (
+                organizationRequests.map((org) => (
+                  <div
+                    key={org.id}
+                    className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 flex flex-col gap-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">
+                          {org.org_name || `${org.first_name} ${org.last_name}`}
+                        </h2>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Organization</h3>
+                            <div className="text-sm text-gray-800 space-y-1">
+                              {org.org_type && <p><span className="font-semibold text-gray-700">Type:</span> {org.org_type}</p>}
+                              {org.org_address && <p><span className="font-semibold text-gray-700">Address:</span> {org.org_address}</p>}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Contact</h3>
+                            <div className="text-sm text-gray-800 space-y-1">
+                              {org.org_contact_name && <p><span className="font-semibold text-gray-700">Name:</span> {org.org_contact_name}</p>}
+                              <p><span className="font-semibold text-gray-700">Email:</span> {org.email}</p>
+                              {org.org_contact_phone && <p><span className="font-semibold text-gray-700">Phone:</span> {org.org_contact_phone}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex justify-center gap-4">
+                      <button
+                        onClick={() => handleStatusChange(org.id, 'approved')}
+                        className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 text-sm"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange(org.id, 'denied')}
                         className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm"
                       >
                         Deny

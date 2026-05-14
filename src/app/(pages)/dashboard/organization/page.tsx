@@ -1,29 +1,32 @@
+// src/app/(pages)/dashboard/organization/page.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 import { SignOutButton } from '@clerk/nextjs';
-
 import { useUserProfile } from '@/hooks/useUserProfile';
+import OrgMyVisits from '@/components/visits/OrgMyVisits';
+import OrgRequestVisit from '@/components/visits/OrgRequestVisit';
+
+type OrgTab = 'my-visits' | 'request-visit';
 
 export default function OrganizationDashboardPage() {
   const { user } = useUser();
   const { role, status, loading } = useUserProfile();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<OrgTab>('my-visits');
 
   useEffect(() => {
     if (!user) {
       router.push('/sign-in');
     } else if (!loading && role !== 'organization') {
-      // Not an org user — redirect to main dashboard for proper handling
       router.push('/dashboard');
     }
   }, [user, router, role, loading]);
 
   if (!user || loading || role !== 'organization') return null;
 
-  // Shared header used in all org states
   const Header = () => (
     <header className="bg-[#0e62ae] text-white px-6 py-4 flex items-center justify-between shadow">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -40,7 +43,6 @@ export default function OrganizationDashboardPage() {
     </header>
   );
 
-  // Pending approval
   if (status === 'pending') {
     return (
       <div className="min-h-dvh flex flex-col bg-gray-50">
@@ -69,7 +71,6 @@ export default function OrganizationDashboardPage() {
     );
   }
 
-  // Archived
   if (status === 'archived') {
     return (
       <div className="min-h-dvh flex flex-col bg-gray-50">
@@ -89,13 +90,40 @@ export default function OrganizationDashboardPage() {
     );
   }
 
-  // Approved dashboard
   return (
     <div className="min-h-dvh flex flex-col bg-gray-50">
       <Header />
-      <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Organization Dashboard</h1>
-        <p className="text-gray-500">Visit request tools coming soon.</p>
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
+        {/* Tab nav */}
+        <div className="flex gap-3 mb-6">
+          <button
+            onClick={() => setActiveTab('my-visits')}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'my-visits'
+                ? 'bg-[#0e62ae] text-white shadow'
+                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            My Visits
+          </button>
+          <button
+            onClick={() => setActiveTab('request-visit')}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${
+              activeTab === 'request-visit'
+                ? 'bg-[#0e62ae] text-white shadow'
+                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            + Request a Visit
+          </button>
+        </div>
+
+        {activeTab === 'my-visits' && (
+          <OrgMyVisits />
+        )}
+        {activeTab === 'request-visit' && (
+          <OrgRequestVisit onSuccess={() => setActiveTab('my-visits')} />
+        )}
       </main>
     </div>
   );
