@@ -28,24 +28,28 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const statusFilter = searchParams.get('status');
 
-    const { data: volunteers, error } = await supabase
-      .from('users')
-      .select(`
-        id, first_name, last_name, email,
-        vsc_document_url, vsc_date_issued, vsc_renewal_due,
-        dogs(id, dog_name, dog_breed, vaccine_record_url, vaccine_expiry_date)
-      `)
-      .eq('role', 'volunteer')
-      .eq('status', 'approved')
-      .order('last_name', { ascending: true });
+    const [volunteersRes, dogsRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, first_name, last_name, email, vsc_document_url, vsc_date_issued, vsc_renewal_due')
+        .eq('role', 'volunteer')
+        .eq('status', 'approved')
+        .order('last_name', { ascending: true }),
+      supabase
+        .from('dogs')
+        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_expiry_date'),
+    ]);
 
-    if (error) {
-      console.error('[GET /api/admin/compliance] Supabase error:', error);
+    if (volunteersRes.error) {
+      console.error('[GET /api/admin/compliance] Supabase error:', volunteersRes.error);
       return NextResponse.json({ error: 'Failed to fetch compliance data' }, { status: 500 });
     }
 
-    const annotated = (volunteers ?? []).map((v) => {
-      const dog = (v.dogs as any[])?.[0] ?? null;
+    const volunteers = volunteersRes.data ?? [];
+    const dogsByVolunteer = new Map((dogsRes.data ?? []).map(d => [d.volunteer_id, d]));
+
+    const annotated = volunteers.map((v) => {
+      const dog = dogsByVolunteer.get(v.id) ?? null;
       const vscStatus = getComplianceStatus(v.vsc_document_url, v.vsc_renewal_due);
       const vaccineStatus = dog
         ? getComplianceStatus(dog.vaccine_record_url, dog.vaccine_expiry_date)

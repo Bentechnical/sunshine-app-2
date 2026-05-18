@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { cancelVisitEvent } from '@/utils/googleCalendar';
 
 export async function POST(
   req: NextRequest,
@@ -27,7 +28,7 @@ export async function POST(
 
     const { data: visit, error: fetchError } = await supabase
       .from('visits')
-      .select('id, status')
+      .select('id, status, google_calendar_event_id')
       .eq('id', visitId)
       .single();
 
@@ -56,7 +57,11 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to cancel visit' }, { status: 500 });
     }
 
-    // TODO: Cancel Google Calendar event
+    // Cancel Google Calendar event
+    if ((visit as any).google_calendar_event_id) {
+      await cancelVisitEvent((visit as any).google_calendar_event_id);
+    }
+
     // TODO: Send cancellation notification to all affected volunteers (registrations)
     if (registrations && registrations.length > 0) {
       console.log(`[cancel visit] ${registrations.length} volunteer(s) need cancellation notifications for visit ${visitId}`);

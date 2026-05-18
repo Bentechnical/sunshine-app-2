@@ -56,13 +56,15 @@ export async function POST(req: Request) {
       phone_number?: string;
     };
 
-    const { id: userId, email_addresses, first_name, last_name, image_url, unsafe_metadata, phone_number } = data;
+    const { id: userId, email_addresses, first_name, last_name, image_url, unsafe_metadata, public_metadata, phone_number } = data;
     const email = email_addresses?.[0]?.email_address ?? null;
-    // Role is null until explicitly chosen in ProfileCompleteForm.
-    // Previously defaulted to 'individual', which caused the role selection screen to be skipped.
-    const role = unsafe_metadata?.role ?? null;
+    // public_metadata.role is set by admin-initiated invitations (e.g. PD invites via Clerk Invitations API).
+    // unsafe_metadata.role is set by the user themselves during profile completion.
+    // public_metadata takes precedence so invited roles can't be overridden at signup.
+    const role = public_metadata?.role ?? unsafe_metadata?.role ?? null;
+    const isInvitedPd = role === 'pd';
 
-    console.log(`🟢 Processing ${evt.type} for user ${userId}`);
+    console.log(`🟢 Processing ${evt.type} for user ${userId}${isInvitedPd ? ' [invited PD]' : ''}`);
 
     try {
       if (evt.type === "user.created") {
@@ -78,6 +80,8 @@ export async function POST(req: Request) {
           last_name: last_name ?? null,
           email,
           role,
+          // PDs are auto-approved since they were explicitly invited by an admin
+          status: isInvitedPd ? 'approved' : null,
           bio: unsafe_metadata?.bio ?? null,
           created_at: new Date(),
           updated_at: new Date(),
@@ -105,19 +109,20 @@ export async function POST(req: Request) {
           user_id: userId,
           old_role: null,
           new_role: role,
-          source: 'clerk_webhook_created',
+          source: isInvitedPd ? 'clerk_webhook_pd_invite' : 'clerk_webhook_created',
           metadata: {
             email,
-            clerk_metadata_role: unsafe_metadata?.role || null,
-            defaulted: !unsafe_metadata?.role,
+            clerk_metadata_role: role || null,
+            defaulted: !role,
             event_type: evt.type
           }
         });
 
-        console.log(`Inserted user ${userId}`);
+        console.log(`Inserted user ${userId}${isInvitedPd ? ' with role=pd, status=approved' : ''}`);
 
-        // Send complete profile email
-        if (email) {
+        // PDs are invited via Clerk's own email — skip the generic complete-profile email.
+        // All other new users get the complete-profile prompt.
+        if (email && !isInvitedPd) {
           await sendTransactionalEmail({
             to: email,
             subject: 'Complete Your Profile - Sunshine Therapy Dogs',

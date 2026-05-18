@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { addAttendeeToEvent } from '@/utils/googleCalendar';
 
 export async function POST(
   req: NextRequest,
@@ -43,7 +44,7 @@ export async function POST(
     // Load the visit
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record')
+      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id')
       .eq('id', visitId)
       .single();
 
@@ -143,8 +144,19 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to register for visit' }, { status: 500 });
     }
 
+    // Add volunteer as attendee on Google Calendar event (confirmed only)
+    if (newStatus === 'confirmed' && (visit as any).google_calendar_event_id) {
+      const { data: volunteerUser } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+      if (volunteerUser?.email) {
+        await addAttendeeToEvent((visit as any).google_calendar_event_id, volunteerUser.email);
+      }
+    }
+
     // TODO: Send confirmation email to volunteer (template: visitConfirmed or visitWaitlisted)
-    // TODO: Add volunteer as attendee on Google Calendar event (if status = 'confirmed')
 
     return NextResponse.json({
       success: true,

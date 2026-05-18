@@ -1,0 +1,15 @@
+You've been invited as a Program Director — Sunshine Therapy Dogs
+
+Hi{{#if firstName}} {{firstName}}{{/if}},
+
+You've been invited to join the Sunshine Therapy Dogs platform as a Program Director.
+
+Click the link below to create your account and complete your profile setup. This invitation will expire in 30 days.
+
+Accept your invitation:
+{{inviteUrl}}
+
+If you have any questions, contact us at info@sunshinetherapydogs.ca
+
+© {{year}} Sunshine Therapy Dogs. All rights reserved.
+https://www.sunshinetherapydogs.ca

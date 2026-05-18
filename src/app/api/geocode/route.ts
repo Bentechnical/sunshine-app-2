@@ -6,7 +6,7 @@ import { getAuth } from '@clerk/nextjs/server';
 export async function POST(req: NextRequest) {
   try {
     const { userId } = getAuth(req);
-    const { postal_code, user_id } = await req.json();
+    const { postal_code, user_id, pd_mode } = await req.json();
 
     if (!postal_code || !user_id) {
       return NextResponse.json({ error: 'Missing postal_code or user_id' }, { status: 400 });
@@ -45,13 +45,12 @@ export async function POST(req: NextRequest) {
     const city = cityComponent?.long_name || null;
 
     const supabase = createSupabaseAdminClient();
+    const locationUpdate = pd_mode
+      ? { pd_lat: lat, pd_lng: lng }
+      : { location_lat: lat, location_lng: lng, city };
     const { error } = await supabase
       .from('users')
-      .update({
-        location_lat: lat,
-        location_lng: lng,
-        city: city,
-      })
+      .update(locationUpdate)
       .eq('id', user_id);
 
     if (error) {

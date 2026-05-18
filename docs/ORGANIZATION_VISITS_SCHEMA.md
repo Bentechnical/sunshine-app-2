@@ -30,7 +30,8 @@ Populated when `role = 'organization'`.
 |--------|------|----------|-------------|
 | `org_name` | text | YES | Organization name |
 | `org_type` | text | YES | Type — one of: School, Hospital, Long-term Care Home, Mental Health Facility, Library, Community Centre, University / College, Workplace, Other |
-| `org_address` | text | YES | Organization's physical address |
+| `org_address` | text | YES | Organization's physical address (Google-normalized formatted address string) |
+| `org_place_id` | text | YES | Google Places `place_id` for the org address — populated via Places Autocomplete |
 | `org_contact_name` | text | YES | Primary contact person's name (column exists in DB but not currently collected by the profile form) |
 | `org_contact_phone` | text | YES | Primary contact phone number |
 
@@ -78,7 +79,8 @@ The core table for organization visit requests and confirmed visits. Distinct fr
 | `visit_date` | date | NO | — | Date of the visit |
 | `start_time` | timestamptz | NO | — | Visit start datetime |
 | `end_time` | timestamptz | NO | — | Visit end datetime |
-| `address` | text | NO | — | Visit location address |
+| `address` | text | NO | — | Visit location address (Google-normalized formatted address string) |
+| `location_place_id` | text | YES | — | Google Places `place_id` for the visit location — populated via Places Autocomplete |
 | `location_lat` | double precision | YES | — | Geocoded latitude |
 | `location_lng` | double precision | YES | — | Geocoded longitude |
 | `audience_age_ranges` | text[] | YES | — | e.g. `{children, youth, adults, seniors}` |
@@ -597,6 +599,79 @@ CREATE INDEX IF NOT EXISTS visits_postal_code_idx ON visits (postal_code);
 
 ---
 
+### Migration 10 — Add `org_place_id` to `users` table
+
+Stores the Google Places `place_id` for the organization's address. Populated when an org selects their address via the Places Autocomplete input. Used to produce a verified, normalized address string and precise lat/lng (stored in existing `location_lat`/`location_lng` columns).
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS org_place_id text;
+```
+
+---
+
+### Migration 11 — Add `location_place_id` to `visits` table
+
+Stores the Google Places `place_id` for an individual visit's location. Populated when an org or admin enters the visit address via Places Autocomplete.
+
+```sql
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS location_place_id text;
+```
+
+---
+
+### Migration 12 — Add `assigned_pd_id` to `visits` table
+
+Links a visit to the Program Director responsible for managing it. Null until assigned (either automatically on approval or manually by an admin).
+
+```sql
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS assigned_pd_id text REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS visits_assigned_pd_id_idx ON visits (assigned_pd_id);
+```
+
+---
+
+### Migration 13 — Add PD location fields to `users` table
+
+Populated when `role = 'pd'`. Used for proximity-based automatic visit assignment.
+
+```sql
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS pd_postal_code text,
+  ADD COLUMN IF NOT EXISTS pd_lat double precision,
+  ADD COLUMN IF NOT EXISTS pd_lng double precision;
+```
+
+`pd_postal_code` is collected during PD profile completion. `pd_lat` and `pd_lng` are geocoded server-side from the postal code at profile submission time and stored for efficient proximity queries.
+
+---
+
+### Migration 14 — Add RLS policy: PDs can view their assigned visits
+
+PDs can already view all visits via the existing "Admins and PDs can view all visits" policy. Once scoped assignment is enforced, this policy should be replaced with a narrower one. For now, document the intended future-state policy:
+
+```sql
+-- Future replacement for "Admins and PDs can view all visits" (Phase 2):
+-- DROP POLICY "Admins and PDs can view all visits" ON visits;
+
+-- CREATE POLICY "Admins can view all visits"
+--   ON visits FOR SELECT
+--   USING (
+--     EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role = 'admin')
+--   );
+
+-- CREATE POLICY "PDs can view their assigned visits"
+--   ON visits FOR SELECT
+--   USING (
+--     assigned_pd_id = auth.uid()::text
+--   );
+
+-- Note: run this only when PD scoping is fully implemented in the API layer.
+-- Until then, the combined admin/pd policy remains active.
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -617,3 +692,9 @@ CREATE INDEX IF NOT EXISTS visits_postal_code_idx ON visits (postal_code);
 | May 2026 | 9 | Added `postal_code` column to `visits` table for volunteer distance filtering; added index |
 | May 2026 | Form | OrgDetails profile step now collects `org_contact_name` (required), `postal_code` (required), and org logo (`profile_image`) via AvatarUpload |
 | May 2026 | Form | Org submit payload updated: `org_contact_name`, `profile_image`, `postal_code` now saved on submit; org postal code geocoded to lat/lng |
+| May 2026 | 10 | Added `org_place_id text` to `users` table — Google Places place_id for org address |
+| May 2026 | 11 | Added `location_place_id text` to `visits` table — Google Places place_id for visit location |
+| May 2026 | Places | Replaced free-text address + postal code inputs with Google Places Autocomplete across all org/admin address forms; `org_address` and `visits.address` now store Google-normalized strings; `location_lat`/`location_lng` populated directly from Places result (no separate geocoding step for orgs/visits) |
+| May 2026 | 12 | Added `assigned_pd_id text` to `visits` table — FK → users.id; links each visit to its responsible Program Director; null until assigned |
+| May 2026 | 13 | Added `pd_postal_code`, `pd_lat`, `pd_lng` to `users` table — PD home location fields; postal code collected at profile completion, lat/lng geocoded server-side; used for proximity-based visit assignment |
+| May 2026 | 14 | Documented future RLS policy split for PD scoping (visits); currently PDs share the combined admin/pd SELECT policy; scoped policy to be activated when API layer enforcement is complete |

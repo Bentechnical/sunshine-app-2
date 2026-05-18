@@ -4,6 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { fromZonedTime } from 'date-fns-tz';
+import { geocodePostalCodeServer } from '@/utils/geocode';
+
+const EASTERN = 'America/New_York';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,12 +42,13 @@ export async function POST(req: NextRequest) {
       start_time,
       end_time,
       address,
+      location_place_id,
+      location_lat,
+      location_lng,
       postal_code,
       guest_contact_name,
       guest_contact_email,
       guest_contact_phone,
-      location_lat,
-      location_lng,
       audience_age_ranges,
       visitor_count_expected,
       special_needs_notes,
@@ -65,8 +70,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Combine visit_date + time into full ISO timestamps
-    const startTimestamp = `${visit_date}T${start_time}:00`;
-    const endTimestamp = `${visit_date}T${end_time}:00`;
+    const startTimestamp = fromZonedTime(`${visit_date}T${start_time}:00`, EASTERN).toISOString();
+    const endTimestamp = fromZonedTime(`${visit_date}T${end_time}:00`, EASTERN).toISOString();
+
+    // Use lat/lng from Places selection if provided; fall back to postal code geocoding
+    let resolvedLat = location_lat ?? null;
+    let resolvedLng = location_lng ?? null;
+    if (!resolvedLat && !resolvedLng && postal_code) {
+      const geo = await geocodePostalCodeServer(postal_code);
+      if (geo) {
+        resolvedLat = geo.lat;
+        resolvedLng = geo.lng;
+      }
+    }
 
     const { data: visit, error } = await supabase
       .from('visits')
@@ -78,12 +94,13 @@ export async function POST(req: NextRequest) {
         start_time: startTimestamp,
         end_time: endTimestamp,
         address,
+        location_place_id: location_place_id ?? null,
         postal_code: postal_code ?? null,
         guest_contact_name: guest_contact_name ?? null,
         guest_contact_email: guest_contact_email ?? null,
         guest_contact_phone: guest_contact_phone ?? null,
-        location_lat: location_lat ?? null,
-        location_lng: location_lng ?? null,
+        location_lat: resolvedLat,
+        location_lng: resolvedLng,
         audience_age_ranges: audience_age_ranges ?? null,
         visitor_count_expected: visitor_count_expected ?? null,
         special_needs_notes: special_needs_notes ?? null,

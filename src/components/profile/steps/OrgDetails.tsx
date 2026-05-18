@@ -1,6 +1,7 @@
 'use client';
 
 import AvatarUpload from '@/components/profile/AvatarUpload';
+import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 
 const formatPhoneNumber = (value: string) => {
   const cleaned = value.replace(/\D/g, '').slice(0, 10);
@@ -34,12 +35,11 @@ interface OrgDetailsProps {
   setOrgType: (v: string) => void;
   orgAddress: string;
   setOrgAddress: (v: string) => void;
+  onOrgPlaceSelect: (result: PlaceResult) => void;
   orgContactName: string;
   setOrgContactName: (v: string) => void;
   orgContactPhone: string;
   setOrgContactPhone: (v: string) => void;
-  postalCode: string;
-  setPostalCode: (v: string) => void;
   profilePictureUrl: string;
   setProfilePictureUrl: (url: string) => void;
   isLoading: boolean;
@@ -52,12 +52,11 @@ export default function OrgDetails({
   setOrgType,
   orgAddress,
   setOrgAddress,
+  onOrgPlaceSelect,
   orgContactName,
   setOrgContactName,
   orgContactPhone,
   setOrgContactPhone,
-  postalCode,
-  setPostalCode,
   profilePictureUrl,
   setProfilePictureUrl,
   isLoading,
@@ -151,34 +150,17 @@ export default function OrgDetails({
 
       <div>
         <label htmlFor="orgAddress" className="block text-sm font-semibold text-gray-700 mb-2">
-          Address <span className="text-red-500">*</span>
+          Organization Address <span className="text-red-500">*</span>
         </label>
-        <textarea
-          id="orgAddress"
+        <PlacesAutocomplete
           value={orgAddress}
-          onChange={(e) => setOrgAddress(e.target.value)}
-          className="w-full px-4 py-2 border rounded-lg"
+          onSelect={onOrgPlaceSelect}
+          onChange={setOrgAddress}
           disabled={isLoading}
-          placeholder="Full address of your organization"
-          rows={2}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="orgPostalCode" className="block text-sm font-semibold text-gray-700 mb-2">
-          Postal Code <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="orgPostalCode"
-          type="text"
-          value={postalCode}
-          onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
+          placeholder="Start typing your address…"
           className="w-full px-4 py-2 border rounded-lg"
-          disabled={isLoading}
-          placeholder="A1A 1A1"
-          maxLength={7}
         />
-        <p className="text-xs text-gray-400 mt-1">Used to match visits with nearby volunteers.</p>
+        <p className="text-xs text-gray-400 mt-1">Select your address from the dropdown to confirm it.</p>
       </div>
     </div>
   );

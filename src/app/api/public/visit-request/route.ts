@@ -3,6 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { fromZonedTime } from 'date-fns-tz';
+
+const EASTERN = 'America/New_York';
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,8 +52,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    const startTimestamp = `${visit_date}T${start_time}:00`;
-    const endTimestamp = `${visit_date}T${end_time}:00`;
+    const startTimestamp = fromZonedTime(`${visit_date}T${start_time}:00`, EASTERN).toISOString();
+    const endTimestamp = fromZonedTime(`${visit_date}T${end_time}:00`, EASTERN).toISOString();
 
     const { data: visit, error } = await supabase
       .from('visits')

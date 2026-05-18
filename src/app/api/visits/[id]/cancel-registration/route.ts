@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { removeAttendeeFromEvent } from '@/utils/googleCalendar';
 
 export async function POST(
   req: NextRequest,
@@ -63,9 +64,21 @@ export async function POST(
       // Get visit details for context
       const { data: visit } = await supabase
         .from('visits')
-        .select('id, title, visit_date, start_time')
+        .select('id, title, visit_date, start_time, google_calendar_event_id')
         .eq('id', visitId)
         .single();
+
+      // Remove volunteer from Google Calendar event
+      if ((visit as any)?.google_calendar_event_id) {
+        const { data: volunteerUser } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', userId)
+          .single();
+        if (volunteerUser?.email) {
+          await removeAttendeeFromEvent((visit as any).google_calendar_event_id, volunteerUser.email);
+        }
+      }
 
       // TODO: Notify admin/PD of volunteer cancellation
       // TODO: If within 72h of visit_date, flag as URGENT in notification

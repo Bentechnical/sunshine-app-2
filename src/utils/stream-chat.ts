@@ -108,29 +108,49 @@ export async function closeAppointmentChat(appointmentId: number) {
   await channel.update({ status: 'closed' } as any);
 }
 
+function freshServerClient() {
+  return new StreamChat(STREAM_CHAT_API_KEY, STREAM_CHAT_SECRET);
+}
+
 // Helper function to get user's active chats
 export async function getUserChats(userId: string) {
   const filter = { members: { $in: [userId] } };
   const sort = [{ last_message_at: -1 }];
-  
-  const channels = await streamChatServer.queryChannels(filter, sort, {
-    state: true,
-    watch: true,
-  });
 
-  return channels.filter(channel => 
-    (channel.data as any)?.custom?.type === 'appointment_chat' && 
-    (channel.data as any)?.status !== 'closed'
-  );
+  const query = async (client: StreamChat) => {
+    const channels = await client.queryChannels(filter, sort, { state: true, watch: true });
+    return channels.filter(channel =>
+      (channel.data as any)?.custom?.type === 'appointment_chat' &&
+      (channel.data as any)?.status !== 'closed'
+    );
+  };
+
+  try {
+    return await query(streamChatServer);
+  } catch (err: any) {
+    if (err.code === 'ECONNRESET') {
+      console.warn('[stream-chat] ECONNRESET on getUserChats, retrying with fresh client');
+      return await query(freshServerClient());
+    }
+    throw err;
+  }
 }
 
 // Helper function to get all appointment chats (for admin)
 export async function getAllAppointmentChats() {
   const filter = { custom: { type: 'appointment_chat' } } as any;
   const sort = [{ last_message_at: -1 }];
-  
-  return await streamChatServer.queryChannels(filter, sort, {
-    state: false,
-    watch: false,
-  });
+
+  const query = (client: StreamChat) =>
+    client.queryChannels(filter, sort, { state: false, watch: false });
+
+  try {
+    return await query(streamChatServer);
+  } catch (err: any) {
+    if (err.code === 'ECONNRESET') {
+      console.warn('[stream-chat] ECONNRESET on getAllAppointmentChats, retrying with fresh client');
+      return await query(freshServerClient());
+    }
+    throw err;
+  }
 } 

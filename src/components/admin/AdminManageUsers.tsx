@@ -69,6 +69,16 @@ interface OrganizationUser {
   org_contact_phone: string;
 }
 
+interface PdUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  pd_postal_code: string | null;
+  profile_complete: boolean;
+}
+
 interface ArchivedUser {
   id: string;
   first_name: string;
@@ -91,11 +101,18 @@ interface ActiveAppointment {
 }
 
 export default function ManageUsersTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'archived'>('individual');
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'pd' | 'archived'>('individual');
   const [volunteers, setVolunteers] = useState<VolunteerUser[]>([]);
   const [individuals, setIndividuals] = useState<IndividualUser[]>([]);
   const [organizations, setOrganizations] = useState<OrganizationUser[]>([]);
+  const [pdUsers, setPdUsers] = useState<PdUser[]>([]);
   const [archivedUsers, setArchivedUsers] = useState<ArchivedUser[]>([]);
+  // Invite PD modal
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
   const [expandedUserIds, setExpandedUserIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -206,9 +223,23 @@ export default function ManageUsersTab() {
           }))
           .sort((a: OrganizationUser, b: OrganizationUser) => (a.org_name || '').localeCompare(b.org_name || ''));
 
+        const sortedPds = data
+          .filter((u: any) => u.role === 'pd')
+          .map((u: any) => ({
+            id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            email: u.email,
+            phone: u.phone_number,
+            pd_postal_code: u.pd_postal_code ?? null,
+            profile_complete: u.profile_complete ?? false,
+          }))
+          .sort((a: PdUser, b: PdUser) => a.last_name.localeCompare(b.last_name));
+
         setVolunteers(sortedVolunteers);
         setIndividuals(sortedIndividuals);
         setOrganizations(sortedOrganizations);
+        setPdUsers(sortedPds);
       } catch (err) {
         console.error('[Admin] Error fetching users:', err);
         setError('Failed to load users');
@@ -435,6 +466,27 @@ export default function ManageUsersTab() {
     }
   };
 
+  const handleInvitePd = async () => {
+    setInviteError(null);
+    if (!inviteEmail.trim()) { setInviteError('Email is required.'); return; }
+    setInviting(true);
+    try {
+      const res = await fetch('/api/admin/invite-pd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setInviteError(json.error || 'Failed to send invitation.'); return; }
+      setInviteSuccess(true);
+      setInviteEmail('');
+    } catch {
+      setInviteError('Failed to send invitation.');
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const renderCategoryBubbles = (categories: string[]) => {
     // Sort categories based on the predefined order
     const sortedCategories = categories.sort((a, b) => {
@@ -539,6 +591,16 @@ export default function ManageUsersTab() {
               }`}
             >
               Organizations
+            </button>
+            <button
+              onClick={() => setActiveSubtab('pd')}
+              className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                activeSubtab === 'pd'
+                  ? 'bg-[#0e62ae] text-white'
+                  : 'bg-gray-200 text-gray-800'
+              }`}
+            >
+              Program Directors
             </button>
             <button
               onClick={() => setActiveSubtab('archived')}
@@ -905,6 +967,53 @@ export default function ManageUsersTab() {
           </table>
         )}
 
+        {/* Program Directors Tab */}
+        {activeSubtab === 'pd' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-gray-500">{pdUsers.length} Program Director{pdUsers.length !== 1 ? 's' : ''}</p>
+              <button
+                onClick={() => { setShowInviteModal(true); setInviteSuccess(false); setInviteError(null); setInviteEmail(''); }}
+                className="px-3 py-1.5 text-sm font-semibold text-[#0e62ae] border border-[#0e62ae] rounded-lg hover:bg-blue-50 transition"
+              >
+                + Invite Program Director
+              </button>
+            </div>
+
+            {pdUsers.length === 0 ? (
+              <p className="text-sm text-gray-400 italic py-6 text-center">No Program Directors yet.</p>
+            ) : (
+              <table className="w-full text-sm border border-gray-200 rounded-md">
+                <thead className="bg-gray-100 text-left">
+                  <tr>
+                    <th className="px-4 py-2">Name</th>
+                    <th className="px-4 py-2">Email</th>
+                    <th className="px-4 py-2">Phone</th>
+                    <th className="px-4 py-2">Postal Code</th>
+                    <th className="px-4 py-2">Profile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pdUsers.map(u => (
+                    <tr key={u.id} className="border-t hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium">{u.first_name} {u.last_name}</td>
+                      <td className="px-4 py-2 text-gray-600">{u.email}</td>
+                      <td className="px-4 py-2 text-gray-600">{u.phone || '—'}</td>
+                      <td className="px-4 py-2 text-gray-600">{u.pd_postal_code || '—'}</td>
+                      <td className="px-4 py-2">
+                        {u.profile_complete
+                          ? <span className="text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">Complete</span>
+                          : <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">Pending setup</span>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
         {/* Archived Users Table */}
         {activeSubtab === 'archived' && (
           <table className="w-full text-sm border border-gray-200 rounded-md">
@@ -1073,6 +1182,76 @@ export default function ManageUsersTab() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite PD Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Invite Program Director</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              They&apos;ll receive an email with a link to create their account.
+            </p>
+
+            {inviteSuccess ? (
+              <div className="text-center py-4">
+                <p className="text-green-700 font-semibold mb-1">Invitation sent!</p>
+                <p className="text-sm text-gray-500 mb-4">{inviteEmail || 'The invite has been sent.'}</p>
+                <div className="flex justify-center gap-3">
+                  <button
+                    onClick={() => { setInviteSuccess(false); setInviteEmail(''); setInviteError(null); }}
+                    className="px-4 py-2 text-sm font-medium text-[#0e62ae] border border-[#0e62ae] rounded-lg hover:bg-blue-50"
+                  >
+                    Send another
+                  </button>
+                  <button
+                    onClick={() => setShowInviteModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleInvitePd()}
+                    placeholder="pd@sunshinetherapydogs.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={inviting}
+                    autoFocus
+                  />
+                </div>
+
+                {inviteError && (
+                  <p className="text-sm text-red-600 mb-3">{inviteError}</p>
+                )}
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowInviteModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    disabled={inviting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleInvitePd}
+                    disabled={inviting || !inviteEmail.trim()}
+                    className="px-4 py-2 text-sm font-semibold bg-[#0e62ae] text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {inviting ? 'Sending…' : 'Send Invite'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

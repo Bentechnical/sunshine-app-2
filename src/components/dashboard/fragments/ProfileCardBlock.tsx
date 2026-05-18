@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Clock, Pencil } from 'lucide-react';
 import Image from 'next/image';
-import EditProfileForm from '@/components/profile/EditProfileForm';
-import { geocodePostalCode } from '@/utils/geocode';
+import VolunteerEditModal from './VolunteerEditModal';
+
+type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
 
 interface ProfileData {
   first_name: string;
@@ -21,7 +21,6 @@ interface ProfileData {
   location_lat?: number | null;
   location_lng?: number | null;
   role?: 'individual' | 'volunteer' | 'admin';
-  // New individual user fields
   pronouns?: string | null;
   birthday?: number | null;
   physical_address?: string | null;
@@ -31,11 +30,33 @@ interface ProfileData {
   additional_information?: string | null;
   liability_waiver_accepted?: boolean | null;
   liability_waiver_accepted_at?: string | null;
-  // Visit recipient fields
   visit_recipient_type?: string | null;
   relationship_to_recipient?: string | null;
   dependant_name?: string | null;
+  // Compliance
+  vsc_document_url?: string | null;
+  vsc_date_issued?: string | null;
+  vsc_renewal_due?: string | null;
 }
+
+function getComplianceStatus(documentUrl: string | null, expiryDate: string | null): ComplianceStatus {
+  if (!documentUrl) return 'missing';
+  if (!expiryDate) return 'uploaded';
+  const expiry = new Date(expiryDate);
+  const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  if (daysUntil < 0) return 'expired';
+  if (daysUntil <= 30) return 'expiring';
+  return 'uploaded';
+}
+
+const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
+  missing:  { label: 'VSC Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
+  uploaded: { label: 'VSC Valid',          icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
+  expiring: { label: 'VSC Expiring Soon',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
+  expired:  { label: 'VSC Expired',        icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-800' },
+};
+
+const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, vsc_document_url, vsc_date_issued, vsc_renewal_due';
 
 export default function ProfileCardBlock() {
   const { user } = useUser();
@@ -43,219 +64,123 @@ export default function ProfileCardBlock() {
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showEditForm, setShowEditForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
+  const loadProfile = async () => {
     if (!user?.id) return;
-
-    // Don't reload profile if edit form is open (prevents data loss during editing)
-    if (showEditForm) return;
-
-    let isMounted = true;
-
-    const loadProfile = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select(
-          'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name'
-        )
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Error loading profile:', error);
-        return;
-      }
-
-      if (isMounted) {
-        setProfile(data);
-        setLoading(false);
-      }
-    };
-
-    loadProfile();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id, showEditForm]);
-
-  const handleUpdateProfile = async (
-    bio: string,
-    phone: string,
-    avatarUrl?: string,
-    postalCode?: string,
-    travelDistanceKm?: number,
-    pronouns?: string,
-    birthday?: string,
-    physicalAddress?: string,
-    otherPetsOnSite?: boolean,
-    otherPetsDescription?: string,
-    thirdPartyAvailable?: string,
-    additionalInformation?: string,
-    visitRecipientType?: string,
-    relationshipToRecipient?: string,
-    dependantName?: string
-  ) => {
-    if (!user?.id) return;
-
-    const updatePayload: any = {
-      bio,
-      phone_number: phone,
-      profile_image: avatarUrl,
-      postal_code: postalCode,
-      pronouns: pronouns, // Add pronouns for both individuals and volunteers
-    };
-
-    if (profile?.role === 'volunteer') {
-      updatePayload.travel_distance_km = travelDistanceKm ?? 10;
-    }
-
-    // Add individual-specific fields
-    if (profile?.role === 'individual') {
-      updatePayload.birthday = birthday ? parseInt(birthday) : null;
-      updatePayload.physical_address = physicalAddress;
-      updatePayload.other_pets_on_site = otherPetsOnSite;
-      updatePayload.other_pets_description = otherPetsDescription;
-      updatePayload.third_party_available = thirdPartyAvailable;
-      updatePayload.additional_information = additionalInformation;
-      
-      // Add visit recipient fields
-      updatePayload.visit_recipient_type = visitRecipientType;
-      updatePayload.relationship_to_recipient = relationshipToRecipient;
-      updatePayload.dependant_name = dependantName;
-    }
-
-    if (postalCode && user?.id) {
-  try {
-    const { lat, lng } = await geocodePostalCode(postalCode, user.id);
-
-        updatePayload.location_lat = lat;
-        updatePayload.location_lng = lng;
-        console.log('[Geo] Updated lat/lng for postal code:', postalCode, lat, lng);
-      } catch (err) {
-        console.error('[Geo] Failed to geocode postal code:', postalCode, err);
-      }
-    }
-
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .update(updatePayload)
-      .eq('id', user.id);
-
-    if (error) {
-      console.error('Error updating profile:', error);
-      return;
-    }
-
-    setShowEditForm(false);
-    setLoading(true);
-
-    const { data } = await supabase
-      .from('users')
-      .select(
-        'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name'
-      )
+      .select(PROFILE_FIELDS)
       .eq('id', user.id)
       .single();
 
+    if (error) {
+      console.error('Error loading profile:', error);
+      return;
+    }
     setProfile(data);
     setLoading(false);
   };
 
+  useEffect(() => {
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   if (loading || !profile) {
     return (
-      <div className="bg-white shadow-md rounded-lg p-4 flex items-center justify-center min-h-[200px]">
+      <div className="bg-white rounded-xl p-4 flex items-center justify-center min-h-50">
         <Loader2 className="animate-spin text-gray-500" />
       </div>
     );
   }
 
-  if (showEditForm && user?.id) {
-    return (
-      <EditProfileForm
-        initialBio={profile.bio}
-        initialPhone={profile.phone_number ?? ''}
-        initialAvatarUrl={profile.profile_image ?? ''}
-        initialPostalCode={profile.postal_code ?? ''}
-        initialTravelDistance={profile.travel_distance_km ?? 10}
-        initialPronouns={profile.pronouns ?? ''}
-        initialBirthday={profile.birthday?.toString() ?? ''}
-        initialPhysicalAddress={profile.physical_address ?? ''}
-        initialOtherPetsOnSite={profile.other_pets_on_site ?? false}
-        initialOtherPetsDescription={profile.other_pets_description ?? ''}
-        initialThirdPartyAvailable={profile.third_party_available ?? ''}
-        initialAdditionalInformation={profile.additional_information ?? ''}
-        initialVisitRecipientType={profile.visit_recipient_type ?? ''}
-        initialRelationshipToRecipient={profile.relationship_to_recipient ?? ''}
-        initialDependantName={profile.dependant_name ?? ''}
-        role={profile.role ?? 'individual'}
-        userId={user.id}
-        onSubmit={handleUpdateProfile}
-      />
-    );
-  }
-
   const fullName = `${profile.first_name} ${profile.last_name}`;
-  const email = profile.email;
-  const phone = profile.phone_number || 'Not provided';
   const bio = profile.bio;
 
+  // Only show compliance badge for volunteers
+  const isVolunteer = profile.role === 'volunteer';
+  const vscStatus = isVolunteer
+    ? getComplianceStatus(profile.vsc_document_url ?? null, profile.vsc_renewal_due ?? null)
+    : null;
+  const vscConfig = vscStatus ? statusConfig[vscStatus] : null;
+
   return (
-    <div className="rounded-xl px-4 py-4 flex flex-col gap-5">
+    <>
+      <div className="rounded-xl px-4 py-4 flex flex-col gap-5">
 
-      {/* Top section: image + essential fields */}
-      <div className="flex flex-col md:flex-row items-start gap-5">
-        {profile.profile_image && (
-          <div className="flex-shrink-0 mx-auto md:mx-0">
-            <div className="relative w-36 aspect-square rounded-xl overflow-hidden shadow-md">
-              <Image
-                src={profile.profile_image}
-                alt="Profile"
-                fill
-                className="object-cover"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex-1 flex flex-col gap-1.5">
-          <h3 className="text-2xl font-bold text-gray-900">{fullName}</h3>
-          <div className="flex flex-col gap-1 mt-1 text-sm">
-            <p><span className="text-gray-500">Email:</span> <span className="text-gray-800">{email}</span></p>
-            <p><span className="text-gray-500">Phone:</span> <span className="text-gray-800">{phone}</span></p>
-            {profile.postal_code && (
-              <p><span className="text-gray-500">Postal Code:</span> <span className="text-gray-800">{profile.postal_code}</span></p>
-            )}
-            {profile.pronouns && (
-              <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>
-            )}
-            {profile.birthday && profile.visit_recipient_type !== 'other' && (
-              <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom section: full-width extended profile details */}
-      {(profile.role === 'individual' || profile.role === 'volunteer') && (
-        <div className="flex flex-col gap-5 border-t border-gray-100 pt-5">
-
-          {/* Visit Recipient (individuals arranging for someone else) */}
-          {profile.role === 'individual' && profile.visit_recipient_type === 'other' && (
-            <div className="flex flex-col gap-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Visit Recipient</h4>
-              <div className="text-sm flex flex-col gap-1">
-                <p><span className="text-gray-500">Name:</span> <span className="text-gray-800">{profile.dependant_name}</span></p>
-                <p><span className="text-gray-500">Relationship:</span> <span className="text-gray-800">{profile.relationship_to_recipient}</span></p>
-                {profile.pronouns && <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>}
-                {profile.birthday && <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>}
+        {/* Top section: image + name + edit button */}
+        <div className="flex flex-col md:flex-row items-start gap-5">
+          {profile.profile_image && (
+            <div className="shrink-0 mx-auto md:mx-0">
+              <div className="relative w-36 aspect-square rounded-xl overflow-hidden shadow-md">
+                <Image
+                  src={profile.profile_image}
+                  alt="Profile"
+                  fill
+                  className="object-cover"
+                />
               </div>
             </div>
           )}
 
-          {/* Profile Details — individuals */}
-          {profile.role === 'individual' && (
-            <div className="flex flex-col gap-4">
+          <div className="flex-1 flex flex-col gap-1.5 min-w-0 shrink-0">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-2xl font-bold text-gray-900">{fullName}</h3>
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-lg px-2.5 py-1.5 transition-colors"
+              >
+                <Pencil size={12} />
+                Edit
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1 mt-1 text-sm">
+              <p><span className="text-gray-500">Email:</span> <span className="text-gray-800">{profile.email}</span></p>
+              <p><span className="text-gray-500">Phone:</span> <span className="text-gray-800">{profile.phone_number || 'Not provided'}</span></p>
+              {profile.postal_code && (
+                <p><span className="text-gray-500">Postal Code:</span> <span className="text-gray-800">{profile.postal_code}</span></p>
+              )}
+              {profile.pronouns && (
+                <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>
+              )}
+              {profile.birthday && profile.visit_recipient_type !== 'other' && (
+                <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>
+              )}
+            </div>
+
+            {/* VSC compliance badge */}
+            {vscConfig && (
+              <button
+                onClick={() => setShowEditModal(true)}
+                className={`mt-1 self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80 ${vscConfig.classes}`}
+                title="Click to manage compliance documents"
+              >
+                {vscConfig.icon}
+                {vscConfig.label}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Extended profile details */}
+        {(profile.role === 'individual' || profile.role === 'volunteer') && (
+          <div className="flex flex-col gap-5 border-t border-gray-100 pt-5">
+
+            {profile.role === 'individual' && profile.visit_recipient_type === 'other' && (
+              <div className="flex flex-col gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Visit Recipient</h4>
+                <div className="text-sm flex flex-col gap-1">
+                  <p><span className="text-gray-500">Name:</span> <span className="text-gray-800">{profile.dependant_name}</span></p>
+                  <p><span className="text-gray-500">Relationship:</span> <span className="text-gray-800">{profile.relationship_to_recipient}</span></p>
+                  {profile.pronouns && <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>}
+                  {profile.birthday && <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>}
+                </div>
+              </div>
+            )}
+
+            {profile.role === 'individual' && (
               <div className="flex flex-col gap-4 text-sm">
                 {bio && (
                   <div className="flex flex-col gap-1">
@@ -288,12 +213,9 @@ export default function ProfileCardBlock() {
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Profile Details — volunteers */}
-          {profile.role === 'volunteer' && (
-            <div className="flex flex-col gap-4">
+            {profile.role === 'volunteer' && (
               <div className="flex flex-col gap-4 text-sm">
                 {profile.travel_distance_km && (
                   <div className="flex flex-col gap-1">
@@ -308,15 +230,34 @@ export default function ProfileCardBlock() {
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-        </div>
+          </div>
+        )}
+      </div>
+
+      {/* Edit modal — volunteers only */}
+      {showEditModal && isVolunteer && (
+        <VolunteerEditModal
+          initialProfile={{
+            bio: profile.bio ?? null,
+            phone_number: profile.phone_number ?? null,
+            profile_image: profile.profile_image ?? null,
+            postal_code: profile.postal_code ?? null,
+            travel_distance_km: profile.travel_distance_km ?? null,
+            pronouns: profile.pronouns ?? null,
+            vsc_document_url: profile.vsc_document_url ?? null,
+            vsc_date_issued: profile.vsc_date_issued ?? null,
+            vsc_renewal_due: profile.vsc_renewal_due ?? null,
+          }}
+          onClose={() => setShowEditModal(false)}
+          onSaved={() => {
+            setShowEditModal(false);
+            setLoading(true);
+            loadProfile();
+          }}
+        />
       )}
-
-      <Button className="w-full text-sm py-2" onClick={() => setShowEditForm(true)}>
-        Edit Profile
-      </Button>
-    </div>
+    </>
   );
 }

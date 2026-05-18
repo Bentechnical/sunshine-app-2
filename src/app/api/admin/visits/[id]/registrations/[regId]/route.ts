@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { removeAttendeeFromEvent } from '@/utils/googleCalendar';
 
 export async function DELETE(
   req: NextRequest,
@@ -59,8 +60,27 @@ export async function DELETE(
     }
 
     // TODO: Send notification email to volunteer (removed from visit)
-    // TODO: If was confirmed, remove from Google Calendar event
-    // If was confirmed, check for waitlist volunteers to notify
+
+    // If was confirmed, remove from Google Calendar event and check waitlist
+    if (wasConfirmed) {
+      const { data: visitData } = await supabase
+        .from('visits')
+        .select('google_calendar_event_id')
+        .eq('id', visitId)
+        .single();
+
+      if (visitData?.google_calendar_event_id) {
+        const { data: volunteerUser } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', registration.volunteer_id)
+          .single();
+        if (volunteerUser?.email) {
+          await removeAttendeeFromEvent(visitData.google_calendar_event_id, volunteerUser.email);
+        }
+      }
+    }
+
     if (wasConfirmed) {
       const { data: nextWaitlisted } = await supabase
         .from('visit_registrations')

@@ -37,7 +37,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; classes: string }>
 function ComplianceBadge({ status }: { status: ComplianceStatus }) {
   const { label, classes } = statusConfig[status];
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${classes}`}>
       {label}
     </span>
   );
@@ -219,7 +219,7 @@ export default function AdminCompliance() {
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Volunteer</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">VSC Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">VSC Renewal Due</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">VSC Date Issued</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Vaccine Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Vaccine Expiry</th>
                   <th className="px-4 py-3"></th>
@@ -239,7 +239,7 @@ export default function AdminCompliance() {
                         <ComplianceBadge status={v.vsc.status} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {formatDate(v.vsc.renewal_due)}
+                        {formatDate(v.vsc.date_issued)}
                       </td>
                       <td className="px-4 py-3">
                         <ComplianceBadge status={v.vaccine.status} />

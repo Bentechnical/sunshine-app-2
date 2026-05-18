@@ -2,8 +2,8 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/clerk-react';
 
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -20,15 +20,53 @@ import AdminEmailTesting from '@/components/admin/AdminEmailTesting';
 import AdminVisits from '@/components/admin/AdminVisits';
 import AdminCompliance from '@/components/admin/AdminCompliance';
 
-export default function AdminDashboardPage() {
+// ── Tab ↔ URL param mapping ──────────────────────────────────────────────────
+
+const PARAM_TO_TAB: Record<string, ActiveTab> = {
+  home:             'dashboard-home',
+  visits:           'admin-visits',
+  compliance:       'admin-compliance',
+  'manage-users':   'manage-users',
+  'user-requests':  'user-requests',
+  appointments:     'appointments',
+  chats:            'chats',
+  'welcome-messages': 'welcome-messages',
+  settings:         'email-testing',
+};
+
+const TAB_TO_PARAM: Partial<Record<ActiveTab, string>> = {
+  'dashboard-home':   'home',
+  'admin-visits':     'visits',
+  'admin-compliance': 'compliance',
+  'manage-users':     'manage-users',
+  'user-requests':    'user-requests',
+  'appointments':     'appointments',
+  'chats':            'chats',
+  'welcome-messages': 'welcome-messages',
+  'email-testing':    'settings',
+};
+
+// ── Inner component (needs Suspense for useSearchParams in Next.js 15) ───────
+
+function AdminDashboardInner() {
   const { user } = useUser();
   const { role, status, loading } = useUserProfile();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard-home');
+  const searchParams = useSearchParams();
   const [unreadCountRefreshTrigger, setUnreadCountRefreshTrigger] = useState(0);
 
+  const tabParam = searchParams.get('tab') ?? 'home';
+  const activeTab: ActiveTab = PARAM_TO_TAB[tabParam] ?? 'dashboard-home';
+  const visitParam = searchParams.get('visit');
+  const selectedVisitId = visitParam ? parseInt(visitParam, 10) : null;
   const profileImage = user?.imageUrl ?? '';
-  
+
+  const setActiveTab = (tabOrUpdater: ActiveTab | ((prev: ActiveTab) => ActiveTab)) => {
+    const tab = typeof tabOrUpdater === 'function' ? tabOrUpdater(activeTab) : tabOrUpdater;
+    const param = TAB_TO_PARAM[tab] ?? 'home';
+    router.push(`/dashboard/admin?tab=${param}`);
+  };
+
   const handleUnreadCountChange = () => {
     setUnreadCountRefreshTrigger(prev => prev + 1);
   };
@@ -41,7 +79,6 @@ export default function AdminDashboardPage() {
     }
   }, [user, router, role, status, loading]);
 
-  // Wait until everything is loaded and valid
   if (!user || loading || role !== 'admin' || status !== 'approved') return null;
 
   const renderActiveTab = () => {
@@ -49,7 +86,13 @@ export default function AdminDashboardPage() {
       case 'dashboard-home':
         return <AdminDashboardHome />;
       case 'admin-visits':
-        return <AdminVisits />;
+        return (
+          <AdminVisits
+            selectedVisitId={selectedVisitId}
+            onSelectVisit={(id) => router.push(`/dashboard/admin?tab=visits&visit=${id}`)}
+            onBackFromVisit={() => router.back()}
+          />
+        );
       case 'admin-compliance':
         return <AdminCompliance />;
       case 'manage-users':
@@ -67,7 +110,7 @@ export default function AdminDashboardPage() {
       default:
         return (
           <div className="p-4 text-red-600">
-            Unknown tab selected: "{activeTab}". Please report this issue.
+            Unknown tab: &ldquo;{activeTab}&rdquo;. Please report this issue.
           </div>
         );
     }
@@ -83,5 +126,13 @@ export default function AdminDashboardPage() {
     >
       {renderActiveTab()}
     </DashboardLayout>
+  );
+}
+
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboardInner />
+    </Suspense>
   );
 }

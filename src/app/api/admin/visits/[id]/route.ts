@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { updateVisitEvent } from '@/utils/googleCalendar';
 
 export async function GET(
   req: NextRequest,
@@ -25,11 +26,12 @@ export async function GET(
       .from('visits')
       .select(`
         *,
+        org:organization_id(org_name, profile_image),
         visit_registrations(
           id, volunteer_id, status, waitlist_position,
           contact_shared, admin_note, cancellation_reason, cancelled_at, created_at,
           users:volunteer_id(first_name, last_name, email, phone_number,
-            dogs(id, dog_name, dog_breed))
+            dogs(id, dog_name, dog_breed, dog_picture_url))
         ),
         visit_notes(id, author_id, note_text, created_at,
           users:author_id(first_name, last_name))
@@ -74,6 +76,7 @@ export async function PATCH(
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
       'requires_vsc', 'requires_vaccine_record', 'organization_id',
       'guest_org_name', 'guest_contact_name', 'guest_contact_email', 'guest_contact_phone',
+      'admin_note',
     ];
 
     const updates: Record<string, any> = {};
@@ -97,7 +100,30 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to update visit' }, { status: 500 });
     }
 
-    // TODO: If time/date/address changed and visit is approved, update Google Calendar event
+    // If any calendar-visible fields changed, update the Google Calendar event
+    const calendarFields = ['title', 'visit_date', 'start_time', 'end_time', 'address',
+      'guest_org_name', 'arrival_instructions', 'parking_instructions', 'parking_coverage',
+      'special_needs_notes', 'fee_tier', 'fee_amount', 'requires_vsc', 'requires_vaccine_record',
+      'admin_note', 'audience_age_ranges', 'visitor_count_expected'];
+    const affectsCalendar = calendarFields.some(f => f in updates);
+
+    if (affectsCalendar) {
+      const { data: fullVisit } = await supabase
+        .from('visits')
+        .select(`
+          id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
+          address, start_time, end_time, audience_age_ranges, visitor_count_expected,
+          special_needs_notes, volunteer_slots, parking_coverage, parking_instructions,
+          arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
+          admin_note, google_calendar_event_id, status
+        `)
+        .eq('id', visitId)
+        .single();
+
+      if (fullVisit?.google_calendar_event_id && fullVisit.status === 'approved') {
+        await updateVisitEvent(fullVisit.google_calendar_event_id, fullVisit as any);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

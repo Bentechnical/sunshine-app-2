@@ -4,6 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { fromZonedTime } from 'date-fns-tz';
+import { geocodePostalCodeServer } from '@/utils/geocode';
+
+const EASTERN = 'America/New_York';
 
 export async function GET(req: NextRequest) {
   const check = await requireAdminOrPd();
@@ -24,6 +28,7 @@ export async function GET(req: NextRequest) {
         visit_date, start_time, end_time, address, volunteer_slots,
         requires_vsc, requires_vaccine_record, status, admin_note,
         created_at, updated_at,
+        org:organization_id(profile_image, org_name),
         visit_registrations(id, status)
       `)
       .order('visit_date', { ascending: true });
@@ -49,11 +54,15 @@ export async function GET(req: NextRequest) {
       const regs = (v.visit_registrations as any[]) ?? [];
       const confirmedCount = regs.filter((r: any) => r.status === 'confirmed').length;
       const waitlistCount = regs.filter((r: any) => r.status === 'waitlisted').length;
+      const org = (v as any).org as { profile_image: string | null; org_name: string | null } | null;
       return {
         ...v,
         confirmed_count: confirmedCount,
         waitlist_count: waitlistCount,
         slots_remaining: Math.max(0, (v.volunteer_slots as number) - confirmedCount),
+        org_profile_image: org?.profile_image ?? null,
+        org_name: org?.org_name ?? null,
+        org: undefined,
         visit_registrations: undefined,
       };
     });
@@ -85,9 +94,10 @@ export async function POST(req: NextRequest) {
       start_time,
       end_time,
       address,
-      postal_code,
+      location_place_id,
       location_lat,
       location_lng,
+      postal_code,
       audience_age_ranges,
       visitor_count_expected,
       special_needs_notes,
@@ -111,8 +121,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const startTimestamp = `${visit_date}T${start_time}:00`;
-    const endTimestamp = `${visit_date}T${end_time}:00`;
+    const startTimestamp = fromZonedTime(`${visit_date}T${start_time}:00`, EASTERN).toISOString();
+    const endTimestamp = fromZonedTime(`${visit_date}T${end_time}:00`, EASTERN).toISOString();
+
+    // Use lat/lng from Places selection if provided; fall back to postal code geocoding
+    let resolvedLat = location_lat ?? null;
+    let resolvedLng = location_lng ?? null;
+    if (!resolvedLat && !resolvedLng && postal_code) {
+      const geo = await geocodePostalCodeServer(postal_code);
+      if (geo) {
+        resolvedLat = geo.lat;
+        resolvedLng = geo.lng;
+      }
+    }
 
     const { data: visit, error } = await supabase
       .from('visits')
@@ -127,9 +148,10 @@ export async function POST(req: NextRequest) {
         start_time: startTimestamp,
         end_time: endTimestamp,
         address,
+        location_place_id: location_place_id ?? null,
         postal_code: postal_code ?? null,
-        location_lat: location_lat ?? null,
-        location_lng: location_lng ?? null,
+        location_lat: resolvedLat,
+        location_lng: resolvedLng,
         audience_age_ranges: audience_age_ranges ?? null,
         visitor_count_expected: visitor_count_expected ?? null,
         special_needs_notes: special_needs_notes ?? null,

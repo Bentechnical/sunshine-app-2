@@ -9,7 +9,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 const SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ volunteerId: string }> }
 ) {
   const check = await requireAdminOrPd();
@@ -20,18 +20,17 @@ export async function GET(
     const supabase = createSupabaseAdminClient();
 
     // Fetch volunteer's document paths
-    const { data: volunteer, error: volunteerError } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, vsc_document_url, dogs(vaccine_record_url, dog_name)')
-      .eq('id', volunteerId)
-      .eq('role', 'volunteer')
-      .single();
+    const [volunteerRes, dogRes] = await Promise.all([
+      supabase.from('users').select('id, first_name, last_name, vsc_document_url').eq('id', volunteerId).eq('role', 'volunteer').single(),
+      supabase.from('dogs').select('vaccine_record_url, dog_name').eq('volunteer_id', volunteerId).maybeSingle(),
+    ]);
 
-    if (volunteerError || !volunteer) {
+    if (volunteerRes.error || !volunteerRes.data) {
       return NextResponse.json({ error: 'Volunteer not found' }, { status: 404 });
     }
 
-    const dog = (volunteer.dogs as any[])?.[0] ?? null;
+    const volunteer = volunteerRes.data;
+    const dog = dogRes.data ?? null;
     const documents: Record<string, string | null> = {};
 
     // Generate signed URL for VSC document

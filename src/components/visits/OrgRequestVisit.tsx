@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { VISIT_TIME_OPTIONS, endTimeOptions } from '@/utils/timeOptions';
+import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 
 interface Props {
   onSuccess: () => void;
@@ -20,6 +21,9 @@ interface FormState {
   start_time: string;
   end_time: string;
   address: string;
+  location_place_id: string;
+  location_lat: number | null;
+  location_lng: number | null;
   postal_code: string;
   max_volunteers: string;
   expected_visitors: string;
@@ -40,6 +44,9 @@ const INITIAL: FormState = {
   start_time: '',
   end_time: '',
   address: '',
+  location_place_id: '',
+  location_lat: null,
+  location_lng: null,
   postal_code: '',
   max_volunteers: '2',
   expected_visitors: '',
@@ -84,6 +91,17 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
   const set = (field: keyof FormState, value: string | boolean) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
+  const handlePlaceSelect = (result: PlaceResult) => {
+    setForm(prev => ({
+      ...prev,
+      address: result.formatted_address,
+      location_place_id: result.place_id,
+      location_lat: result.lat,
+      location_lng: result.lng,
+      postal_code: result.postal_code || prev.postal_code,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -104,6 +122,9 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           start_time: form.start_time,
           end_time: form.end_time,
           address: form.address,
+          location_place_id: form.location_place_id || null,
+          location_lat: form.location_lat,
+          location_lng: form.location_lng,
           postal_code: form.postal_code || null,
           guest_contact_name: form.contact_name || null,
           guest_contact_email: form.contact_email || null,
@@ -254,30 +275,16 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
         </div>
 
         {/* Address */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="sm:col-span-2">
-            <label className={labelClass}>Address <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              className={inputClass}
-              value={form.address}
-              onChange={e => set('address', e.target.value)}
-              placeholder="Full street address"
-              required
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Postal Code <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              className={inputClass}
-              value={form.postal_code}
-              onChange={e => set('postal_code', e.target.value.toUpperCase())}
-              placeholder="A1A 1A1"
-              maxLength={7}
-              required
-            />
-          </div>
+        <div>
+          <label className={labelClass}>Visit Address <span className="text-red-500">*</span></label>
+          <PlacesAutocomplete
+            value={form.address}
+            onSelect={handlePlaceSelect}
+            onChange={v => set('address', v)}
+            className={inputClass}
+            placeholder="Start typing the visit location…"
+          />
+          <p className="text-xs text-gray-400 mt-1">Select from the dropdown to confirm the address.</p>
         </div>
 
         {/* Slots & Visitors */}

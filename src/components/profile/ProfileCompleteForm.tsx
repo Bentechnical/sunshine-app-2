@@ -6,6 +6,7 @@ import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { geocodePostalCode } from '@/utils/geocode';
+import { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 
 import RoleSelection from './steps/RoleSelection';
 import IndividualBasicInfo from './steps/IndividualBasicInfo';
@@ -118,6 +119,10 @@ export default function ProfileCompleteForm() {
   const [orgName, setOrgName] = useState('');
   const [orgType, setOrgType] = useState('');
   const [orgAddress, setOrgAddress] = useState('');
+  const [orgPlaceId, setOrgPlaceId] = useState('');
+  const [orgLat, setOrgLat] = useState<number | null>(null);
+  const [orgLng, setOrgLng] = useState<number | null>(null);
+  const [orgPostalCode, setOrgPostalCode] = useState('');
   const [orgContactName, setOrgContactName] = useState('');
   const [orgContactPhone, setOrgContactPhone] = useState('');
 
@@ -166,6 +171,10 @@ export default function ProfileCompleteForm() {
         setOrgName(userData.org_name || '');
         setOrgType(userData.org_type || '');
         setOrgAddress(userData.org_address || '');
+        setOrgPlaceId(userData.org_place_id || '');
+        setOrgLat(userData.location_lat ?? null);
+        setOrgLng(userData.location_lng ?? null);
+        setOrgPostalCode(userData.postal_code || '');
         setOrgContactName(userData.org_contact_name || '');
         setOrgContactPhone(userData.org_contact_phone || '');
 
@@ -218,6 +227,14 @@ export default function ProfileCompleteForm() {
     } catch (error) {
       console.error('Failed to fetch audience categories:', error);
     }
+  };
+
+  const handleOrgPlaceSelect = (result: PlaceResult) => {
+    setOrgAddress(result.formatted_address);
+    setOrgPlaceId(result.place_id);
+    setOrgLat(result.lat);
+    setOrgLng(result.lng);
+    setOrgPostalCode(result.postal_code);
   };
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -291,8 +308,8 @@ export default function ProfileCompleteForm() {
         if (!orgType) { setSubmitError('Please select your organization type.'); return false; }
         if (!orgContactName.trim()) { setSubmitError('Please enter your primary contact name.'); return false; }
         if (!orgContactPhone.trim()) { setSubmitError('Please enter a contact phone number.'); return false; }
-        if (!orgAddress.trim()) { setSubmitError("Please enter your organization's address."); return false; }
-        if (!validatePostalCode(postalCode)) { setSubmitError('Postal code must be in the format A1A 1A1.'); return false; }
+        if (!orgAddress.trim()) { setSubmitError("Please select your organization's address."); return false; }
+        if (!orgPlaceId) { setSubmitError("Please select your address from the dropdown to confirm it."); return false; }
       }
     }
 
@@ -363,9 +380,12 @@ export default function ProfileCompleteForm() {
           org_name: orgName,
           org_type: orgType,
           org_address: orgAddress,
+          org_place_id: orgPlaceId || null,
+          location_lat: orgLat,
+          location_lng: orgLng,
           org_contact_name: orgContactName,
           org_contact_phone: orgContactPhone,
-          postal_code: normalizePostalCode(postalCode),
+          postal_code: orgPostalCode || null,
           profile_image: profilePictureUrl || null,
         };
       }
@@ -452,9 +472,7 @@ export default function ProfileCompleteForm() {
         await geocodePostalCode(normalizePostalCode(postalCode), user.id);
       }
 
-      if (selectedRole === 'organization') {
-        await geocodePostalCode(normalizePostalCode(postalCode), user.id);
-      }
+      // Organization lat/lng is populated directly from Google Places selection — no geocoding needed.
 
       // Welcome email
       try {
@@ -584,9 +602,9 @@ export default function ProfileCompleteForm() {
           orgName={orgName} setOrgName={setOrgName}
           orgType={orgType} setOrgType={setOrgType}
           orgAddress={orgAddress} setOrgAddress={setOrgAddress}
+          onOrgPlaceSelect={handleOrgPlaceSelect}
           orgContactName={orgContactName} setOrgContactName={setOrgContactName}
           orgContactPhone={orgContactPhone} setOrgContactPhone={setOrgContactPhone}
-          postalCode={postalCode} setPostalCode={setPostalCode}
           profilePictureUrl={profilePictureUrl} setProfilePictureUrl={setProfilePictureUrl}
           isLoading={isLoading}
         />
