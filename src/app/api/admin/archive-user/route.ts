@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { formatAppointmentTime } from '@/utils/dateFormat';
 import { closeAppointmentChat } from '@/utils/stream-chat';
-import { requireAdmin } from '@/utils/requireAdmin';
+import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 
 interface ActiveAppointment {
   id: number;
@@ -18,7 +18,7 @@ interface ActiveAppointment {
 }
 
 export async function POST(req: NextRequest) {
-  const check = await requireAdmin();
+  const check = await requireAdminOrPd();
   if ('error' in check) return check.error;
 
   try {
@@ -245,6 +245,31 @@ export async function POST(req: NextRequest) {
         console.error('[archive-user] Failed to archive dog:', dogError.message);
         // Continue anyway, user is archived
       }
+    }
+
+    // Step 5: If PD, clear all org + active visit assignments (ON DELETE SET NULL only fires
+    // on actual row deletion; archival requires explicit nulling)
+    if (user.role === 'pd') {
+      const { error: orgAssignError } = await supabase
+        .from('users')
+        .update({ assigned_pd_id: null })
+        .eq('assigned_pd_id', user_id);
+
+      if (orgAssignError) {
+        console.error('[archive-user] Failed to clear org PD assignments:', orgAssignError.message);
+      }
+
+      const { error: visitAssignError } = await supabase
+        .from('visits')
+        .update({ assigned_pd_id: null })
+        .eq('assigned_pd_id', user_id)
+        .in('status', ['pending_review', 'approved']);
+
+      if (visitAssignError) {
+        console.error('[archive-user] Failed to clear visit PD assignments:', visitAssignError.message);
+      }
+
+      console.log(`[archive-user] Cleared PD assignments for archived PD ${user_id}`);
     }
 
     console.log(`[archive-user] Successfully archived user ${user_id}`);

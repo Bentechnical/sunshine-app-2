@@ -76,7 +76,7 @@ export async function PATCH(
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
       'requires_vsc', 'requires_vaccine_record', 'organization_id',
       'guest_org_name', 'guest_contact_name', 'guest_contact_email', 'guest_contact_phone',
-      'admin_note',
+      'admin_note', 'assigned_pd_id',
     ];
 
     const updates: Record<string, any> = {};

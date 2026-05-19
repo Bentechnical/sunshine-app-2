@@ -13,11 +13,19 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const { vsc_document_url, vsc_date_issued } = body;
 
+  // Compute renewal due date as 3 years from issue date
+  let vsc_renewal_due: string | null = null;
+  if (vsc_date_issued) {
+    const issued = new Date(vsc_date_issued);
+    issued.setFullYear(issued.getFullYear() + 3);
+    vsc_renewal_due = issued.toISOString().split('T')[0];
+  }
+
   const supabase = createSupabaseAdminClient();
 
   const { error } = await supabase
     .from('users')
-    .update({ vsc_document_url, vsc_date_issued })
+    .update({ vsc_document_url, vsc_date_issued, vsc_renewal_due })
     .eq('id', userId)
     .eq('role', 'volunteer');
 
@@ -53,7 +61,7 @@ export async function DELETE() {
 
   const { error } = await supabase
     .from('users')
-    .update({ vsc_document_url: null, vsc_date_issued: null })
+    .update({ vsc_document_url: null, vsc_date_issued: null, vsc_renewal_due: null })
     .eq('id', userId);
 
   if (error) {

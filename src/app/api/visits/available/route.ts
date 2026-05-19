@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       .from('dogs')
       .select('vaccine_record_url')
       .eq('volunteer_id', userId)
-      .eq('status', 'approved')
+      .neq('status', 'archived')
       .maybeSingle();
     const volunteerHasVaccine = !!(dog?.vaccine_record_url);
 

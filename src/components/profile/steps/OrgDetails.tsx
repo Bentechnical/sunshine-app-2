@@ -28,6 +28,24 @@ const ORG_TYPES = [
   'Other',
 ];
 
+const FEE_TIERS = [
+  {
+    value: 'tier_500',
+    label: '$500',
+    description: 'Corporate, private, for-profit organizations, conferences, festivals, and large-scale events',
+  },
+  {
+    value: 'tier_200',
+    label: '$200',
+    description: 'Post-secondary institutions, private and independent schools, private seniors and care facilities, private/for-profit therapy services, and wellness visits to non-profit agency staff',
+  },
+  {
+    value: 'tier_0',
+    label: '$0',
+    description: 'Public schools, service recipients of non-profit organizations, first responders, and patients of inpatient settings',
+  },
+];
+
 interface OrgDetailsProps {
   orgName: string;
   setOrgName: (v: string) => void;
@@ -42,6 +60,8 @@ interface OrgDetailsProps {
   setOrgContactPhone: (v: string) => void;
   profilePictureUrl: string;
   setProfilePictureUrl: (url: string) => void;
+  orgFeeTier: string;
+  setOrgFeeTier: (v: string) => void;
   isLoading: boolean;
 }
 
@@ -59,6 +79,8 @@ export default function OrgDetails({
   setOrgContactPhone,
   profilePictureUrl,
   setProfilePictureUrl,
+  orgFeeTier,
+  setOrgFeeTier,
   isLoading,
 }: OrgDetailsProps) {
   return (
@@ -161,6 +183,41 @@ export default function OrgDetails({
           className="w-full px-4 py-2 border rounded-lg"
         />
         <p className="text-xs text-gray-400 mt-1">Select your address from the dropdown to confirm it.</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">
+          Fee Tier <span className="text-red-500">*</span>
+        </label>
+        <p className="text-sm text-gray-500 mb-3">
+          We operate on a tiered fee-for-service model. Which of these categories best describes your organization?
+        </p>
+        <div className="space-y-3">
+          {FEE_TIERS.map(tier => (
+            <label
+              key={tier.value}
+              className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${
+                orgFeeTier === tier.value
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300 bg-white'
+              }`}
+            >
+              <input
+                type="radio"
+                name="fee_tier"
+                value={tier.value}
+                checked={orgFeeTier === tier.value}
+                onChange={() => setOrgFeeTier(tier.value)}
+                disabled={isLoading}
+                className="mt-0.5 shrink-0"
+              />
+              <div>
+                <p className="text-sm font-semibold text-gray-800">{tier.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{tier.description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   );

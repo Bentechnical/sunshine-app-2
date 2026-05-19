@@ -80,17 +80,21 @@ export async function POST(
       if (orgUser?.email) orgContactEmail = orgUser.email;
     }
 
-    // Create Google Calendar event (non-blocking — failure won't prevent approval)
-    const calendarEventId = await createVisitEvent(
+    // Create Google Calendar event in background — does not block the response
+    createVisitEvent(
       { ...visit, admin_note: adminNote ?? visit.admin_note },
       orgContactEmail,
-    );
-    if (calendarEventId) {
-      await supabase
-        .from('visits')
-        .update({ google_calendar_event_id: calendarEventId })
-        .eq('id', visitId);
-    }
+    ).then(calendarEventId => {
+      if (calendarEventId) {
+        supabase
+          .from('visits')
+          .update({ google_calendar_event_id: calendarEventId })
+          .eq('id', visitId)
+          .then(({ error }) => {
+            if (error) console.error('[approve] Failed to store calendar event ID:', error);
+          });
+      }
+    }).catch(err => console.error('[approve] Calendar event creation failed:', err));
 
     // TODO: Send approval email to org contact
 

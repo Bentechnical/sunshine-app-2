@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
-import { requireAdmin } from '@/utils/requireAdmin';
+import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 
 export async function POST(request: NextRequest) {
-  const check = await requireAdmin();
+  const check = await requireAdminOrPd();
   if ('error' in check) return check.error;
 
   try {

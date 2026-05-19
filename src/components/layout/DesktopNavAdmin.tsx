@@ -6,21 +6,24 @@ interface Props {
   activeTab: ActiveTab;
   setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
   unreadCount: number;
+  role?: 'admin' | 'pd';
 }
 
-export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount }: Props) {
-  
-  const tabs: { key: ActiveTab; label: string; showAlert?: boolean }[] = [
+export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, role = 'admin' }: Props) {
+
+  const allTabs: { key: ActiveTab; label: string; showAlert?: boolean; adminOnly?: boolean }[] = [
     { key: 'dashboard-home', label: 'Overview' },
     { key: 'admin-visits', label: 'Organization Visits' },
     { key: 'admin-compliance', label: 'Compliance' },
     { key: 'user-requests', label: 'New User Requests' },
     { key: 'manage-users', label: 'Manage Users' },
-    { key: 'appointments', label: 'Appointments' },
-    { key: 'chats', label: 'Chat Management', showAlert: unreadCount > 0 },
-    { key: 'welcome-messages', label: 'Welcome Messages' },
-    { key: 'email-testing', label: 'Email & Admin Settings' },
+    { key: 'appointments', label: 'Appointments', adminOnly: true },
+    { key: 'chats', label: 'Chat Management', showAlert: unreadCount > 0, adminOnly: true },
+    { key: 'welcome-messages', label: 'Welcome Messages', adminOnly: true },
+    { key: 'email-testing', label: 'Email & Admin Settings', adminOnly: true },
   ];
+
+  const tabs = role === 'pd' ? allTabs.filter(t => !t.adminOnly) : allTabs;
 
 
   return (

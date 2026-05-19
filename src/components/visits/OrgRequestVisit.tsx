@@ -29,7 +29,9 @@ interface FormState {
   expected_visitors: string;
   requires_vsc: boolean;
   requires_vaccine: boolean;
+  parking_coverage: string;
   parking_info: string;
+  approx_space_sqft: string;
   special_instructions: string;
   notes_for_volunteer: string;
 }
@@ -52,7 +54,9 @@ const INITIAL: FormState = {
   expected_visitors: '',
   requires_vsc: false,
   requires_vaccine: false,
+  parking_coverage: '',
   parking_info: '',
+  approx_space_sqft: '',
   special_instructions: '',
   notes_for_volunteer: '',
 };
@@ -133,7 +137,9 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           visitor_count_expected: form.expected_visitors ? parseInt(form.expected_visitors) : null,
           requires_vsc: form.requires_vsc,
           requires_vaccine_record: form.requires_vaccine,
+          parking_coverage: form.parking_coverage || null,
           parking_instructions: form.parking_info || null,
+          approx_space_sqft: form.approx_space_sqft ? parseInt(form.approx_space_sqft) : null,
           arrival_instructions: form.special_instructions || null,
           special_needs_notes: form.notes_for_volunteer || null,
         }),
@@ -287,10 +293,10 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           <p className="text-xs text-gray-400 mt-1">Select from the dropdown to confirm the address.</p>
         </div>
 
-        {/* Slots & Visitors */}
+        {/* Slots, Visitors & Space */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Volunteer Spots Needed <span className="text-red-500">*</span></label>
+            <label className={labelClass}>Dogs Needed <span className="text-red-500">*</span></label>
             <input
               type="number"
               min={1}
@@ -302,7 +308,7 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
             />
           </div>
           <div>
-            <label className={labelClass}>Expected Visitors</label>
+            <label className={labelClass}>Estimated Participants</label>
             <input
               type="number"
               min={1}
@@ -312,6 +318,17 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
               placeholder="Optional"
             />
           </div>
+        </div>
+        <div>
+          <label className={labelClass}>Approx. Event Space (sq ft)</label>
+          <input
+            type="number"
+            min={1}
+            className={inputClass}
+            value={form.approx_space_sqft}
+            onChange={e => set('approx_space_sqft', e.target.value)}
+            placeholder="Optional"
+          />
         </div>
 
         {/* Requirements */}
@@ -338,15 +355,34 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
         </div>
 
         {/* Parking */}
-        <div>
-          <label className={labelClass}>Parking Information</label>
-          <input
-            type="text"
-            className={inputClass}
-            value={form.parking_info}
-            onChange={e => set('parking_info', e.target.value)}
-            placeholder="e.g. Free parking in Lot B, enter from Main St."
-          />
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>Parking</label>
+            <select
+              className={inputClass}
+              value={form.parking_coverage}
+              onChange={e => set('parking_coverage', e.target.value)}
+            >
+              <option value="">— Select —</option>
+              <option value="free_on_site">Free parking on-site</option>
+              <option value="parking_passes">Parking passes available</option>
+              <option value="reimburse_on_site">Volunteers pay — reimbursed on-site</option>
+              <option value="invoice_surcharge">Volunteers pay — $25 surcharge added to invoice</option>
+              <option value="other">Other (provide details below)</option>
+            </select>
+          </div>
+          {form.parking_coverage && form.parking_coverage !== 'free_on_site' && (
+            <div>
+              <label className={labelClass}>Parking details for volunteers</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={form.parking_info}
+                onChange={e => set('parking_info', e.target.value)}
+                placeholder="e.g. Street parking on Main St., paid lot on 2nd Ave."
+              />
+            </div>
+          )}
         </div>
 
         {/* Special Instructions */}

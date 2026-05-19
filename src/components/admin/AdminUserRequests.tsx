@@ -72,8 +72,8 @@ interface IncompleteSignup {
   created_at: string;
 }
 
-export default function UserRequestsTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'incomplete'>('individual');
+export default function UserRequestsTab({ hideIndividuals = false }: { hideIndividuals?: boolean }) {
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'incomplete'>(hideIndividuals ? 'volunteer' : 'individual');
   const [volunteerRequests, setVolunteerRequests] = useState<VolunteerRequest[]>([]);
   const [individualRequests, setIndividualRequests] = useState<IndividualRequest[]>([]);
   const [organizationRequests, setOrganizationRequests] = useState<OrganizationRequest[]>([]);
@@ -214,13 +214,15 @@ export default function UserRequestsTab() {
     <div className="px-4 py-4">
       {/* Tabs */}
       <div className="flex space-x-4 mb-6">
-        <button
-          onClick={() => setActiveSubtab('individual')}
-          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
-            }`}
-        >
-          Individual Requests
-        </button>
+        {!hideIndividuals && (
+          <button
+            onClick={() => setActiveSubtab('individual')}
+            className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
+              }`}
+          >
+            Individual Requests
+          </button>
+        )}
         <button
           onClick={() => setActiveSubtab('volunteer')}
           className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'volunteer' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'

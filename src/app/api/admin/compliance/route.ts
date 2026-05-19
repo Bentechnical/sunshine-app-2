@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         .order('last_name', { ascending: true }),
       supabase
         .from('dogs')
-        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_expiry_date'),
+        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date'),
     ]);
 
     if (volunteersRes.error) {
@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
         vaccine: {
           status: vaccineStatus,
           document_url: dog?.vaccine_record_url ?? null,
+          date_issued: dog?.vaccine_date_issued ?? null,
           expiry_date: dog?.vaccine_expiry_date ?? null,
           dog_name: dog?.dog_name ?? null,
         },

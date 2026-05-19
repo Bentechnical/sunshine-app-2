@@ -10,6 +10,8 @@ interface VolunteerComplianceProps {
   setVscDate: (v: string) => void;
   vaccineDocumentUrl: string;
   setVaccineDocumentUrl: (v: string) => void;
+  vaccineIssuedDate: string;
+  setVaccineIssuedDate: (v: string) => void;
   vaccineExpiryDate: string;
   setVaccineExpiryDate: (v: string) => void;
   isLoading: boolean;
@@ -105,6 +107,8 @@ export default function VolunteerCompliance({
   setVscDate,
   vaccineDocumentUrl,
   setVaccineDocumentUrl,
+  vaccineIssuedDate,
+  setVaccineIssuedDate,
   vaccineExpiryDate,
   setVaccineExpiryDate,
   isLoading,
@@ -157,8 +161,23 @@ export default function VolunteerCompliance({
         />
 
         <div>
+          <label htmlFor="vaccineIssuedDate" className="block text-sm font-semibold text-gray-700 mb-2">
+            Date of Issue
+          </label>
+          <input
+            id="vaccineIssuedDate"
+            type="date"
+            value={vaccineIssuedDate}
+            onChange={(e) => setVaccineIssuedDate(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg"
+            disabled={isLoading}
+            max={new Date().toISOString().split('T')[0]}
+          />
+        </div>
+
+        <div>
           <label htmlFor="vaccineExpiryDate" className="block text-sm font-semibold text-gray-700 mb-2">
-            Vaccine Expiry Date
+            Expiry Date
           </label>
           <input
             id="vaccineExpiryDate"

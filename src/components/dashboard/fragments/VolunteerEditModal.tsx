@@ -273,7 +273,7 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
                   : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
-              {t === 'compliance' ? 'Compliance' : 'My Profile'}
+              {t === 'compliance' ? 'Documents' : 'My Profile'}
             </button>
           ))}
         </div>

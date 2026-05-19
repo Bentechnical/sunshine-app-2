@@ -57,8 +57,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const activeTab = adminActiveTab ?? pathnameToActiveTab(pathname);
 
-  const isAdminRole = role === 'admin' || role === 'pd';
-  const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger, isAdminRole);
+  const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger, role === 'admin');
 
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 
@@ -81,7 +80,7 @@ export default function DashboardLayout({
               <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-6">
                 <span className="text-sm font-medium">{role === 'pd' ? 'Program Director' : 'Admin Mode'}</span>
               </div>
-              <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} unreadCount={unreadCount} />
+              <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} unreadCount={unreadCount} role={role === 'pd' ? 'pd' : 'admin'} />
             </>
           ) : (
             <DesktopNav role={role as 'individual' | 'volunteer'} />
@@ -149,6 +148,7 @@ export default function DashboardLayout({
                 setActiveTab={adminSetActiveTab!}
                 profileImage={profileImage}
                 unreadCount={unreadCount}
+                role={role === 'pd' ? 'pd' : 'admin'}
               />
             ) : (
               <MobileNav role={role as 'individual' | 'volunteer'} profileImage={profileImage} />

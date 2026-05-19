@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
         id, title, organization_id, guest_org_name, guest_contact_name, guest_contact_email,
         visit_date, start_time, end_time, address, volunteer_slots,
         requires_vsc, requires_vaccine_record, status, admin_note,
+        assigned_pd_id,
         created_at, updated_at,
         org:organization_id(profile_image, org_name),
         visit_registrations(id, status)
@@ -112,6 +113,7 @@ export async function POST(req: NextRequest) {
       requires_vsc,
       requires_vaccine_record,
       status,
+      assigned_pd_id,
     } = body;
 
     if (!visit_date || !start_time || !end_time || !address) {
@@ -166,6 +168,7 @@ export async function POST(req: NextRequest) {
         requires_vsc: requires_vsc ?? false,
         requires_vaccine_record: requires_vaccine_record ?? true,
         status: status ?? 'pending_review',
+        assigned_pd_id: assigned_pd_id ?? null,
         created_by: userId,
       })
       .select('id')

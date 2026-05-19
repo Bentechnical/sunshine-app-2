@@ -1,10 +1,10 @@
 // src/app/api/admin/pending-users/route.ts
 import { NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
-import { requireAdmin } from '@/utils/requireAdmin';
+import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 
 export async function GET() {
-  const check = await requireAdmin();
+  const check = await requireAdminOrPd();
   if ('error' in check) return check.error;
 
   const supabase = createSupabaseAdminClient();

@@ -6,6 +6,24 @@ import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { geocodePostalCode } from '@/utils/geocode';
 
+const formatPhoneNumber = (value: string) => {
+  const cleaned = value.replace(/\D/g, '').slice(0, 10);
+  const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+  if (match) {
+    const parts = [match[1], match[2], match[3]].filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return `(${parts[0]}`;
+    if (parts.length === 2) return `(${parts[0]}) ${parts[1]}`;
+    return `(${parts[0]}) ${parts[1]}-${parts[2]}`;
+  }
+  return value;
+};
+
+const formatPostalCode = (value: string) => {
+  const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  return cleaned.length > 3 ? `${cleaned.slice(0, 3)} ${cleaned.slice(3)}` : cleaned;
+};
+
 const normalizePostalCode = (code: string) => {
   const cleaned = code.toUpperCase().replace(/\s+/g, '');
   return cleaned.length === 6 ? `${cleaned.slice(0, 3)} ${cleaned.slice(3)}` : cleaned;
@@ -127,7 +145,7 @@ export default function PdCompleteForm() {
             <input
               type="tel"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => setPhone(formatPhoneNumber(e.target.value))}
               className={inputClass}
               placeholder="e.g. 416-555-0100"
               disabled={isLoading}
@@ -139,10 +157,10 @@ export default function PdCompleteForm() {
             <input
               type="text"
               value={postalCode}
-              onChange={e => setPostalCode(e.target.value.toUpperCase())}
+              onChange={e => setPostalCode(formatPostalCode(e.target.value))}
               className={inputClass}
               placeholder="e.g. M5V 0K4"
-              maxLength={7}
+              maxLength={8}
               disabled={isLoading}
             />
             <p className="text-xs text-gray-400 mt-1">

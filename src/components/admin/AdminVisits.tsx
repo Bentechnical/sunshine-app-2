@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useUser } from '@clerk/nextjs';
 import {
   Calendar, Clock, MapPin, ChevronRight, Building2, PawPrint,
   ExternalLink, ArrowLeft, Phone, Mail, User,
@@ -15,6 +16,12 @@ import VisitMap from '@/components/ui/VisitMap';
 type VisitStatus = 'pending_review' | 'approved' | 'declined' | 'cancelled' | 'completed';
 type ViewMode = 'list' | 'create';
 type StatusFilter = 'pending_review' | 'approved' | 'all';
+
+interface PdUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
 
 interface VisitSummary {
   id: number;
@@ -37,6 +44,7 @@ interface VisitSummary {
   created_at: string;
   org_profile_image: string | null;
   org_name: string | null;
+  assigned_pd_id: string | null;
 }
 
 interface Registration {
@@ -92,6 +100,7 @@ interface VisitDetail {
   requires_vaccine_record: boolean;
   status: VisitStatus;
   admin_note: string | null;
+  assigned_pd_id: string | null;
   org: { org_name: string | null; profile_image: string | null } | null;
   visit_registrations: Registration[];
   visit_notes: VisitNote[];
@@ -101,6 +110,7 @@ interface Props {
   selectedVisitId?: number | null;
   onSelectVisit?: (id: number) => void;
   onBackFromVisit?: () => void;
+  pdMode?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -204,11 +214,13 @@ function SlotBar({ confirmed, total }: { confirmed: number; total: number }) {
 // ─── Create Visit Form ────────────────────────────────────────────────────────
 
 function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const { user } = useUser();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: '',
     organization_id: '',
+    assigned_pd_id: '',
     guest_org_name: '',
     guest_contact_name: '',
     guest_contact_email: '',
@@ -225,6 +237,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     requires_vsc: false,
     requires_vaccine_record: true,
     visitor_count_expected: '',
+    approx_space_sqft: '',
     fee_tier: '',
     parking_coverage: '',
     special_needs_notes: '',
@@ -235,8 +248,9 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
 
   const set = (field: string, value: any) => setForm(f => ({ ...f, [field]: value }));
 
-  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string };
+  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string; assigned_pd_id: string | null; fee_tier: string | null };
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const [pdOptions, setPdOptions] = useState<PdUser[]>([]);
   const [orgSearch, setOrgSearch] = useState('');
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; org_name: string } | null>(null);
@@ -244,9 +258,23 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   useEffect(() => {
     fetch('/api/admin/approved-users')
       .then(r => r.json())
-      .then(json => setOrgOptions((json.users ?? []).filter((u: any) => u.role === 'organization')))
+      .then(json => {
+        setOrgOptions((json.users ?? []).filter((u: any) => u.role === 'organization'));
+        setPdOptions((json.users ?? []).filter((u: any) => u.role === 'pd').map((u: any) => ({ id: u.id, first_name: u.first_name, last_name: u.last_name })));
+      })
       .catch(() => {});
   }, []);
+
+  // Default assigned_pd_id to the current user if they are a PD — only fires once
+  const pdAutoAssigned = useRef(false);
+  useEffect(() => {
+    if (pdAutoAssigned.current || !user?.id || pdOptions.length === 0) return;
+    const isPd = pdOptions.some(p => p.id === user.id);
+    if (isPd) {
+      setForm(f => ({ ...f, assigned_pd_id: user.id }));
+      pdAutoAssigned.current = true;
+    }
+  }, [user?.id, pdOptions]);
 
   const filteredOrgs = orgSearch
     ? orgOptions.filter(o => (o.org_name ?? '').toLowerCase().includes(orgSearch.toLowerCase()))
@@ -264,6 +292,9 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       guest_contact_email: org.email || f.guest_contact_email,
       guest_contact_phone: org.org_contact_phone || f.guest_contact_phone,
       address: org.org_address || f.address,
+      // Inherit org's default PD assignment and fee tier
+      assigned_pd_id: org.assigned_pd_id ?? f.assigned_pd_id,
+      fee_tier: org.fee_tier ?? f.fee_tier,
     }));
   };
 
@@ -299,6 +330,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           ...form,
           volunteer_slots: Number(form.volunteer_slots),
           visitor_count_expected: form.visitor_count_expected ? Number(form.visitor_count_expected) : null,
+          approx_space_sqft: form.approx_space_sqft ? Number(form.approx_space_sqft) : null,
           fee_tier: form.fee_tier || null,
           parking_coverage: form.parking_coverage || null,
           guest_org_name: form.guest_org_name || null,
@@ -309,6 +341,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           location_lat: form.location_lat,
           location_lng: form.location_lng,
           postal_code: form.postal_code || null,
+          assigned_pd_id: form.assigned_pd_id || null,
         }),
       });
       const json = await res.json();
@@ -386,6 +419,17 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
             <label className={labelClass}>Contact Phone</label>
             <input type="tel" value={form.guest_contact_phone} onChange={e => set('guest_contact_phone', e.target.value)} className={inputClass} />
           </div>
+          {pdOptions.length > 0 && (
+            <div>
+              <label className={labelClass}>Assign to Program Director</label>
+              <select value={form.assigned_pd_id} onChange={e => set('assigned_pd_id', e.target.value)} className={inputClass}>
+                <option value="">— Unassigned —</option>
+                {pdOptions.map(pd => (
+                  <option key={pd.id} value={pd.id}>{pd.first_name} {pd.last_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -424,32 +468,37 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Logistics</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
-            <label className={labelClass}>Volunteer Slots</label>
+            <label className={labelClass}>Dogs Needed</label>
             <input type="number" min={1} max={20} value={form.volunteer_slots} onChange={e => set('volunteer_slots', e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Expected Visitors</label>
+            <label className={labelClass}>Estimated Participants</label>
             <input type="number" min={1} value={form.visitor_count_expected} onChange={e => set('visitor_count_expected', e.target.value)} className={inputClass} placeholder="e.g. 30" />
+          </div>
+          <div>
+            <label className={labelClass}>Space (sq ft)</label>
+            <input type="number" min={1} value={form.approx_space_sqft} onChange={e => set('approx_space_sqft', e.target.value)} className={inputClass} placeholder="Optional" />
           </div>
           <div>
             <label className={labelClass}>Fee Tier</label>
             <select value={form.fee_tier} onChange={e => set('fee_tier', e.target.value)} className={inputClass}>
-              <option value="">— Select —</option>
-              <option value="free">Free</option>
-              <option value="standard">Standard ($200)</option>
-              <option value="reduced">Reduced ($50)</option>
-              <option value="custom">Custom</option>
+              <option value="">— Not set —</option>
+              <option value="tier_500">$500 — Corporate / for-profit</option>
+              <option value="tier_200">$200 — Post-secondary / private</option>
+              <option value="tier_0">$0 — Public / non-profit</option>
             </select>
           </div>
-          <div>
-            <label className={labelClass}>Parking</label>
-            <select value={form.parking_coverage} onChange={e => set('parking_coverage', e.target.value)} className={inputClass}>
-              <option value="">— Select —</option>
-              <option value="free_on_site">Free on site</option>
-              <option value="reimbursed_on_site">Reimbursed</option>
-              <option value="invoice">On invoice</option>
-            </select>
-          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Parking</label>
+          <select value={form.parking_coverage} onChange={e => set('parking_coverage', e.target.value)} className={inputClass}>
+            <option value="">— Select —</option>
+            <option value="free_on_site">Free parking on-site</option>
+            <option value="parking_passes">Parking passes available</option>
+            <option value="reimburse_on_site">Volunteers pay — reimbursed on-site</option>
+            <option value="invoice_surcharge">Volunteers pay — $25 surcharge added to invoice</option>
+            <option value="other">Other (see parking instructions)</option>
+          </select>
         </div>
         <div className="flex flex-wrap items-center gap-5 pt-1">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -482,8 +531,8 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
             <textarea value={form.arrival_instructions} onChange={e => set('arrival_instructions', e.target.value)} rows={3} className={inputClass} placeholder="Check-in location, access…" />
           </div>
           <div>
-            <label className={labelClass}>Parking Instructions</label>
-            <textarea value={form.parking_instructions} onChange={e => set('parking_instructions', e.target.value)} rows={3} className={inputClass} placeholder="Where to park…" />
+            <label className={labelClass}>Parking Details for Volunteers</label>
+            <textarea value={form.parking_instructions} onChange={e => set('parking_instructions', e.target.value)} rows={3} className={inputClass} placeholder="e.g. Free parking in Lot B, enter from Main St." />
           </div>
         </div>
       </div>
@@ -505,11 +554,13 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
 function VisitDetailView({
   visitId,
   orgImage,
+  pdUsers,
   onBack,
   onUpdated,
 }: {
   visitId: number;
   orgImage: string | null;
+  pdUsers: PdUser[];
   onBack: () => void;
   onUpdated: () => void;
 }) {
@@ -526,6 +577,26 @@ function VisitDetailView({
   const [editingSharedNote, setEditingSharedNote] = useState(false);
   const [sharedNoteText, setSharedNoteText] = useState('');
   const [savingSharedNote, setSavingSharedNote] = useState(false);
+  // PD reassignment
+  const [savingPd, setSavingPd] = useState(false);
+
+  const handleAssignPd = async (pdId: string | null) => {
+    if (!visit) return;
+    setSavingPd(true);
+    try {
+      const res = await fetch(`/api/admin/visits/${visitId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_pd_id: pdId }),
+      });
+      if (res.ok) {
+        setVisit(v => v ? { ...v, assigned_pd_id: pdId } : v);
+        onUpdated();
+      }
+    } finally {
+      setSavingPd(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -724,6 +795,28 @@ function VisitDetailView({
           )}
         </div>
 
+        {/* PD assignment row */}
+        {pdUsers.length > 0 && (
+          <div className="border-t border-gray-100 pt-3 mt-3 flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide shrink-0">Assigned PD:</span>
+            <select
+              value={visit.assigned_pd_id ?? ''}
+              disabled={savingPd}
+              onChange={e => handleAssignPd(e.target.value || null)}
+              className="border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+            >
+              <option value="">— Unassigned —</option>
+              {pdUsers.map(pd => (
+                <option key={pd.id} value={pd.id}>{pd.first_name} {pd.last_name}</option>
+              ))}
+            </select>
+            {savingPd && <span className="text-xs text-gray-400">Saving…</span>}
+            {!visit.assigned_pd_id && !savingPd && (
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Unassigned</span>
+            )}
+          </div>
+        )}
+
         {/* Inline action forms — inside header card */}
         {showApproveForm && (
           <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
@@ -905,7 +998,11 @@ function VisitDetailView({
         {(visit.fee_tier || visit.audience_age_ranges?.length) && (
           <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-sm text-gray-700">
             {visit.fee_tier && (
-              <p><span className="font-medium text-gray-500">Fee:</span> {visit.fee_tier}{visit.fee_amount ? ` ($${visit.fee_amount})` : ''}</p>
+              <p><span className="font-medium text-gray-500">Fee:</span> {{
+                tier_500: '$500 — Corporate / for-profit',
+                tier_200: '$200 — Post-secondary / private',
+                tier_0: '$0 — Public / non-profit',
+              }[visit.fee_tier] ?? visit.fee_tier}</p>
             )}
             {visit.audience_age_ranges && visit.audience_age_ranges.length > 0 && (
               <p><span className="font-medium text-gray-500">Audience:</span> {visit.audience_age_ranges.join(', ')}</p>
@@ -920,7 +1017,16 @@ function VisitDetailView({
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Instructions &amp; Notes</h3>
           <div className="space-y-2 text-sm text-gray-700">
             {visit.parking_coverage && (
-              <p><span className="font-medium text-gray-500">Parking:</span> {visit.parking_coverage.replace(/_/g, ' ')}</p>
+              <p><span className="font-medium text-gray-500">Parking:</span> {{
+                free_on_site: 'Free parking on-site',
+                parking_passes: 'Parking passes available',
+                reimburse_on_site: 'Volunteers pay — reimbursed on-site',
+                invoice_surcharge: 'Volunteers pay — $25 surcharge added to invoice',
+                other: 'Other',
+                // legacy values
+                reimbursed_on_site: 'Reimbursed on-site',
+                invoice: 'On invoice',
+              }[visit.parking_coverage] ?? visit.parking_coverage.replace(/_/g, ' ')}</p>
             )}
             {visit.approx_space_sqft && (
               <p><span className="font-medium text-gray-500">Space:</span> {visit.approx_space_sqft.toLocaleString()} sq ft</p>
@@ -1029,12 +1135,28 @@ function VisitDetailView({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit }: Props) {
+export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, pdMode = false }: Props) {
+  const { user } = useUser();
+  const currentUserId = user?.id ?? null;
   const [view, setView] = useState<ViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending_review');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(pdMode ? 'approved' : 'pending_review');
+  const [filterUnassigned, setFilterUnassigned] = useState(false);
+  const [filterMyAssignments, setFilterMyAssignments] = useState(pdMode);
   const [visits, setVisits] = useState<VisitSummary[]>([]);
+  const [pdUsers, setPdUsers] = useState<PdUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/approved-users')
+      .then(r => r.json())
+      .then(json => setPdUsers(
+        (json.users ?? [])
+          .filter((u: any) => u.role === 'pd')
+          .map((u: any) => ({ id: u.id, first_name: u.first_name, last_name: u.last_name }))
+      ))
+      .catch(() => {});
+  }, []);
 
   const fetchVisits = useCallback(async () => {
     setLoading(true);
@@ -1084,6 +1206,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
         <VisitDetailView
           visitId={selectedVisitId}
           orgImage={selectedVisitSummary?.org_profile_image ?? null}
+          pdUsers={pdUsers}
           onBack={() => onBackFromVisit?.()}
           onUpdated={fetchVisits}
         />
@@ -1091,20 +1214,48 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
     );
   }
 
+  // ── Derived: apply all active filters ──
+  const myAssignmentsCount = visits.filter(v => v.assigned_pd_id === currentUserId).length;
+  const displayedVisits = visits.filter(v => {
+    if (filterMyAssignments && v.assigned_pd_id !== currentUserId) return false;
+    if (filterUnassigned && v.assigned_pd_id != null) return false;
+    return true;
+  });
+
   // ── Render: List view ──
   return (
     <div className="px-4 py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-900">Organization Visits</h1>
-        <button onClick={() => setView('create')}
-          className="px-4 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
-          + Create Visit
-        </button>
+        <div className="flex items-center gap-3">
+          {pdMode && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filterMyAssignments}
+                onChange={e => setFilterMyAssignments(e.target.checked)}
+                className="rounded accent-[#0e62ae]"
+              />
+              <span className="text-sm text-gray-600 whitespace-nowrap">
+                My Assignments
+                {myAssignmentsCount > 0 && (
+                  <span className="ml-1.5 text-xs font-bold bg-[#0e62ae] text-white px-1.5 py-0.5 rounded-full">
+                    {myAssignmentsCount}
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
+          <button onClick={() => setView('create')}
+            className="px-4 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
+            + Create Visit
+          </button>
+        </div>
       </div>
 
       {/* Status filter tabs */}
-      <div className="flex gap-2 mb-5 flex-wrap">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
         {filterTabs.map(({ key, label }) => (
           <button key={key} onClick={() => setStatusFilter(key)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
@@ -1113,6 +1264,17 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
             {label}
           </button>
         ))}
+        {!pdMode && (
+          <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={filterUnassigned}
+              onChange={e => setFilterUnassigned(e.target.checked)}
+              className="rounded accent-[#0e62ae]"
+            />
+            <span className="text-sm text-gray-600 whitespace-nowrap">Unassigned only</span>
+          </label>
+        )}
       </div>
 
       {loading && (
@@ -1126,22 +1288,23 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>
       )}
 
-      {!loading && !error && visits.length === 0 && (
+      {!loading && !error && displayedVisits.length === 0 && (
         <div className="text-center py-16 text-gray-500">
           <Calendar className="mx-auto mb-4 text-gray-300" size={48} />
           <p className="font-medium">No visits found</p>
           <p className="text-sm mt-1">
-            {statusFilter === 'pending_review' ? 'No pending visit requests.' : 'No visits matching this filter.'}
+            {filterMyAssignments ? 'No visits assigned to you.' : statusFilter === 'pending_review' ? 'No pending visit requests.' : 'No visits matching this filter.'}
           </p>
         </div>
       )}
 
-      {/* Visit cards — 2-column grid, OrgMyVisits card style */}
-      {!loading && !error && visits.length > 0 && (
+      {/* Visit cards — 2-column grid */}
+      {!loading && !error && displayedVisits.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
-          {visits.map(visit => {
+          {displayedVisits.map(visit => {
             const orgLabel = visit.guest_org_name || visit.org_name || 'Unknown organization';
             const isUrgent = visit.status === 'approved' && visit.slots_remaining > 0 && isWithinDays(visit.visit_date, 14);
+            const assignedPd = pdUsers.find(p => p.id === visit.assigned_pd_id);
 
             return (
               <div
@@ -1151,9 +1314,10 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
               >
                 {/* Status row */}
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <OrgLogo url={visit.org_profile_image} size={36} />
                     <StatusBadge status={visit.status} />
+                    <CountdownBadge dateStr={visit.visit_date} />
                     {isUrgent && (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600">
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
@@ -1178,19 +1342,17 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
 
                 <SlotBar confirmed={visit.confirmed_count} total={visit.volunteer_slots} />
 
-                <div className="mt-2 flex items-center gap-2 flex-wrap">
-                  <CountdownBadge dateStr={visit.visit_date} />
-                  {visit.waitlist_count > 0 && (
-                    <span className="text-xs text-amber-600">{visit.waitlist_count} on waitlist</span>
-                  )}
-                </div>
-
-                {visit.admin_note && (
-                  <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
-                    <p className="text-xs font-semibold text-yellow-700">Note from Sunshine</p>
-                    <p className="text-xs text-yellow-900 line-clamp-2">{visit.admin_note}</p>
-                  </div>
+                {visit.waitlist_count > 0 && (
+                  <p className="mt-1 text-xs text-amber-600">{visit.waitlist_count} on waitlist</p>
                 )}
+
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-gray-500">PD:</span>
+                  {assignedPd
+                    ? <span className="text-xs font-semibold text-gray-800">{assignedPd.first_name} {assignedPd.last_name}</span>
+                    : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Unassigned</span>
+                  }
+                </div>
               </div>
             );
           })}

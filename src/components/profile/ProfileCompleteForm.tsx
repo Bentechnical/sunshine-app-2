@@ -113,6 +113,7 @@ export default function ProfileCompleteForm() {
   const [vscDocumentUrl, setVscDocumentUrl] = useState('');
   const [vscDate, setVscDate] = useState('');
   const [vaccineDocumentUrl, setVaccineDocumentUrl] = useState('');
+  const [vaccineIssuedDate, setVaccineIssuedDate] = useState('');
   const [vaccineExpiryDate, setVaccineExpiryDate] = useState('');
 
   // Organization fields
@@ -125,6 +126,7 @@ export default function ProfileCompleteForm() {
   const [orgPostalCode, setOrgPostalCode] = useState('');
   const [orgContactName, setOrgContactName] = useState('');
   const [orgContactPhone, setOrgContactPhone] = useState('');
+  const [orgFeeTier, setOrgFeeTier] = useState('');
 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -177,6 +179,7 @@ export default function ProfileCompleteForm() {
         setOrgPostalCode(userData.postal_code || '');
         setOrgContactName(userData.org_contact_name || '');
         setOrgContactPhone(userData.org_contact_phone || '');
+        setOrgFeeTier(userData.fee_tier || '');
 
         setVscDocumentUrl(userData.vsc_document_url || '');
         setVscDate(userData.vsc_date_issued || '');
@@ -206,6 +209,7 @@ export default function ProfileCompleteForm() {
             setDogBio(dogData.dog_bio || '');
             setDogPhotoUrl(dogData.dog_picture_url || '');
             setVaccineDocumentUrl(dogData.vaccine_record_url || '');
+            setVaccineIssuedDate(dogData.vaccine_date_issued || '');
             setVaccineExpiryDate(dogData.vaccine_expiry_date || '');
           }
         }
@@ -217,17 +221,16 @@ export default function ProfileCompleteForm() {
     fetchUserProfile();
   }, [user, isLoaded, hasPrefilled, supabase]);
 
-  const fetchAudienceCategories = async () => {
-    try {
-      const response = await fetch('/api/audience-categories');
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableCategories(data.categories.map((cat: any) => cat.name));
-      }
-    } catch (error) {
-      console.error('Failed to fetch audience categories:', error);
-    }
-  };
+  // Fetch audience categories whenever role becomes volunteer (covers both manual selection and prefill)
+  useEffect(() => {
+    if (selectedRole !== 'volunteer' || availableCategories.length > 0) return;
+    fetch('/api/audience-categories')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.categories) setAvailableCategories(data.categories.map((cat: any) => cat.name));
+      })
+      .catch(() => {});
+  }, [selectedRole, availableCategories.length]);
 
   const handleOrgPlaceSelect = (result: PlaceResult) => {
     setOrgAddress(result.formatted_address);
@@ -243,7 +246,6 @@ export default function ProfileCompleteForm() {
     setSelectedRole(role);
     setCurrentStep(2);
     setSubmitError(null);
-    if (role === 'volunteer') fetchAudienceCategories();
   };
 
   const handleBack = () => {
@@ -310,6 +312,7 @@ export default function ProfileCompleteForm() {
         if (!orgContactPhone.trim()) { setSubmitError('Please enter a contact phone number.'); return false; }
         if (!orgAddress.trim()) { setSubmitError("Please select your organization's address."); return false; }
         if (!orgPlaceId) { setSubmitError("Please select your address from the dropdown to confirm it."); return false; }
+        if (!orgFeeTier) { setSubmitError("Please select the fee tier that best describes your organization."); return false; }
       }
     }
 
@@ -387,6 +390,7 @@ export default function ProfileCompleteForm() {
           org_contact_phone: orgContactPhone,
           postal_code: orgPostalCode || null,
           profile_image: profilePictureUrl || null,
+          fee_tier: orgFeeTier || null,
         };
       }
 
@@ -436,6 +440,7 @@ export default function ProfileCompleteForm() {
           dog_picture_url: dogPhotoUrl || DEFAULT_DOG_IMAGE,
           status: 'pending',
           vaccine_record_url: vaccineDocumentUrl || null,
+          vaccine_date_issued: vaccineIssuedDate || null,
           vaccine_expiry_date: vaccineExpiryDate || null,
         };
 
@@ -590,6 +595,7 @@ export default function ProfileCompleteForm() {
           vscDocumentUrl={vscDocumentUrl} setVscDocumentUrl={setVscDocumentUrl}
           vscDate={vscDate} setVscDate={setVscDate}
           vaccineDocumentUrl={vaccineDocumentUrl} setVaccineDocumentUrl={setVaccineDocumentUrl}
+          vaccineIssuedDate={vaccineIssuedDate} setVaccineIssuedDate={setVaccineIssuedDate}
           vaccineExpiryDate={vaccineExpiryDate} setVaccineExpiryDate={setVaccineExpiryDate}
           isLoading={isLoading}
         />
@@ -606,6 +612,7 @@ export default function ProfileCompleteForm() {
           orgContactName={orgContactName} setOrgContactName={setOrgContactName}
           orgContactPhone={orgContactPhone} setOrgContactPhone={setOrgContactPhone}
           profilePictureUrl={profilePictureUrl} setProfilePictureUrl={setProfilePictureUrl}
+          orgFeeTier={orgFeeTier} setOrgFeeTier={setOrgFeeTier}
           isLoading={isLoading}
         />
       );

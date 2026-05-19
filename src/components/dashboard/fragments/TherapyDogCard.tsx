@@ -18,6 +18,7 @@ interface Dog {
   dog_age: number | null;
   dog_picture_url: string | null;
   vaccine_record_url: string | null;
+  vaccine_date_issued: string | null;
   vaccine_expiry_date: string | null;
 }
 
@@ -52,7 +53,7 @@ export default function TherapyDogCard() {
     try {
       const { data, error } = await supabase
         .from('dogs')
-        .select('dog_name, dog_breed, dog_bio, dog_age, dog_picture_url, vaccine_record_url, vaccine_expiry_date')
+        .select('dog_name, dog_breed, dog_bio, dog_age, dog_picture_url, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date')
         .eq('volunteer_id', user.id)
         .single();
 
@@ -154,6 +155,7 @@ export default function TherapyDogCard() {
             dog_age: dog.dog_age,
             dog_picture_url: dog.dog_picture_url,
             vaccine_record_url: dog.vaccine_record_url,
+            vaccine_date_issued: dog.vaccine_date_issued,
             vaccine_expiry_date: dog.vaccine_expiry_date,
           }}
           onClose={() => setShowEditModal(false)}

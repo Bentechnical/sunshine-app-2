@@ -8,6 +8,7 @@
     "deploy-fast": "vercel build --prod && vercel deploy --prod --prebuilt",
     "build": "next build",
     "start": "next start",
+    "opt": "next build && next start",
     "lint": "next lint",
     "test-chat": "tsx scripts/testChatCreation.ts",
     "test-reconnection": "tsx scripts/testReconnection.ts",

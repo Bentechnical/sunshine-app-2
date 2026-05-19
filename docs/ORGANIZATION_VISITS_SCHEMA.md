@@ -672,6 +672,34 @@ PDs can already view all visits via the existing "Admins and PDs can view all vi
 
 ---
 
+### Migration 15 — Add `assigned_pd_id` to `users` table (org-level PD assignment)
+
+Links an organization account to their responsible Program Director. All visits created by that org inherit this value as their default `assigned_pd_id` at creation time. Visit-level assignments can be overridden independently.
+
+Applies only to rows where `role = 'organization'`, but the column is unscoped so admins can query freely.
+
+`ON DELETE SET NULL` fires only on actual row deletion. Since PDs are archived rather than deleted, the archive-user API must explicitly null out this column (and active visit assignments) when a PD is archived.
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_pd_id text REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS users_assigned_pd_id_idx ON users (assigned_pd_id);
+```
+
+---
+
+### Migration 16 — Add `vaccine_date_issued` to `dogs` table
+
+Adds an issue date field for dog vaccine records. Previously only `vaccine_expiry_date` was collected; both dates are now captured explicitly. Computing expiry from issue date is not appropriate for vaccine records because validity varies by vaccine type and a single record typically covers multiple vaccines with differing expiry windows.
+
+The expiry date remains the field used for compliance status calculations (`missing` / `uploaded` / `expiring` / `expired`). Issue date is stored for auditing and admin review.
+
+```sql
+ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_date_issued date;
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -698,3 +726,5 @@ PDs can already view all visits via the existing "Admins and PDs can view all vi
 | May 2026 | 12 | Added `assigned_pd_id text` to `visits` table — FK → users.id; links each visit to its responsible Program Director; null until assigned |
 | May 2026 | 13 | Added `pd_postal_code`, `pd_lat`, `pd_lng` to `users` table — PD home location fields; postal code collected at profile completion, lat/lng geocoded server-side; used for proximity-based visit assignment |
 | May 2026 | 14 | Documented future RLS policy split for PD scoping (visits); currently PDs share the combined admin/pd SELECT policy; scoped policy to be activated when API layer enforcement is complete |
+| May 2026 | 15 | Added `assigned_pd_id text` to `users` table — FK → users.id ON DELETE SET NULL; links an organization account to their responsible PD; inherited by visits on creation; null = unassigned |
+| May 2026 | 16 | Added `vaccine_date_issued date` to `dogs` table — issue date for dog vaccine records; expiry date continues to drive compliance status; issue date stored for auditing |

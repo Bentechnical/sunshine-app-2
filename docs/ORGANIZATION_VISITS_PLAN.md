@@ -1,6 +1,6 @@
 # Organization Visits System — Planning Document
 
-**Status**: Planning / Pre-Development
+**Status**: In Development (Phase 1 substantially complete; PD Assignment in progress)
 **Last Updated**: May 2026
 **Scope**: New feature system enabling organizations (schools, hospitals, care homes, etc.) to request therapy dog visits, volunteers to browse and sign up for those visits, and admins/PDs to manage the full lifecycle.
 
@@ -13,10 +13,11 @@
 3. [Phase Breakdown](#phase-breakdown)
 4. [Database Schema Changes](#database-schema-changes)
 5. [Feature Specifications](#feature-specifications)
-6. [Google Calendar Integration](#google-calendar-integration)
-7. [Email Triggers](#email-triggers)
-8. [API Routes](#api-routes)
-9. [Open Questions & Future Phases](#open-questions--future-phases)
+6. [PD Assignment System](#pd-assignment-system)
+7. [Google Calendar Integration](#google-calendar-integration)
+8. [Email Triggers](#email-triggers)
+9. [API Routes](#api-routes)
+10. [Open Questions & Future Phases](#open-questions--future-phases)
 
 ---
 
@@ -407,6 +408,165 @@ The existing volunteer database does not have VSC or vaccine record data. The sy
 
 ---
 
+## PD Assignment System
+
+### Overview
+
+Each organization account is assigned to one Program Director, who becomes the responsible PD for all visits that organization submits. This is an **org-level assignment** — the PD is set once on the organization and inherited by every new visit, rather than requiring a manual PD assignment per-visit.
+
+Visit-level overrides are possible: any individual visit can have its `assigned_pd_id` changed independently without affecting the org's default assignment.
+
+**Auto-assignment is deferred**: For the MVP, all PD assignments are manual (set by admin in the Manage Users → Organizations tab or in the visit creation form). Proximity-based auto-assignment (nearest PD within 50km) is designed and documented but not yet implemented — it will be validated with staff before building.
+
+---
+
+### Data Model
+
+```
+Organization (users row, role='organization')
+  └── assigned_pd_id ──────────────────────────▶ PD (users row, role='pd')
+        │
+        │  inherited on visit creation
+        ▼
+      Visit (visits row)
+        └── assigned_pd_id ──────────────────▶ PD (same or overridden)
+```
+
+**Key columns:**
+- `users.assigned_pd_id` (text, FK → users.id ON DELETE SET NULL) — the org's default PD
+- `visits.assigned_pd_id` (text, FK → users.id ON DELETE SET NULL) — the visit's assigned PD (may differ from org default if overridden)
+
+Both default to `null` (unassigned). `ON DELETE SET NULL` fires on actual row deletion, not archival — the archive API handles nulling explicitly (see below).
+
+---
+
+### Assignment Flows
+
+#### New organization created / approved
+- Admin sets `assigned_pd_id` on the org in the Manage Users → Organizations tab
+- If not set, the org is **unassigned** (amber badge in admin UI)
+- No auto-assignment in MVP
+
+#### Visit created by org
+- `assigned_pd_id` on the new visit is copied from the org's `assigned_pd_id` at creation time
+- If the org is unassigned → the visit is also unassigned
+
+#### Visit created by admin or PD
+- The create-visit form includes an "Assign to PD" dropdown
+- Pre-populated from the selected org's default PD, but editable before saving
+- If no org is selected (guest visit), PD must be assigned manually
+
+#### Reassigning an org's PD
+- Admin changes the PD dropdown in Manage Users → Organizations
+- A confirm dialog offers: "Also reassign all active (pending_review / approved) visits for this org?"
+- On confirm with cascade: `POST /api/admin/assign-org-pd` with `{ org_id, pd_id, cascade_visits: true }`
+- On confirm without cascade: only the org's default is updated; existing visit assignments are untouched
+
+#### PD archived
+- The archive-user API explicitly nulls `assigned_pd_id` on:
+  - All org accounts that had this PD assigned
+  - All active visits (status `pending_review` or `approved`) that had this PD assigned
+- This moves all affected orgs and visits into the **unassigned bucket**
+- Admins are responsible for reassigning until a replacement PD is onboarded
+- The archive confirmation modal shows the count of affected orgs and visits
+
+---
+
+### Unassigned Bucket
+
+Any org or visit with `assigned_pd_id = null` is "unassigned." These are:
+- Still fully functional (visits can be approved, volunteers can sign up)
+- Flagged visually in admin UI (amber "Unassigned" badge)
+- Surfaced via a dedicated filter: "Show unassigned only"
+- Admin is implicitly responsible for unassigned visits until a PD is assigned
+
+There is no hard block on approving or publishing an unassigned visit. The unassigned state is a workflow flag, not a gate.
+
+---
+
+### Admin UI: Organizations Tab (Manage Users)
+
+**Table changes:**
+- New "Assigned PD" column on each org row
+- Shows PD name, or "Unassigned" amber badge if null
+
+**Expanded row (on click):**
+- "Assigned PD" section with a dropdown listing all approved PDs
+- Save button triggers `POST /api/admin/assign-org-pd`
+- On change: confirm dialog — "Also update all active visits for this org?" (yes / no / cancel)
+- Optimistic update on confirm: org row reflects new PD immediately
+
+---
+
+### Admin UI: Visits
+
+**Visit cards (list view):**
+- Small "Assigned PD" row below the slot bar (name, or amber "Unassigned" badge)
+- Filter: "Unassigned only" checkbox in the filter panel
+
+**Visit detail page:**
+- "Assigned PD" field in the header card
+- Admin-only inline reassign dropdown + save button
+- Changing PD here only updates the visit, not the org's default
+
+---
+
+### PD UI: Dashboard
+
+**Visits list:**
+- Toggle above the tab bar: "My Assignments" (on by default when PD logs in)
+- When on: filters visits to those where `assigned_pd_id = current user`
+- When off: shows all visits (same as now — PDs can still see everything)
+- Badge on toggle showing count of assigned upcoming visits
+
+**Dashboard home:**
+- Summary card: "You have X upcoming assigned visits" with a quick link to the filtered visit list
+
+**Visit detail page (PD view):**
+- "You are the assigned PD" green badge in the header when viewing an assigned visit
+- If viewing a visit assigned to another PD: shows that PD's name (read-only)
+
+---
+
+### API Routes (PD Assignment)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/admin/assign-org-pd` | Assign or unassign a PD to an org; optionally cascade to active visits |
+
+**Request body:**
+```json
+{
+  "org_id": "user_xxx",
+  "pd_id": "user_yyy",   // null to unassign
+  "cascade_visits": true  // whether to also update active visits for this org
+}
+```
+
+**Response:**
+```json
+{ "success": true, "visits_updated": 3 }
+```
+
+---
+
+### Implementation Status
+
+| Item | Status |
+|------|--------|
+| DB: `users.assigned_pd_id` column (Migration 15) | Complete — run on dev DB |
+| DB: `visits.assigned_pd_id` column (Migration 12) | Complete |
+| `POST /api/admin/assign-org-pd` route | Complete |
+| `GET /api/admin/approved-users` — includes `assigned_pd_id` | Complete |
+| `POST /api/admin/archive-user` — nulls PD assignments on PD archive | Complete |
+| Admin: org table "Assigned PD" column + assignment dropdown | In progress |
+| Admin: visit cards/detail — PD field + unassigned filter | Pending |
+| PD dashboard: My Assignments toggle + summary card | Pending |
+| Admin/PD create visit form: PD picker field | Pending |
+| Auto-assignment (nearest PD within 50km) | Deferred — pending staff input |
+
+---
+
 ## Google Calendar Integration
 
 ### Approach
@@ -508,6 +668,7 @@ All emails use the existing Resend + Handlebars infrastructure.
 | GET | `/api/admin/visits/[id]/registrations` | List all registrations for a visit |
 | DELETE | `/api/admin/visits/[id]/registrations/[regId]` | Remove a volunteer from a visit |
 | PATCH | `/api/admin/visits/[id]/registrations/[regId]/contact-sharing` | Toggle contact info sharing for a volunteer on a specific visit |
+| POST | `/api/admin/assign-org-pd` | Assign or unassign a PD to an org; optionally cascade to active visits |
 | GET | `/api/admin/compliance` | List all volunteers with VSC/vaccine status |
 | GET | `/api/admin/compliance/[volunteerId]/documents` | Get signed download URLs for a volunteer's documents |
 | PATCH | `/api/admin/compliance/[volunteerId]` | Verify VSC or vaccine record |

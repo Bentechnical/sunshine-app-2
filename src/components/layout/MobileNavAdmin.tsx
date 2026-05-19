@@ -9,6 +9,7 @@ interface MobileNavAdminProps {
   setActiveTab: (tab: ActiveTab) => void;
   profileImage: string;
   unreadCount: number;
+  role?: 'admin' | 'pd';
 }
 
 export default function MobileNavAdmin({
@@ -16,21 +17,26 @@ export default function MobileNavAdmin({
   setActiveTab,
   profileImage,
   unreadCount,
+  role = 'admin',
 }: MobileNavAdminProps) {
 
-  const tabs: {
+  const allTabs: {
     key: ActiveTab;
     label: string;
     icon: React.ReactNode;
     showAlert?: boolean;
+    adminOnly?: boolean;
   }[] = [
     { key: 'dashboard-home', label: 'Overview', icon: <Home size={20} /> },
     { key: 'admin-visits', label: 'Visits', icon: <Building2 size={20} /> },
     { key: 'user-requests', label: 'Requests', icon: <Users size={20} /> },
-    { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0 },
-    { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} /> },
-    { key: 'email-testing', label: 'Settings', icon: <Mail size={20} /> },
+    { key: 'manage-users', label: 'Users', icon: <Users size={20} /> },
+    { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0, adminOnly: true },
+    { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} />, adminOnly: true },
+    { key: 'email-testing', label: 'Settings', icon: <Mail size={20} />, adminOnly: true },
   ];
+
+  const tabs = role === 'pd' ? allTabs.filter(t => !t.adminOnly) : allTabs;
 
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     // Verify caller is an approved organization
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('role, status')
+      .select('role, status, assigned_pd_id, fee_tier')
       .eq('id', userId)
       .single();
 
@@ -113,6 +113,8 @@ export async function POST(req: NextRequest) {
         requires_vsc: requires_vsc ?? false,
         requires_vaccine_record: requires_vaccine_record ?? true,
         status: 'pending_review',
+        assigned_pd_id: user.assigned_pd_id ?? null,
+        fee_tier: user.fee_tier ?? null,
       })
       .select('id')
       .single();

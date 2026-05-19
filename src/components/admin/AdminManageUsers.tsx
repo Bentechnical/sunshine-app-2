@@ -56,6 +56,12 @@ interface IndividualUser {
   dependant_name?: string;
 }
 
+const FEE_TIER_LABELS: Record<string, string> = {
+  tier_500: '$500 — Corporate / for-profit / conferences / large events',
+  tier_200: '$200 — Post-secondary / private schools / private care / wellness',
+  tier_0: '$0 — Public schools / non-profits / first responders / inpatients',
+};
+
 interface OrganizationUser {
   id: string;
   first_name: string;
@@ -67,6 +73,8 @@ interface OrganizationUser {
   org_address: string;
   org_contact_name: string;
   org_contact_phone: string;
+  assigned_pd_id: string | null;
+  fee_tier: string | null;
 }
 
 interface PdUser {
@@ -100,8 +108,8 @@ interface ActiveAppointment {
   dog_name?: string;
 }
 
-export default function ManageUsersTab() {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'pd' | 'archived'>('individual');
+export default function ManageUsersTab({ hideIndividuals = false }: { hideIndividuals?: boolean }) {
+  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'pd' | 'archived'>(hideIndividuals ? 'volunteer' : 'individual');
   const [volunteers, setVolunteers] = useState<VolunteerUser[]>([]);
   const [individuals, setIndividuals] = useState<IndividualUser[]>([]);
   const [organizations, setOrganizations] = useState<OrganizationUser[]>([]);
@@ -123,6 +131,60 @@ export default function ManageUsersTab() {
   const [userToArchive, setUserToArchive] = useState<{id: string, name: string} | null>(null);
   const [archiveWarning, setArchiveWarning] = useState<{appointments: ActiveAppointment[]} | null>(null);
   const [archiving, setArchiving] = useState(false);
+
+  // PD assignment state
+  const [orgPdSaving, setOrgPdSaving] = useState<Record<string, boolean>>({});
+  const [pdAssignConfirm, setPdAssignConfirm] = useState<{
+    orgId: string; orgName: string; pdId: string | null; pdName: string;
+  } | null>(null);
+
+  // Fee tier state
+  const [orgFeeTierDraft, setOrgFeeTierDraft] = useState<Record<string, string>>({});
+  const [orgFeeTierSaving, setOrgFeeTierSaving] = useState<Record<string, boolean>>({});
+
+  const handleSaveOrgFeeTier = async (orgId: string) => {
+    const tier = orgFeeTierDraft[orgId] ?? '';
+    setOrgFeeTierSaving(prev => ({ ...prev, [orgId]: true }));
+    try {
+      const res = await fetch('/api/admin/update-org-fee-tier', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_id: orgId, fee_tier: tier || null }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        alert(json.error || 'Failed to update fee tier');
+        return;
+      }
+      setOrganizations(prev => prev.map(o => o.id === orgId ? { ...o, fee_tier: tier || null } : o));
+    } catch {
+      alert('Failed to update fee tier');
+    } finally {
+      setOrgFeeTierSaving(prev => ({ ...prev, [orgId]: false }));
+    }
+  };
+
+  const handleAssignOrgPd = async (orgId: string, pdId: string | null, cascade: boolean) => {
+    setOrgPdSaving(prev => ({ ...prev, [orgId]: true }));
+    setPdAssignConfirm(null);
+    try {
+      const res = await fetch('/api/admin/assign-org-pd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_id: orgId, pd_id: pdId, cascade_visits: cascade }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        alert(json.error || 'Failed to update assignment');
+        return;
+      }
+      setOrganizations(prev => prev.map(o => o.id === orgId ? { ...o, assigned_pd_id: pdId } : o));
+    } catch {
+      alert('An error occurred. Please try again.');
+    } finally {
+      setOrgPdSaving(prev => ({ ...prev, [orgId]: false }));
+    }
+  };
 
   const allCategories = ['Young Kids', 'Teens/Young Adults', 'Adults', 'Seniors'];
 
@@ -220,6 +282,8 @@ export default function ManageUsersTab() {
             org_address: u.org_address,
             org_contact_name: u.org_contact_name,
             org_contact_phone: u.org_contact_phone,
+            assigned_pd_id: u.assigned_pd_id ?? null,
+            fee_tier: u.fee_tier ?? null,
           }))
           .sort((a: OrganizationUser, b: OrganizationUser) => (a.org_name || '').localeCompare(b.org_name || ''));
 
@@ -562,16 +626,18 @@ export default function ManageUsersTab() {
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex space-x-4">
-            <button
-              onClick={() => setActiveSubtab('individual')}
-              className={`px-4 py-2 rounded text-sm font-semibold transition ${
-                activeSubtab === 'individual'
-                  ? 'bg-[#0e62ae] text-white'
-                  : 'bg-gray-200 text-gray-800'
-              }`}
-            >
-              Individual Users
-            </button>
+            {!hideIndividuals && (
+              <button
+                onClick={() => setActiveSubtab('individual')}
+                className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                  activeSubtab === 'individual'
+                    ? 'bg-[#0e62ae] text-white'
+                    : 'bg-gray-200 text-gray-800'
+                }`}
+              >
+                Individual Users
+              </button>
+            )}
             <button
               onClick={() => setActiveSubtab('volunteer')}
               className={`px-4 py-2 rounded text-sm font-semibold transition ${
@@ -907,13 +973,15 @@ export default function ManageUsersTab() {
                 <th className="px-4 py-2">Organization</th>
                 <th className="px-4 py-2">Type</th>
                 <th className="px-4 py-2">Contact</th>
-                <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Assigned PD</th>
                 <th className="px-2 py-2 w-6" />
               </tr>
             </thead>
             <tbody>
               {filteredOrganizations.map((org) => {
                 const isExpanded = expandedUserIds.includes(org.id);
+                const assignedPd = pdUsers.find(p => p.id === org.assigned_pd_id);
+                const isSaving = orgPdSaving[org.id];
                 return (
                   <React.Fragment key={org.id}>
                     <tr
@@ -923,7 +991,12 @@ export default function ManageUsersTab() {
                       <td className="px-4 py-2 font-medium">{org.org_name || '—'}</td>
                       <td className="px-4 py-2 capitalize">{org.org_type || '—'}</td>
                       <td className="px-4 py-2">{org.org_contact_name || `${org.first_name} ${org.last_name}`}</td>
-                      <td className="px-4 py-2">{org.email}</td>
+                      <td className="px-4 py-2">
+                        {assignedPd
+                          ? <span className="text-gray-800">{assignedPd.first_name} {assignedPd.last_name}</span>
+                          : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Unassigned</span>
+                        }
+                      </td>
                       <td className="px-2 py-2">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                     </tr>
                     {isExpanded && (
@@ -944,6 +1017,60 @@ export default function ManageUsersTab() {
                               <p><span className="font-semibold text-gray-700">Account Phone:</span> <span className="text-gray-900">{org.phone || '—'}</span></p>
                             </div>
                           </div>
+
+                          {/* Fee Tier */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Fee Tier</h3>
+                            <div className="flex items-center gap-3">
+                              <select
+                                value={orgFeeTierDraft[org.id] ?? (org.fee_tier ?? '')}
+                                onChange={e => setOrgFeeTierDraft(prev => ({ ...prev, [org.id]: e.target.value }))}
+                                disabled={orgFeeTierSaving[org.id]}
+                                className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white disabled:opacity-50"
+                              >
+                                <option value="">— Not set —</option>
+                                <option value="tier_500">$500 — Corporate / for-profit / conferences / large events</option>
+                                <option value="tier_200">$200 — Post-secondary / private schools / private care / wellness</option>
+                                <option value="tier_0">$0 — Public schools / non-profits / first responders / inpatients</option>
+                              </select>
+                              <button
+                                onClick={() => handleSaveOrgFeeTier(org.id)}
+                                disabled={orgFeeTierSaving[org.id]}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded disabled:opacity-50"
+                              >
+                                {orgFeeTierSaving[org.id] ? 'Saving…' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* PD Assignment */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Program Director Assignment</h3>
+                            <div className="flex items-center gap-3">
+                              <select
+                                defaultValue={org.assigned_pd_id ?? ''}
+                                disabled={isSaving}
+                                onChange={e => {
+                                  const newPdId = e.target.value || null;
+                                  const newPd = pdUsers.find(p => p.id === newPdId);
+                                  setPdAssignConfirm({
+                                    orgId: org.id,
+                                    orgName: org.org_name || `${org.first_name} ${org.last_name}`,
+                                    pdId: newPdId,
+                                    pdName: newPd ? `${newPd.first_name} ${newPd.last_name}` : 'Unassigned',
+                                  });
+                                }}
+                                className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white disabled:opacity-50"
+                              >
+                                <option value="">— Unassigned —</option>
+                                {pdUsers.map(pd => (
+                                  <option key={pd.id} value={pd.id}>{pd.first_name} {pd.last_name}</option>
+                                ))}
+                              </select>
+                              {isSaving && <span className="text-xs text-gray-400">Saving…</span>}
+                            </div>
+                          </div>
+
                           <div className="mt-6 pt-4 border-t border-gray-200 flex items-center gap-6">
                             <button
                               onClick={() => handleArchiveUser(org.id, org.org_name || `${org.first_name} ${org.last_name}`)}
@@ -972,12 +1099,14 @@ export default function ManageUsersTab() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-gray-500">{pdUsers.length} Program Director{pdUsers.length !== 1 ? 's' : ''}</p>
-              <button
-                onClick={() => { setShowInviteModal(true); setInviteSuccess(false); setInviteError(null); setInviteEmail(''); }}
-                className="px-3 py-1.5 text-sm font-semibold text-[#0e62ae] border border-[#0e62ae] rounded-lg hover:bg-blue-50 transition"
-              >
-                + Invite Program Director
-              </button>
+              {!hideIndividuals && (
+                <button
+                  onClick={() => { setShowInviteModal(true); setInviteSuccess(false); setInviteError(null); setInviteEmail(''); }}
+                  className="px-3 py-1.5 text-sm font-semibold text-[#0e62ae] border border-[#0e62ae] rounded-lg hover:bg-blue-50 transition"
+                >
+                  + Invite Program Director
+                </button>
+              )}
             </div>
 
             {pdUsers.length === 0 ? (
@@ -1181,6 +1310,41 @@ export default function ManageUsersTab() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PD Assignment Confirm Modal */}
+      {pdAssignConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Update PD Assignment</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Assign <strong>{pdAssignConfirm.pdName}</strong> to <strong>{pdAssignConfirm.orgName}</strong>.
+            </p>
+            <p className="text-sm text-gray-600 mb-6">
+              Do you also want to update all active visits for this organization?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleAssignOrgPd(pdAssignConfirm.orgId, pdAssignConfirm.pdId, true)}
+                className="w-full px-4 py-2 bg-[#0e62ae] hover:bg-[#0a4f8f] text-white text-sm font-semibold rounded-lg transition"
+              >
+                Yes — update org and all active visits
+              </button>
+              <button
+                onClick={() => handleAssignOrgPd(pdAssignConfirm.orgId, pdAssignConfirm.pdId, false)}
+                className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-lg transition"
+              >
+                No — update org only
+              </button>
+              <button
+                onClick={() => setPdAssignConfirm(null)}
+                className="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

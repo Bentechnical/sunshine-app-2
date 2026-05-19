@@ -11,13 +11,13 @@ export async function PATCH(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { vaccine_record_url, vaccine_expiry_date } = body;
+  const { vaccine_record_url, vaccine_expiry_date, vaccine_date_issued } = body;
 
   const supabase = createSupabaseAdminClient();
 
   const { data, error } = await supabase
     .from('dogs')
-    .update({ vaccine_record_url, vaccine_expiry_date })
+    .update({ vaccine_record_url, vaccine_expiry_date, vaccine_date_issued })
     .eq('volunteer_id', userId)
     .select('id');
 
@@ -58,7 +58,7 @@ export async function DELETE() {
 
   const { error } = await supabase
     .from('dogs')
-    .update({ vaccine_record_url: null, vaccine_expiry_date: null })
+    .update({ vaccine_record_url: null, vaccine_expiry_date: null, vaccine_date_issued: null })
     .eq('volunteer_id', userId);
 
   if (error) {

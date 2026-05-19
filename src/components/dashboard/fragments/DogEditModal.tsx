@@ -16,6 +16,7 @@ interface InitialDog {
   dog_age: number | null;
   dog_picture_url: string | null;
   vaccine_record_url: string | null;
+  vaccine_date_issued: string | null;
   vaccine_expiry_date: string | null;
 }
 
@@ -61,6 +62,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
 
   // Vaccine state
   const [vaccineDocUrl, setVaccineDocUrl] = useState(initialDog.vaccine_record_url ?? '');
+  const [vaccineIssued, setVaccineIssued] = useState(initialDog.vaccine_date_issued ?? '');
   const [vaccineExpiry, setVaccineExpiry] = useState(initialDog.vaccine_expiry_date ?? '');
   const [vaccineUploading, setVaccineUploading] = useState(false);
   const [vaccineRemoving, setVaccineRemoving] = useState(false);
@@ -103,14 +105,14 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
 
   // ── Vaccine compliance ──────────────────────────────────────────────────────
 
-  const saveVaccineFields = async (docUrl: string, expiry: string): Promise<boolean> => {
+  const saveVaccineFields = async (docUrl: string, issued: string, expiry: string): Promise<boolean> => {
     setVaccineSaving(true);
     setVaccineError(null);
     try {
       const res = await fetch('/api/volunteer/dog/compliance', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaccine_record_url: docUrl || null, vaccine_expiry_date: expiry || null }),
+        body: JSON.stringify({ vaccine_record_url: docUrl || null, vaccine_date_issued: issued || null, vaccine_expiry_date: expiry || null }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -148,7 +150,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
 
       const newPath = data.path;
       setVaccineDocUrl(newPath);
-      await saveVaccineFields(newPath, vaccineExpiry);
+      await saveVaccineFields(newPath, vaccineIssued, vaccineExpiry);
     } catch {
       setVaccineUploadError('Upload failed. Please try again.');
     } finally {
@@ -157,12 +159,12 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
     }
   };
 
-  const handleVaccineExpiryBlur = () => {
-    saveVaccineFields(vaccineDocUrl, vaccineExpiry);
+  const handleVaccineDateBlur = () => {
+    saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
   };
 
   const handleSaveVaccine = async () => {
-    const ok = await saveVaccineFields(vaccineDocUrl, vaccineExpiry);
+    const ok = await saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
     if (ok) {
       onSaved();
       onClose();
@@ -194,6 +196,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
         return;
       }
       setVaccineDocUrl('');
+      setVaccineIssued('');
       setVaccineExpiry('');
     } catch {
       setVaccineError('Failed to remove document.');
@@ -389,6 +392,19 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
                   {vaccineUploadError && <p className="text-xs text-red-500 mt-1">{vaccineUploadError}</p>}
                 </div>
 
+                {/* Issue date */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date of Issue</label>
+                  <input
+                    type="date"
+                    value={vaccineIssued}
+                    onChange={e => setVaccineIssued(e.target.value)}
+                    onBlur={handleVaccineDateBlur}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 {/* Expiry date */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Expiry Date</label>
@@ -396,7 +412,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
                     type="date"
                     value={vaccineExpiry}
                     onChange={e => setVaccineExpiry(e.target.value)}
-                    onBlur={handleVaccineExpiryBlur}
+                    onBlur={handleVaccineDateBlur}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
