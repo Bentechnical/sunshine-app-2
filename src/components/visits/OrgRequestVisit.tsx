@@ -296,7 +296,7 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
         {/* Slots, Visitors & Space */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Dogs Needed <span className="text-red-500">*</span></label>
+            <label className={labelClass}>Number of dogs requested <span className="text-red-500">*</span></label>
             <input
               type="number"
               min={1}
@@ -371,18 +371,16 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
               <option value="other">Other (provide details below)</option>
             </select>
           </div>
-          {form.parking_coverage && form.parking_coverage !== 'free_on_site' && (
-            <div>
-              <label className={labelClass}>Parking details for volunteers</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={form.parking_info}
-                onChange={e => set('parking_info', e.target.value)}
-                placeholder="e.g. Street parking on Main St., paid lot on 2nd Ave."
-              />
-            </div>
-          )}
+          <div>
+            <label className={labelClass}>Parking details for volunteers</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={form.parking_info}
+              onChange={e => set('parking_info', e.target.value)}
+              placeholder="e.g. Street parking on Main St., paid lot on 2nd Ave."
+            />
+          </div>
         </div>
 
         {/* Special Instructions */}

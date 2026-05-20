@@ -177,7 +177,7 @@ export default function ProfileCompleteForm() {
         setOrgLat(userData.location_lat ?? null);
         setOrgLng(userData.location_lng ?? null);
         setOrgPostalCode(userData.postal_code || '');
-        setOrgContactName(userData.org_contact_name || '');
+        setOrgContactName(userData.org_contact_name || `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim());
         setOrgContactPhone(userData.org_contact_phone || '');
         setOrgFeeTier(userData.fee_tier || '');
 

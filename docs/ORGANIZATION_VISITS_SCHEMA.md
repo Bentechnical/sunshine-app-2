@@ -688,6 +688,22 @@ CREATE INDEX IF NOT EXISTS users_assigned_pd_id_idx ON users (assigned_pd_id);
 
 ---
 
+### Migration 17 — Add `fee_tier` to `users` table
+
+Adds a fee tier field to organization user accounts. Sunshine operates on a three-tier fee-for-service model; this column stores the tier assigned to each organization:
+
+- `tier_500` — Corporate, private, for-profit organizations, conferences, festivals, and large-scale events
+- `tier_200` — Post-secondary institutions, private and independent schools, private care facilities, private/for-profit therapy services, wellness visits to non-profit staff
+- `tier_0` — Public schools, service recipients of non-profit organizations, first responders, inpatient settings
+
+Organizations self-select their tier during profile completion. Admins can override via the Manage Users → Organizations tab. The tier is snapshotted onto each visit record at creation time (both org-submitted and admin-created visits).
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS fee_tier text;
+```
+
+---
+
 ### Migration 16 — Add `vaccine_date_issued` to `dogs` table
 
 Adds an issue date field for dog vaccine records. Previously only `vaccine_expiry_date` was collected; both dates are now captured explicitly. Computing expiry from issue date is not appropriate for vaccine records because validity varies by vaccine type and a single record typically covers multiple vaccines with differing expiry windows.

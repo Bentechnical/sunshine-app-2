@@ -1014,7 +1014,6 @@ export default function ManageUsersTab({ hideIndividuals = false }: { hideIndivi
                               <p><span className="font-semibold text-gray-700">Contact Name:</span> <span className="text-gray-900">{org.org_contact_name || '—'}</span></p>
                               <p><span className="font-semibold text-gray-700">Contact Phone:</span> <span className="text-gray-900">{org.org_contact_phone || '—'}</span></p>
                               <p><span className="font-semibold text-gray-700">Account Email:</span> <span className="text-gray-900">{org.email}</span></p>
-                              <p><span className="font-semibold text-gray-700">Account Phone:</span> <span className="text-gray-900">{org.phone || '—'}</span></p>
                             </div>
                           </div>
 
