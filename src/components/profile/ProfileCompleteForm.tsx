@@ -514,7 +514,7 @@ export default function ProfileCompleteForm() {
           .catch(e => console.error('[ProfileComplete] Auto-assign region failed:', e));
       }
 
-      router.push('/dashboard');
+      router.push(selectedRole === 'organization' ? '/dashboard/organization' : '/dashboard');
     } catch (error: any) {
       setSubmitError(error.message || 'Something went wrong. Please try again.');
     } finally {

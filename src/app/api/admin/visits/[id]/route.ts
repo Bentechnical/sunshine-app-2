@@ -7,7 +7,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { updateVisitEvent } from '@/utils/googleCalendar';
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const check = await requireAdminOrPd();
@@ -30,8 +30,7 @@ export async function GET(
         visit_registrations(
           id, volunteer_id, status, waitlist_position,
           contact_shared, admin_note, cancellation_reason, cancelled_at, created_at,
-          users:volunteer_id(first_name, last_name, email, phone_number,
-            dogs(id, dog_name, dog_breed, dog_picture_url))
+          users:volunteer_id(first_name, last_name, email, phone_number)
         ),
         visit_notes(id, author_id, note_text, created_at,
           users:author_id(first_name, last_name))
@@ -41,6 +40,34 @@ export async function GET(
 
     if (error || !visit) {
       return NextResponse.json({ error: 'Visit not found' }, { status: 404 });
+    }
+
+    // Fetch dogs separately — 3-level nesting through an aliased FK
+    // (users:volunteer_id → dogs) is unreliable in PostgREST.
+    const registrations = (visit.visit_registrations ?? []) as any[];
+    const volunteerIds = [...new Set(
+      registrations.map((r: any) => r.volunteer_id).filter(Boolean)
+    )] as string[];
+
+    if (volunteerIds.length > 0) {
+      const { data: dogs } = await supabase
+        .from('dogs')
+        .select('volunteer_id, dog_name, dog_breed, dog_picture_url')
+        .in('volunteer_id', volunteerIds);
+
+      if (dogs?.length) {
+        const dogsByVolunteer = new Map<string, any[]>();
+        for (const dog of dogs) {
+          const arr = dogsByVolunteer.get(dog.volunteer_id) ?? [];
+          arr.push(dog);
+          dogsByVolunteer.set(dog.volunteer_id, arr);
+        }
+        for (const reg of registrations) {
+          if (reg.users) {
+            reg.users.dogs = dogsByVolunteer.get(reg.volunteer_id) ?? [];
+          }
+        }
+      }
     }
 
     return NextResponse.json({ visit });

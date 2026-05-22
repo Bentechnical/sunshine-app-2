@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     // Verify caller is an approved organization
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('role, status, assigned_pd_id, fee_tier')
+      .select('role, status, fee_tier, assigned_region_id')
       .eq('id', userId)
       .single();
 
@@ -33,6 +33,17 @@ export async function POST(req: NextRequest) {
     }
     if (user.status !== 'approved') {
       return NextResponse.json({ error: 'Your account is pending approval' }, { status: 403 });
+    }
+
+    // Resolve the responsible PD from the org's assigned region
+    let assignedPdId: string | null = null;
+    if (user.assigned_region_id) {
+      const { data: region } = await supabase
+        .from('pd_regions')
+        .select('owner_pd_id')
+        .eq('id', user.assigned_region_id)
+        .single();
+      assignedPdId = region?.owner_pd_id ?? null;
     }
 
     const body = await req.json();
@@ -113,7 +124,7 @@ export async function POST(req: NextRequest) {
         requires_vsc: requires_vsc ?? false,
         requires_vaccine_record: requires_vaccine_record ?? true,
         status: 'pending_review',
-        assigned_pd_id: user.assigned_pd_id ?? null,
+        assigned_pd_id: assignedPdId,
         fee_tier: user.fee_tier ?? null,
       })
       .select('id')

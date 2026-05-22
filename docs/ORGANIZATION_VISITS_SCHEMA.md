@@ -88,7 +88,7 @@ The core table for organization visit requests and confirmed visits. Distinct fr
 | `visitor_count_expected` | integer | YES | — | Expected number of visitors |
 | `special_needs_notes` | text | YES | — | Mobility aides, special needs, etc. |
 | `approx_space_sqft` | integer | YES | — | Approximate available space |
-| `fee_tier` | text | YES | — | `free`, `standard`, `reduced`, `custom` |
+| `fee_tier` | text | YES | — | `tier_500`, `tier_200`, `tier_0`, `custom` |
 | `fee_amount` | numeric | YES | — | Dollar amount (used when fee_tier = 'custom') |
 | `volunteer_slots` | integer | NO | 1 | Number of volunteer/dog slots available |
 | `parking_coverage` | text | YES | — | `free_on_site`, `reimbursed_on_site`, `invoice` |
@@ -1044,6 +1044,19 @@ ALTER TABLE users ADD CONSTRAINT users_region_assignment_method_check
 
 ---
 
+### Migration 28 — Fix `visits_fee_tier_check` constraint
+
+The original `visits` table (Migration 3) was created with placeholder fee tier values (`free`, `standard`, `reduced`, `custom`). The app fee model uses `tier_500`, `tier_200`, `tier_0`, and `custom`. This migration replaces the constraint to match the actual values used throughout the codebase and stored on `users.fee_tier`.
+
+```sql
+ALTER TABLE visits DROP CONSTRAINT visits_fee_tier_check;
+
+ALTER TABLE visits ADD CONSTRAINT visits_fee_tier_check
+  CHECK (fee_tier IN ('tier_500', 'tier_200', 'tier_0', 'custom'));
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -1083,3 +1096,4 @@ ALTER TABLE users ADD CONSTRAINT users_region_assignment_method_check
 | May 2026 | 25 | Dropped `pd_region_fsas` table — deprecated FSA region definition system; replaced by `pd_region_places`; run after deploying code that removes all references to this table |
 | May 2026 | 26 | Added `boundary_json` (jsonb), `boundary_status`, `boundary_osm_id`, `boundary_osm_type` to `pd_region_places` — OSM polygon boundary storage; fetched server-side from Nominatim on place save; rendered via `map.data` layer |
 | May 2026 | 27 | Updated `users_region_assignment_method_check` constraint to include `'boundary_auto'` — required for polygon-based auto-assignment |
+| May 2026 | 28 | Fixed `visits_fee_tier_check` constraint — replaced placeholder values (`free`, `standard`, `reduced`, `custom`) with actual app values (`tier_500`, `tier_200`, `tier_0`, `custom`) |

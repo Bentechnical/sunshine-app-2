@@ -6,18 +6,6 @@ import { X, Save } from 'lucide-react';
 import AvatarUpload from '@/components/profile/AvatarUpload';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 
-const ORG_TYPES = [
-  'School',
-  'Hospital',
-  'Long-term Care Home',
-  'Mental Health Facility',
-  'Library',
-  'Community Centre',
-  'University / College',
-  'Workplace',
-  'Other',
-];
-
 const formatPhoneNumber = (value: string) => {
   const cleaned = value.replace(/\D/g, '').slice(0, 10);
   const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
@@ -72,7 +60,7 @@ export default function OrgEditProfileModal({ profile, onClose, onSaved }: Props
   };
 
   const handleSave = async () => {
-    if (!form.org_name.trim() || !form.org_type || !form.org_contact_name.trim() || !form.org_contact_phone.trim()) {
+    if (!form.org_name.trim() || !form.org_contact_name.trim() || !form.org_contact_phone.trim()) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -140,14 +128,6 @@ export default function OrgEditProfileModal({ profile, onClose, onSaved }: Props
           <div>
             <label className={lc}>Organization Name <span className="text-red-500">*</span></label>
             <input className={ic} value={form.org_name} onChange={set('org_name')} placeholder="e.g., Sunnybrook Hospital" />
-          </div>
-
-          <div>
-            <label className={lc}>Organization Type <span className="text-red-500">*</span></label>
-            <select className={ic} value={form.org_type} onChange={set('org_type')}>
-              <option value="">Select type…</option>
-              {ORG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
           </div>
 
           <div>

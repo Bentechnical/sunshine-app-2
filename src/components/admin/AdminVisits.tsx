@@ -255,21 +255,27 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
 
   const set = (field: string, value: any) => setForm(f => ({ ...f, [field]: value }));
 
-  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string; assigned_pd_id: string | null; fee_tier: string | null };
+  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string; assigned_region_id: number | null; fee_tier: string | null };
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [pdOptions, setPdOptions] = useState<PdUser[]>([]);
+  const [regionOwnerMap, setRegionOwnerMap] = useState<Map<number, string>>(new Map());
   const [orgSearch, setOrgSearch] = useState('');
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; org_name: string } | null>(null);
 
   useEffect(() => {
-    fetch('/api/admin/approved-users')
-      .then(r => r.json())
-      .then(json => {
-        setOrgOptions((json.users ?? []).filter((u: any) => u.role === 'organization'));
-        setPdOptions((json.users ?? []).filter((u: any) => u.role === 'pd').map((u: any) => ({ id: u.id, first_name: u.first_name, last_name: u.last_name })));
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch('/api/admin/approved-users').then(r => r.json()),
+      fetch('/api/admin/regions').then(r => r.json()),
+    ]).then(([usersJson, regionsJson]) => {
+      setOrgOptions((usersJson.users ?? []).filter((u: any) => u.role === 'organization'));
+      setPdOptions((usersJson.users ?? []).filter((u: any) => u.role === 'pd').map((u: any) => ({ id: u.id, first_name: u.first_name, last_name: u.last_name })));
+      const map = new Map<number, string>();
+      for (const r of (regionsJson.regions ?? [])) {
+        if (r.owner_pd_id) map.set(r.id, r.owner_pd_id);
+      }
+      setRegionOwnerMap(map);
+    }).catch(() => {});
   }, []);
 
   // Default assigned_pd_id to the current user if they are a PD — only fires once
@@ -299,8 +305,8 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       guest_contact_email: org.email || f.guest_contact_email,
       guest_contact_phone: org.org_contact_phone || f.guest_contact_phone,
       address: org.org_address || f.address,
-      // Inherit org's default PD assignment and fee tier
-      assigned_pd_id: org.assigned_pd_id ?? f.assigned_pd_id,
+      // Inherit org's PD from their assigned region's owner, and fee tier
+      assigned_pd_id: (org.assigned_region_id ? (regionOwnerMap.get(org.assigned_region_id) ?? f.assigned_pd_id) : f.assigned_pd_id),
       fee_tier: org.fee_tier ?? f.fee_tier,
     }));
   };
@@ -1148,7 +1154,6 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const [view, setView] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending_review');
   const [filterUnassigned, setFilterUnassigned] = useState(false);
-  const [filterMyAssignments, setFilterMyAssignments] = useState(pdMode);
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const regionFilterInitialized = useRef(false);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -1266,10 +1271,8 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   }
 
   // ── Derived: apply all active filters ──
-  const myAssignmentsCount = visits.filter(v => v.assigned_pd_id === currentUserId).length;
   const selectedRegion = regions.find(r => String(r.id) === regionFilter) ?? null;
   const displayedVisits = visits.filter(v => {
-    if (filterMyAssignments && v.assigned_pd_id !== currentUserId) return false;
     if (filterUnassigned && v.assigned_pd_id != null) return false;
     if (regionFilter !== 'all' && selectedRegion) {
       if (v.assigned_pd_id !== selectedRegion.owner_pd_id) return false;
@@ -1284,24 +1287,6 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-900">Organization Visits</h1>
         <div className="flex items-center gap-3">
-          {pdMode && (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={filterMyAssignments}
-                onChange={e => setFilterMyAssignments(e.target.checked)}
-                className="rounded accent-[#0e62ae]"
-              />
-              <span className="text-sm text-gray-600 whitespace-nowrap">
-                My Assignments
-                {myAssignmentsCount > 0 && (
-                  <span className="ml-1.5 text-xs font-bold bg-[#0e62ae] text-white px-1.5 py-0.5 rounded-full">
-                    {myAssignmentsCount}
-                  </span>
-                )}
-              </span>
-            </label>
-          )}
           <button onClick={() => setView('create')}
             className="px-4 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
             + Create Visit
@@ -1374,7 +1359,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
           <Calendar className="mx-auto mb-4 text-gray-300" size={48} />
           <p className="font-medium">No visits found</p>
           <p className="text-sm mt-1">
-            {filterMyAssignments ? 'No visits assigned to you.' : statusFilter === 'pending_review' ? 'No pending visit requests.' : 'No visits matching this filter.'}
+            {statusFilter === 'pending_review' ? 'No pending visit requests.' : 'No visits matching this filter.'}
           </p>
         </div>
       )}
