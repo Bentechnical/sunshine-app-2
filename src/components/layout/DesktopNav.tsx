@@ -24,8 +24,8 @@ export function DesktopNav({ role }: DesktopNavProps) {
       : role === 'volunteer'
       ? [
           { path: '/dashboard', label: 'Home' },
-          { path: '/dashboard/connect', label: 'Connect with People' },
-          { path: '/dashboard/browse-visits', label: 'Browse Visits' },
+          { path: '/dashboard/browse-visits', label: 'Browse Group Visits' },
+          { path: '/dashboard/connect', label: 'Connect with Individuals' },
           { path: '/dashboard/visits', label: 'My Visits' },
           { path: '/dashboard/messages', label: 'Messages', showAlert: hasUnreadMessages },
         ]

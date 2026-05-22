@@ -11,9 +11,10 @@ import { ChevronDown, ChevronRight, Calendar, Clock, Users } from 'lucide-react'
 interface MyVisitsProps {
   userId: string;
   role: string; // 'volunteer', 'individual', or 'admin'
+  hideHeader?: boolean;
 }
 
-const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
+const MyVisits: React.FC<MyVisitsProps> = ({ userId, role, hideHeader = false }) => {
   const supabase = useSupabaseClient();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -312,10 +313,12 @@ const MyVisits: React.FC<MyVisitsProps> = ({ userId, role }) => {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">My Visits</h2>
-        <p className="text-gray-600">Manage your therapy dog appointments and requests</p>
-      </div>
+      {!hideHeader && (
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Visits</h2>
+          <p className="text-gray-600">Manage your therapy dog appointments and requests</p>
+        </div>
+      )}
 
       {/* Stats summary - only for volunteers */}
       {role === 'volunteer' && (
