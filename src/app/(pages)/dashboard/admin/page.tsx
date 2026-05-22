@@ -11,39 +11,42 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { ActiveTab } from '@/types/navigation';
 
 import AdminDashboardHome from '@/components/admin/AdminDashboardHome';
-import AdminManageUsers from '@/components/admin/AdminManageUsers';
+import AdminGroupVisits from '@/components/admin/AdminGroupVisits';
+import AdminManageVolunteers from '@/components/admin/AdminManageVolunteers';
+import AdminManageRegions from '@/components/admin/AdminManageRegions';
+import AdminManageIndividuals from '@/components/admin/AdminManageIndividuals';
 import AdminAppointments from '@/components/admin/AdminAppointments';
 import AdminUserRequests from '@/components/admin/AdminUserRequests';
 import AdminChats from '@/components/admin/AdminChats';
 import AdminWelcomeMessages from '@/components/admin/AdminWelcomeMessages';
 import AdminEmailTesting from '@/components/admin/AdminEmailTesting';
-import AdminVisits from '@/components/admin/AdminVisits';
-import AdminCompliance from '@/components/admin/AdminCompliance';
 
 // ── Tab ↔ URL param mapping ──────────────────────────────────────────────────
 
 const PARAM_TO_TAB: Record<string, ActiveTab> = {
-  home:             'dashboard-home',
-  visits:           'admin-visits',
-  compliance:       'admin-compliance',
-  'manage-users':   'manage-users',
-  'user-requests':  'user-requests',
-  appointments:     'appointments',
-  chats:            'chats',
-  'welcome-messages': 'welcome-messages',
-  settings:         'email-testing',
+  home:                'dashboard-home',
+  'group-visits':      'group-visits',
+  'user-requests':     'user-requests',
+  'manage-volunteers': 'manage-volunteers',
+  'manage-regions':    'manage-regions',
+  'manage-individuals':'manage-individuals',
+  appointments:        'appointments',
+  chats:               'chats',
+  'welcome-messages':  'welcome-messages',
+  settings:            'email-testing',
 };
 
 const TAB_TO_PARAM: Partial<Record<ActiveTab, string>> = {
-  'dashboard-home':   'home',
-  'admin-visits':     'visits',
-  'admin-compliance': 'compliance',
-  'manage-users':     'manage-users',
-  'user-requests':    'user-requests',
-  'appointments':     'appointments',
-  'chats':            'chats',
-  'welcome-messages': 'welcome-messages',
-  'email-testing':    'settings',
+  'dashboard-home':    'home',
+  'group-visits':      'group-visits',
+  'user-requests':     'user-requests',
+  'manage-volunteers': 'manage-volunteers',
+  'manage-regions':    'manage-regions',
+  'manage-individuals':'manage-individuals',
+  'appointments':      'appointments',
+  'chats':             'chats',
+  'welcome-messages':  'welcome-messages',
+  'email-testing':     'settings',
 };
 
 // ── Inner component (needs Suspense for useSearchParams in Next.js 15) ───────
@@ -54,6 +57,7 @@ function AdminDashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [unreadCountRefreshTrigger, setUnreadCountRefreshTrigger] = useState(0);
+  const [alertCountsRefreshTrigger, setAlertCountsRefreshTrigger] = useState(0);
 
   const tabParam = searchParams.get('tab') ?? 'home';
   const activeTab: ActiveTab = PARAM_TO_TAB[tabParam] ?? 'dashboard-home';
@@ -71,6 +75,10 @@ function AdminDashboardInner() {
     setUnreadCountRefreshTrigger(prev => prev + 1);
   };
 
+  const handleAlertCountsChange = () => {
+    setAlertCountsRefreshTrigger(prev => prev + 1);
+  };
+
   useEffect(() => {
     if (!user) {
       router.push('/sign-in');
@@ -85,20 +93,24 @@ function AdminDashboardInner() {
     switch (activeTab) {
       case 'dashboard-home':
         return <AdminDashboardHome />;
-      case 'admin-visits':
+      case 'group-visits':
         return (
-          <AdminVisits
+          <AdminGroupVisits
             selectedVisitId={selectedVisitId}
-            onSelectVisit={(id) => router.push(`/dashboard/admin?tab=visits&visit=${id}`)}
+            onSelectVisit={(id) => router.push(`/dashboard/admin?tab=group-visits&visit=${id}`)}
             onBackFromVisit={() => router.back()}
+            onCountChange={handleAlertCountsChange}
+            role="admin"
           />
         );
-      case 'admin-compliance':
-        return <AdminCompliance />;
-      case 'manage-users':
-        return <AdminManageUsers />;
+      case 'manage-volunteers':
+        return <AdminManageVolunteers />;
+      case 'manage-regions':
+        return <AdminManageRegions />;
+      case 'manage-individuals':
+        return <AdminManageIndividuals />;
       case 'user-requests':
-        return <AdminUserRequests />;
+        return <AdminUserRequests onCountChange={handleAlertCountsChange} />;
       case 'appointments':
         return <AdminAppointments />;
       case 'chats':
@@ -123,6 +135,7 @@ function AdminDashboardInner() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       refreshTrigger={unreadCountRefreshTrigger}
+      alertCountsRefreshTrigger={alertCountsRefreshTrigger}
     >
       {renderActiveTab()}
     </DashboardLayout>

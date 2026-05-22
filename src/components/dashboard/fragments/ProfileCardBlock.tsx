@@ -18,6 +18,7 @@ interface ProfileData {
   bio?: string | null;
   postal_code?: string | null;
   travel_distance_km?: number | null;
+  open_to_individual_visits?: boolean | null;
   location_lat?: number | null;
   location_lng?: number | null;
   role?: 'individual' | 'volunteer' | 'admin';
@@ -33,6 +34,7 @@ interface ProfileData {
   visit_recipient_type?: string | null;
   relationship_to_recipient?: string | null;
   dependant_name?: string | null;
+  assigned_region_id?: number | null;
   // Compliance
   vsc_document_url?: string | null;
   vsc_date_issued?: string | null;
@@ -56,13 +58,14 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
   expired:  { label: 'VSC Expired',        icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-800' },
 };
 
-const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, vsc_document_url, vsc_date_issued, vsc_renewal_due';
+const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due';
 
 export default function ProfileCardBlock() {
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [regionInfo, setRegionInfo] = useState<{ name: string; pd_first_name: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -80,6 +83,21 @@ export default function ProfileCardBlock() {
     }
     setProfile(data);
     setLoading(false);
+
+    if (data?.role === 'volunteer' && data?.assigned_region_id) {
+      const { data: region } = await supabase
+        .from('pd_regions')
+        .select('name, owner:users!owner_pd_id(first_name)')
+        .eq('id', data.assigned_region_id)
+        .single();
+      if (region) {
+        const ownerArr = region.owner as { first_name: string }[] | null;
+        const pdFirstName = Array.isArray(ownerArr) && ownerArr.length > 0 ? ownerArr[0].first_name : null;
+        setRegionInfo({ name: region.name, pd_first_name: pdFirstName });
+      }
+    } else {
+      setRegionInfo(null);
+    }
   };
 
   useEffect(() => {
@@ -217,6 +235,17 @@ export default function ProfileCardBlock() {
 
             {profile.role === 'volunteer' && (
               <div className="flex flex-col gap-4 text-sm">
+                {regionInfo && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Region</p>
+                    <p className="text-gray-700">
+                      {regionInfo.name}
+                      {regionInfo.pd_first_name && (
+                        <span className="text-gray-500"> — Coordinator: {regionInfo.pd_first_name}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
                 {profile.travel_distance_km && (
                   <div className="flex flex-col gap-1">
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Travel Distance</p>
@@ -245,6 +274,7 @@ export default function ProfileCardBlock() {
             profile_image: profile.profile_image ?? null,
             postal_code: profile.postal_code ?? null,
             travel_distance_km: profile.travel_distance_km ?? null,
+            open_to_individual_visits: profile.open_to_individual_visits ?? true,
             pronouns: profile.pronouns ?? null,
             vsc_document_url: profile.vsc_document_url ?? null,
             vsc_date_issued: profile.vsc_date_issued ?? null,

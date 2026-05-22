@@ -48,7 +48,8 @@ export async function GET() {
         org_contact_name,
         org_contact_phone,
         fee_tier,
-        assigned_pd_id,
+        assigned_region_id,
+        region_assignment_method,
         pd_postal_code,
         profile_complete,
         dogs (
@@ -128,7 +129,8 @@ export async function GET() {
         org_contact_name: user.org_contact_name,
         org_contact_phone: user.org_contact_phone,
         fee_tier: user.fee_tier ?? null,
-        assigned_pd_id: user.assigned_pd_id ?? null,
+        assigned_region_id: user.assigned_region_id ?? null,
+        region_assignment_method: user.region_assignment_method ?? null,
         pd_postal_code: user.pd_postal_code ?? null,
         profile_complete: user.profile_complete ?? false,
       };

@@ -13,7 +13,7 @@
 3. [Phase Breakdown](#phase-breakdown)
 4. [Database Schema Changes](#database-schema-changes)
 5. [Feature Specifications](#feature-specifications)
-6. [PD Assignment System](#pd-assignment-system)
+6. [PD Regions System](#pd-regions-system)
 7. [Google Calendar Integration](#google-calendar-integration)
 8. [Email Triggers](#email-triggers)
 9. [API Routes](#api-routes)
@@ -97,6 +97,7 @@ The minimum viable system: organizations can request visits, admins/PDs can mana
 - Volunteer signup and waitlist system
 - Admin/PD approval of volunteer signups
 - PD user type with scoped dashboard
+- PD Regions system: region creation, FSA-based auto-assignment for volunteers and orgs, admin Regions nav section, PD scoped views (My Region / All)
 - Google Calendar integration (visit creation, attendee management, cancellations)
 - Core email triggers (request received, approved/declined, signup confirmed/declined)
 - VSC and vaccine record fields added to volunteer profiles (data capture, no automation yet)
@@ -237,6 +238,14 @@ Admin/PD-only notes about a visit site, for internal reference.
 | `author_id` | text | NO | - | FK to users.id (admin or PD) |
 | `note_text` | text | NO | - | Note content |
 | `created_at` | timestamp with time zone | YES | CURRENT_TIMESTAMP | When note was written |
+
+#### `pd_regions`
+
+Named geographic regions, each optionally owned by a Program Director. See [PD Regions System](#pd-regions-system) for full specification.
+
+#### `pd_region_fsas`
+
+FSA prefix → region mapping used for volunteer and org auto-assignment. See [PD Regions System](#pd-regions-system) for full specification.
 
 #### `invoices` (Phase 1.5)
 
@@ -408,145 +417,224 @@ The existing volunteer database does not have VSC or vaccine record data. The sy
 
 ---
 
-## PD Assignment System
+## PD Regions System
 
 ### Overview
 
-Each organization account is assigned to one Program Director, who becomes the responsible PD for all visits that organization submits. This is an **org-level assignment** — the PD is set once on the organization and inherited by every new visit, rather than requiring a manual PD assignment per-visit.
+Program Directors are each responsible for a named geographic **region**. Volunteers and organizations are assigned to a region, which in turn has an owning PD. This means if a PD changes, only the region record needs updating — all volunteer and org assignments follow automatically.
 
-Visit-level overrides are possible: any individual visit can have its `assigned_pd_id` changed independently without affecting the org's default assignment.
+This system replaces the earlier direct `users.assigned_pd_id` model (which linked org users directly to a PD). Instead, both volunteers and organizations link to a `pd_regions` row, and the region points to its owner PD.
 
-**Auto-assignment is deferred**: For the MVP, all PD assignments are manual (set by admin in the Manage Users → Organizations tab or in the visit creation form). Proximity-based auto-assignment (nearest PD within 50km) is designed and documented but not yet implemented — it will be validated with staff before building.
+**Key design decisions:**
+- A region can exist without an assigned PD (`owner_pd_id` nullable) — entities assigned to it enter the unassigned pool
+- A PD can own multiple regions (e.g. temporarily covering another area)
+- Volunteers can sign up for visits in any region — region assignment governs PD oversight only, not visit eligibility
+- `visits.assigned_pd_id` remains a direct PD reference (operational, not geographic) — defaulted from the org's region owner at visit creation, but independently overridable
 
 ---
 
 ### Data Model
 
 ```
-Organization (users row, role='organization')
-  └── assigned_pd_id ──────────────────────────▶ PD (users row, role='pd')
-        │
-        │  inherited on visit creation
-        ▼
-      Visit (visits row)
-        └── assigned_pd_id ──────────────────▶ PD (same or overridden)
+pd_regions
+  └── id, name, owner_pd_id → PD user (nullable), is_active
+
+pd_region_fsas
+  └── region_id → pd_regions, fsa_prefix (globally unique)
+
+users (role='volunteer')
+  └── assigned_region_id → pd_regions (nullable)
+  └── region_assignment_method: fsa_auto | distance_auto | manual | null
+
+users (role='organization')
+  └── assigned_region_id → pd_regions (nullable)
+  └── region_assignment_method: fsa_auto | distance_auto | manual | null
+
+visits
+  └── assigned_pd_id → users (PD) — unchanged, direct reference
+        Defaults to region.owner_pd_id of org's region at creation; overridable
 ```
 
-**Key columns:**
-- `users.assigned_pd_id` (text, FK → users.id ON DELETE SET NULL) — the org's default PD
-- `visits.assigned_pd_id` (text, FK → users.id ON DELETE SET NULL) — the visit's assigned PD (may differ from org default if overridden)
+When a region is **deactivated** (`is_active = false`), the deactivation API sets `assigned_region_id = null` on all assigned volunteers and orgs, moving them to the unassigned pool. `visits.assigned_pd_id` is not affected by region deactivation — those are direct PD references.
 
-Both default to `null` (unassigned). `ON DELETE SET NULL` fires on actual row deletion, not archival — the archive API handles nulling explicitly (see below).
+When a PD is **archived**, the archive API explicitly nulls `assigned_pd_id` on all active visits assigned to them. The archived PD's regions retain `owner_pd_id` pointing to the archived user (admin can reassign the region's owner separately).
 
 ---
 
-### Assignment Flows
+### Auto-Assignment Logic
 
-#### New organization created / approved
-- Admin sets `assigned_pd_id` on the org in the Manage Users → Organizations tab
-- If not set, the org is **unassigned** (amber badge in admin UI)
-- No auto-assignment in MVP
+Shared logic used at volunteer approval, org approval, and retroactive migration time:
 
-#### Visit created by org
-- `assigned_pd_id` on the new visit is copied from the org's `assigned_pd_id` at creation time
-- If the org is unassigned → the visit is also unassigned
+1. Extract FSA from postal code — first 3 characters, uppercased, whitespace stripped (e.g. `"N1G 2W1"` → `"N1G"`)
+2. Look up FSA in `pd_region_fsas` → if matched, assign that region (`fsa_auto`)
+3. If no FSA match → find nearest region using PostGIS distance between the user's `location_lat/lng` and each region owner's `pd_lat/pd_lng` (`distance_auto`)
+4. If no match (no regions with a PD that has coordinates) → leave `assigned_region_id = null` (unassigned)
 
-#### Visit created by admin or PD
-- The create-visit form includes an "Assign to PD" dropdown
-- Pre-populated from the selected org's default PD, but editable before saving
-- If no org is selected (guest visit), PD must be assigned manually
-
-#### Reassigning an org's PD
-- Admin changes the PD dropdown in Manage Users → Organizations
-- A confirm dialog offers: "Also reassign all active (pending_review / approved) visits for this org?"
-- On confirm with cascade: `POST /api/admin/assign-org-pd` with `{ org_id, pd_id, cascade_visits: true }`
-- On confirm without cascade: only the org's default is updated; existing visit assignments are untouched
-
-#### PD archived
-- The archive-user API explicitly nulls `assigned_pd_id` on:
-  - All org accounts that had this PD assigned
-  - All active visits (status `pending_review` or `approved`) that had this PD assigned
-- This moves all affected orgs and visits into the **unassigned bucket**
-- Admins are responsible for reassigning until a replacement PD is onboarded
-- The archive confirmation modal shows the count of affected orgs and visits
+Auto-assignment runs as a **suggestion** during admin approval flows — the pre-filled region is shown to the admin who can confirm or override before saving. Same UX pattern as the fee-tier suggestion on org approval.
 
 ---
 
-### Unassigned Bucket
+### Unassigned Pool
 
-Any org or visit with `assigned_pd_id = null` is "unassigned." These are:
-- Still fully functional (visits can be approved, volunteers can sign up)
-- Flagged visually in admin UI (amber "Unassigned" badge)
-- Surfaced via a dedicated filter: "Show unassigned only"
-- Admin is implicitly responsible for unassigned visits until a PD is assigned
-
-There is no hard block on approving or publishing an unassigned visit. The unassigned state is a workflow flag, not a gate.
+Any volunteer, org, or visit with a null region/PD assignment is "unassigned":
+- Fully functional — visits can still be approved, volunteers can still sign up
+- Flagged visually with an amber **"Unassigned"** badge in admin UI
+- Filterable: region filter dropdowns include an "Unassigned" option
+- No hard blocks on any workflow for unassigned entities — unassigned is a workflow flag, not a gate
 
 ---
 
-### Admin UI: Organizations Tab (Manage Users)
+### Admin UI: Regions Nav Section
 
-**Table changes:**
-- New "Assigned PD" column on each org row
-- Shows PD name, or "Unassigned" amber badge if null
+A new **root-level nav item** for admins: **"Regions"**. PDs do not see this section.
 
-**Expanded row (on click):**
-- "Assigned PD" section with a dropdown listing all approved PDs
-- Save button triggers `POST /api/admin/assign-org-pd`
-- On change: confirm dialog — "Also update all active visits for this org?" (yes / no / cancel)
-- Optimistic update on confirm: org row reflects new PD immediately
+Contains two sub-pages:
+
+#### Region List
+
+Table of all regions with columns: Name, Owner PD (or amber "No owner" badge), Volunteer count, Org count, Active/Inactive status.
+
+Actions per region:
+- **Create region**: name + optional owner PD dropdown (all approved PD users)
+- **Edit region**: change name or owner PD
+- **Deactivate region**: confirmation modal showing affected volunteer and org counts — all will be moved to unassigned on confirm
+- **View members**: subtab or modal showing assigned volunteers and orgs
+
+**Postal code / FSA management** is accessible from within a region's detail view as a collapsible sub-section. Not surfaced in the main list — it is used infrequently after initial setup. Allows adding/removing FSA prefixes mapped to the region. Each FSA prefix can belong to at most one region (enforced by DB unique constraint).
+
+#### Manage Program Directors
+
+Moved here from the Group Visits section. Lists all PD users with links to their profiles.
+
+---
+
+### Admin UI: Manage Volunteers
+
+Updates to the existing Manage Volunteers table:
+
+- New **"Region"** column: region name, or amber "Unassigned" badge
+- Region filter dropdown at top (includes "Unassigned" option)
+- Per-volunteer expanded row: current region shown, reassign dropdown + save button
+- `region_assignment_method` shown as a small label ("Auto-assigned" or "Manual") for transparency
+
+**Volunteer approval flow:** when approving a new volunteer, the approval form pre-fills the auto-suggested region. Admin can confirm or override.
+
+---
+
+### Admin UI: Manage Organizations
+
+Updates to the existing Manage Organizations table:
+
+- **"Assigned Region"** column replaces "Assigned PD" (same amber badge if unassigned)
+- Region filter dropdown at top
+- Per-org expanded row: reassign region dropdown + save button
+- On reassignment: confirm dialog — "Also update all active visits for this org?"
+  - **Yes**: `visits.assigned_pd_id` set to `new_region.owner_pd_id` for all active visits (null if new region has no owner)
+  - **No**: only the org's `assigned_region_id` is updated; existing visit assignments untouched
+
+**Org approval flow:** same pre-fill pattern — auto-suggested region shown at approval time; admin confirms or overrides.
 
 ---
 
 ### Admin UI: Visits
 
 **Visit cards (list view):**
-- Small "Assigned PD" row below the slot bar (name, or amber "Unassigned" badge)
-- Filter: "Unassigned only" checkbox in the filter panel
+- "Assigned PD" row below the slot bar (name, or amber "Unassigned" badge) — unchanged
+- Filter: "Unassigned only" checkbox in filter panel — unchanged
 
 **Visit detail page:**
-- "Assigned PD" field in the header card
+- "Assigned PD" field in the header card — unchanged
 - Admin-only inline reassign dropdown + save button
-- Changing PD here only updates the visit, not the org's default
+- Changing PD here only updates the visit, not the org's region assignment
 
 ---
 
-### PD UI: Dashboard
+### PD UI: Manage Volunteers
+
+The existing Manage Volunteers tab gets a **region filter toggle**:
+
+- **"My Region"** (default) — volunteers where `assigned_region_id` is a region owned by the current PD
+- **"All Regions"** — all volunteers (same as current behavior)
+
+Each volunteer row shows their region badge for clarity when viewing all regions.
+
+---
+
+### PD UI: Manage Organizations
+
+The org management view gets the same toggle:
+
+- **"My Orgs"** (default) — orgs where `assigned_region_id` is a region owned by the current PD
+- **"All Orgs"** — all orgs
+
+---
+
+### PD UI: Visits
 
 **Visits list:**
-- Toggle above the tab bar: "My Assignments" (on by default when PD logs in)
-- When on: filters visits to those where `assigned_pd_id = current user`
-- When off: shows all visits (same as now — PDs can still see everything)
-- Badge on toggle showing count of assigned upcoming visits
-
-**Dashboard home:**
-- Summary card: "You have X upcoming assigned visits" with a quick link to the filtered visit list
-
-**Visit detail page (PD view):**
-- "You are the assigned PD" green badge in the header when viewing an assigned visit
-- If viewing a visit assigned to another PD: shows that PD's name (read-only)
+- Toggle: "My Assignments" (default) | "All Visits" — unchanged, still filters on `visits.assigned_pd_id = current user`
 
 ---
 
-### API Routes (PD Assignment)
+### Volunteer UI
+
+Volunteer profile or dashboard shows assigned region and coordinator:
+
+> **Your region:** Guelph · **Coordinator:** [PD first name]
+
+Informational only. No volunteer action required.
+
+---
+
+### Notifications
+
+When a new volunteer is auto-assigned to a region, the region's owner PD receives an **in-app alert badge** (same mechanism as new user request alerts). Email notifications for this trigger are deferred to a later phase.
+
+---
+
+### API Routes (PD Regions)
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/admin/assign-org-pd` | Assign or unassign a PD to an org; optionally cascade to active visits |
+| GET | `/api/admin/regions` | List all regions |
+| POST | `/api/admin/regions` | Create a new region |
+| PATCH | `/api/admin/regions/[id]` | Update region name or owner PD |
+| POST | `/api/admin/regions/[id]/deactivate` | Deactivate region; cascades unassignment to all members |
+| GET | `/api/admin/regions/[id]/members` | List volunteers and orgs assigned to a region |
+| POST | `/api/admin/regions/[id]/fsas` | Add an FSA prefix to a region |
+| DELETE | `/api/admin/regions/[id]/fsas/[fsa]` | Remove an FSA prefix from a region |
+| POST | `/api/admin/assign-org-region` | Assign or unassign a region to an org; optionally cascade to active visits |
+| POST | `/api/admin/assign-volunteer-region` | Manually assign or unassign a region to a volunteer |
+| POST | `/api/admin/auto-assign-region` | Run auto-assignment logic for a single user (used by approval flows and migration script) |
 
-**Request body:**
+**`POST /api/admin/assign-org-region` request body:**
 ```json
 {
   "org_id": "user_xxx",
-  "pd_id": "user_yyy",   // null to unassign
-  "cascade_visits": true  // whether to also update active visits for this org
+  "region_id": 3,          // null to unassign
+  "cascade_visits": true   // whether to also update active visits for this org
 }
 ```
 
-**Response:**
+**`POST /api/admin/assign-volunteer-region` request body:**
 ```json
-{ "success": true, "visits_updated": 3 }
+{
+  "volunteer_id": "user_xxx",
+  "region_id": 3           // null to unassign
+}
 ```
+
+---
+
+### Retroactive Migration
+
+A one-time script (`scripts/assignVolunteerRegions.ts`) runs auto-assignment logic against all existing volunteers with postal codes. Requires `pd_regions` and `pd_region_fsas` to be seeded first.
+
+Script outputs a summary: assignments made by method (fsa_auto / distance_auto), and any volunteers left unassigned for manual review.
+
+**Prod safety:** the script only writes `assigned_region_id` and `region_assignment_method`. It does not touch any other existing columns.
+
+Orgs are dev/staging only and can be assigned manually or via a similar script — no prod concern.
 
 ---
 
@@ -554,16 +642,28 @@ There is no hard block on approving or publishing an unassigned visit. The unass
 
 | Item | Status |
 |------|--------|
-| DB: `users.assigned_pd_id` column (Migration 15) | Complete — run on dev DB |
-| DB: `visits.assigned_pd_id` column (Migration 12) | Complete |
-| `POST /api/admin/assign-org-pd` route | Complete |
-| `GET /api/admin/approved-users` — includes `assigned_pd_id` | Complete |
-| `POST /api/admin/archive-user` — nulls PD assignments on PD archive | Complete |
-| Admin: org table "Assigned PD" column + assignment dropdown | In progress |
-| Admin: visit cards/detail — PD field + unassigned filter | Pending |
-| PD dashboard: My Assignments toggle + summary card | Pending |
-| Admin/PD create visit form: PD picker field | Pending |
-| Auto-assignment (nearest PD within 50km) | Deferred — pending staff input |
+| DB: `pd_regions` table (Migration 20) | Pending |
+| DB: `pd_region_fsas` table (Migration 21) | Pending |
+| DB: `users.assigned_region_id` + remove `assigned_pd_id` (Migration 22) | Pending |
+| DB: RLS policies for `pd_regions` and `pd_region_fsas` (Migration 23) | Pending |
+| Seed: initial Southern Ontario regions + FSA prefixes | Pending |
+| Admin: Regions root-level nav section | Pending |
+| Admin: Region list (create/edit/deactivate/view members) | Pending |
+| Admin: FSA management per-region (collapsible sub-section) | Pending |
+| Admin: Manage Program Directors moved to Regions section | Pending |
+| Admin: Manage Volunteers — region column, filter, reassign | Pending |
+| Admin: Manage Organizations — region column replaces PD, filter, cascade | Pending |
+| Admin: Volunteer approval flow — region pre-fill suggestion | Pending |
+| Admin: Org approval flow — region pre-fill suggestion | Pending |
+| PD: Manage Volunteers — My Region / All Regions toggle | Pending |
+| PD: Manage Organizations — My Orgs / All Orgs toggle | Pending |
+| Volunteer: region display on profile/dashboard | Pending |
+| API: `/api/admin/regions` CRUD | Pending |
+| API: `/api/admin/assign-org-region` (replaces `assign-org-pd`) | Pending |
+| API: `/api/admin/assign-volunteer-region` | Pending |
+| API: `/api/admin/auto-assign-region` utility | Pending |
+| Notifications: in-app alert to PD on new volunteer assignment | Pending |
+| Script: retroactive volunteer region assignment | Pending |
 
 ---
 
@@ -668,7 +768,16 @@ All emails use the existing Resend + Handlebars infrastructure.
 | GET | `/api/admin/visits/[id]/registrations` | List all registrations for a visit |
 | DELETE | `/api/admin/visits/[id]/registrations/[regId]` | Remove a volunteer from a visit |
 | PATCH | `/api/admin/visits/[id]/registrations/[regId]/contact-sharing` | Toggle contact info sharing for a volunteer on a specific visit |
-| POST | `/api/admin/assign-org-pd` | Assign or unassign a PD to an org; optionally cascade to active visits |
+| GET | `/api/admin/regions` | List all regions |
+| POST | `/api/admin/regions` | Create a new region |
+| PATCH | `/api/admin/regions/[id]` | Update region name or owner PD |
+| POST | `/api/admin/regions/[id]/deactivate` | Deactivate region; cascades unassignment to all members |
+| GET | `/api/admin/regions/[id]/members` | List volunteers and orgs assigned to a region |
+| POST | `/api/admin/regions/[id]/fsas` | Add an FSA prefix to a region |
+| DELETE | `/api/admin/regions/[id]/fsas/[fsa]` | Remove an FSA prefix from a region |
+| POST | `/api/admin/assign-org-region` | Assign or unassign a region to an org; optionally cascade to active visits |
+| POST | `/api/admin/assign-volunteer-region` | Manually assign or unassign a region to a volunteer |
+| POST | `/api/admin/auto-assign-region` | Run auto-assignment logic for a single user |
 | GET | `/api/admin/compliance` | List all volunteers with VSC/vaccine status |
 | GET | `/api/admin/compliance/[volunteerId]/documents` | Get signed download URLs for a volunteer's documents |
 | PATCH | `/api/admin/compliance/[volunteerId]` | Verify VSC or vaccine record |
@@ -700,7 +809,6 @@ None currently. All major decisions resolved. Revisit if new questions arise dur
 - **Visit statistics** — Phase 3. Volunteer visit counts, org visit history, regional breakdowns.
 - **Advanced admin calendar view** — Phase 3. Heat-map style view of booking density by date/region.
 - **Org contact confirmation email when slots filled** — Phase 2, after core flow is stable.
-- **Geographic region filtering (beyond radius)** — Current plan (radius-based using PostGIS) covers the main use case. Named regions or neighborhood tags can be layered on in a future phase if needed.
 
 ---
 

@@ -1,7 +1,7 @@
 // src/components/layout/MobileNavAdmin.tsx
 'use client';
 
-import { Home, Users, MessageCircle, CalendarCheck, Mail, Building2 } from 'lucide-react';
+import { Home, Users, MessageCircle, CalendarCheck, Mail, Building2, Map } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
 
 interface MobileNavAdminProps {
@@ -9,6 +9,7 @@ interface MobileNavAdminProps {
   setActiveTab: (tab: ActiveTab) => void;
   profileImage: string;
   unreadCount: number;
+  alertCounts?: Record<string, number>;
   role?: 'admin' | 'pd';
 }
 
@@ -17,6 +18,7 @@ export default function MobileNavAdmin({
   setActiveTab,
   profileImage,
   unreadCount,
+  alertCounts = {},
   role = 'admin',
 }: MobileNavAdminProps) {
 
@@ -28,9 +30,11 @@ export default function MobileNavAdmin({
     adminOnly?: boolean;
   }[] = [
     { key: 'dashboard-home', label: 'Overview', icon: <Home size={20} /> },
-    { key: 'admin-visits', label: 'Visits', icon: <Building2 size={20} /> },
+    { key: 'group-visits', label: 'Visits', icon: <Building2 size={20} /> },
     { key: 'user-requests', label: 'Requests', icon: <Users size={20} /> },
-    { key: 'manage-users', label: 'Users', icon: <Users size={20} /> },
+    { key: 'manage-volunteers', label: 'Volunteers', icon: <Users size={20} /> },
+    { key: 'manage-regions', label: 'Regions', icon: <Map size={20} />, adminOnly: true },
+    { key: 'manage-individuals', label: 'Individuals', icon: <Users size={20} />, adminOnly: true },
     { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0, adminOnly: true },
     { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} />, adminOnly: true },
     { key: 'email-testing', label: 'Settings', icon: <Mail size={20} />, adminOnly: true },
@@ -58,7 +62,7 @@ export default function MobileNavAdmin({
           >
             <div className="relative">
               {icon}
-              {showAlert && (
+              {(showAlert || alertCounts[key] > 0) && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               )}
             </div>

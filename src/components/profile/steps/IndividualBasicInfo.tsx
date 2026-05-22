@@ -65,10 +65,14 @@ export default function IndividualBasicInfo({
           id="postalCode"
           type="text"
           value={postalCode}
-          onChange={(e) => setPostalCode(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+            setPostalCode(raw.length > 3 ? `${raw.slice(0, 3)} ${raw.slice(3)}` : raw);
+          }}
           className="w-full px-4 py-2 border rounded-lg uppercase"
           disabled={isLoading}
           placeholder="A1A 1A1"
+          maxLength={7}
         />
       </div>
 

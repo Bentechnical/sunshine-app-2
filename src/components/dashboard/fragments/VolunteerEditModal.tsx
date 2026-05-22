@@ -17,6 +17,7 @@ interface InitialProfile {
   postal_code: string | null;
   travel_distance_km: number | null;
   pronouns: string | null;
+  open_to_individual_visits: boolean | null;
   vsc_document_url: string | null;
   vsc_date_issued: string | null;
   vsc_renewal_due: string | null;
@@ -73,7 +74,8 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
   const [bio, setBio] = useState(initialProfile.bio ?? '');
   const [phone, setPhone] = useState(initialProfile.phone_number ?? '');
   const [postalCode, setPostalCode] = useState(initialProfile.postal_code ?? '');
-  const [travelDistance, setTravelDistance] = useState(initialProfile.travel_distance_km ?? 10);
+  const [openToIndividualVisits, setOpenToIndividualVisits] = useState(initialProfile.open_to_individual_visits ?? true);
+  const [travelDistance, setTravelDistance] = useState(initialProfile.travel_distance_km ?? 25);
   const [pronouns, setPronouns] = useState(initialProfile.pronouns ?? '');
   const avatarUrlRef = useRef(initialProfile.profile_image ?? '');
   const [saving, setSaving] = useState(false);
@@ -110,7 +112,8 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
       phone_number: phone,
       profile_image: avatarUrlRef.current,
       postal_code: normalized,
-      travel_distance_km: travelDistance,
+      open_to_individual_visits: openToIndividualVisits,
+      travel_distance_km: openToIndividualVisits ? travelDistance : 25,
       pronouns,
     };
 
@@ -327,20 +330,40 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
                 />
               </div>
 
-              {/* Travel Distance */}
-              <div>
-                <label className={lc}>Travel Distance</label>
-                <select
-                  value={travelDistance}
-                  onChange={e => setTravelDistance(Number(e.target.value))}
-                  className={ic}
-                >
-                  <option value={5}>5 km</option>
-                  <option value={10}>10 km</option>
-                  <option value={25}>25 km</option>
-                  <option value={50}>50 km</option>
-                </select>
+              {/* Individual visits opt-in */}
+              <div className={`p-4 border rounded-xl transition-colors ${openToIndividualVisits ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={openToIndividualVisits}
+                    onChange={e => setOpenToIndividualVisits(e.target.checked)}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Open to individual visit requests</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Allow people seeking an individual therapy dog visit to find my profile and send me a request.
+                    </p>
+                  </div>
+                </label>
               </div>
+
+              {/* Travel Distance — only shown when opted in */}
+              {openToIndividualVisits && (
+                <div>
+                  <label className={lc}>Travel distance for individual visits</label>
+                  <select
+                    value={travelDistance}
+                    onChange={e => setTravelDistance(Number(e.target.value))}
+                    className={ic}
+                  >
+                    <option value={5}>5 km</option>
+                    <option value={10}>10 km</option>
+                    <option value={25}>25 km</option>
+                    <option value={50}>50 km</option>
+                  </select>
+                </div>
+              )}
 
               {/* Bio */}
               <div>

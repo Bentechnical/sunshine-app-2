@@ -2,6 +2,94 @@
 
 import React, { useEffect, useState } from 'react';
 
+// ─── Compliance helpers (mirrors AdminManageVolunteers) ────────────────────────
+
+type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
+
+function getComplianceStatus(documentUrl: string | null, expiryDate: string | null): ComplianceStatus {
+  if (!documentUrl) return 'missing';
+  if (!expiryDate) return 'uploaded';
+  const expiry = new Date(expiryDate);
+  const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  if (daysUntil < 0) return 'expired';
+  if (daysUntil <= 30) return 'expiring';
+  return 'uploaded';
+}
+
+const complianceConfig: Record<ComplianceStatus, { label: string; classes: string }> = {
+  missing:  { label: 'Missing',       classes: 'bg-red-100 text-red-700' },
+  uploaded: { label: 'Compliant',     classes: 'bg-green-100 text-green-700' },
+  expiring: { label: 'Expiring Soon', classes: 'bg-amber-100 text-amber-700' },
+  expired:  { label: 'Expired',       classes: 'bg-red-100 text-red-800' },
+};
+
+function ComplianceBadge({ status }: { status: ComplianceStatus }) {
+  const { label, classes } = complianceConfig[status];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${classes}`}>
+      {label}
+    </span>
+  );
+}
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function DocumentModal({ volunteerId, volunteerName, onClose }: { volunteerId: string; volunteerName: string; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [docs, setDocs] = useState<{ vsc_signed_url: string | null; vaccine_signed_url: string | null; dog_name: string | null } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/admin/compliance/${volunteerId}/documents`);
+        const json = await res.json();
+        if (!res.ok) { setError(json.error || 'Failed to load documents'); return; }
+        setDocs(json.documents ? { ...json.documents, dog_name: json.dog_name } : null);
+      } catch { setError('Failed to load documents'); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, [volunteerId]);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Documents — {volunteerName}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        {loading && (
+          <div className="flex items-center gap-2 py-6 justify-center">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-gray-600">Loading…</span>
+          </div>
+        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!loading && !error && docs && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">VSC Document</p>
+              {docs.vsc_signed_url
+                ? <a href={docs.vsc_signed_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">Open VSC Document</a>
+                : <p className="text-sm text-gray-500 italic">No document uploaded</p>}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Vaccine Record{docs.dog_name ? ` — ${docs.dog_name}` : ''}</p>
+              {docs.vaccine_signed_url
+                ? <a href={docs.vaccine_signed_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">Open Vaccine Record</a>
+                : <p className="text-sm text-gray-500 italic">No document uploaded</p>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface VolunteerRequest {
   id: string;
   first_name: string;
@@ -14,12 +102,19 @@ interface VolunteerRequest {
   travel_distance_km: number;
   profile_picture_url: string;
   role: string;
+  assigned_region_id: number | null;
+  region_assignment_method: string | null;
+  vsc_document_url: string | null;
+  vsc_date_issued: string | null;
+  vsc_renewal_due: string | null;
   dog: {
     dog_name: string;
     dog_breed: string;
     dog_bio: string;
     dog_picture_url: string;
     dog_age?: number;
+    vaccine_record_url: string | null;
+    vaccine_expiry_date: string | null;
   } | null;
 }
 
@@ -61,6 +156,9 @@ interface OrganizationRequest {
   org_address: string | null;
   org_contact_name: string | null;
   org_contact_phone: string | null;
+  fee_tier: string | null;
+  assigned_region_id: number | null;
+  region_assignment_method: string | null;
 }
 
 interface IncompleteSignup {
@@ -72,12 +170,22 @@ interface IncompleteSignup {
   created_at: string;
 }
 
-export default function UserRequestsTab({ hideIndividuals = false }: { hideIndividuals?: boolean }) {
+interface Region {
+  id: number;
+  name: string;
+  is_active: boolean;
+}
+
+export default function UserRequestsTab({ hideIndividuals = false, onCountChange }: { hideIndividuals?: boolean; onCountChange?: () => void }) {
   const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'incomplete'>(hideIndividuals ? 'volunteer' : 'individual');
   const [volunteerRequests, setVolunteerRequests] = useState<VolunteerRequest[]>([]);
   const [individualRequests, setIndividualRequests] = useState<IndividualRequest[]>([]);
   const [organizationRequests, setOrganizationRequests] = useState<OrganizationRequest[]>([]);
   const [incompleteSignups, setIncompleteSignups] = useState<IncompleteSignup[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [orgSetupDraft, setOrgSetupDraft] = useState<Record<string, { feeTier: string; regionId: string }>>({});
+  const [volRegionDraft, setVolRegionDraft] = useState<Record<string, string>>({});
+  const [docModal, setDocModal] = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,7 +206,7 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
 
         const data = json.users;
 
-        const volunteers = data
+        const volunteers: VolunteerRequest[] = data
           .filter((u: any) => u.role === 'volunteer')
           .map((u: any) => ({
             id: u.id,
@@ -112,6 +220,11 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
             travel_distance_km: u.travel_distance_km,
             profile_picture_url: u.profile_image,
             role: u.role,
+            assigned_region_id: u.assigned_region_id ?? null,
+            region_assignment_method: u.region_assignment_method ?? null,
+            vsc_document_url: u.vsc_document_url ?? null,
+            vsc_date_issued: u.vsc_date_issued ?? null,
+            vsc_renewal_due: u.vsc_renewal_due ?? null,
             dog: u.dogs?.status === 'pending'
               ? {
                 dog_name: u.dogs.dog_name,
@@ -119,6 +232,8 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
                 dog_bio: u.dogs.dog_bio,
                 dog_picture_url: u.dogs.dog_picture_url,
                 dog_age: u.dogs.dog_age,
+                vaccine_record_url: u.dogs.vaccine_record_url ?? null,
+                vaccine_expiry_date: u.dogs.vaccine_expiry_date ?? null,
               }
               : null,
           }));
@@ -152,7 +267,7 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
             dependant_name: u.dependant_name,
           }));
 
-        const organizations = data
+        const organizations: OrganizationRequest[] = data
           .filter((u: any) => u.role === 'organization')
           .map((u: any) => ({
             id: u.id,
@@ -164,11 +279,39 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
             org_address: u.org_address,
             org_contact_name: u.org_contact_name,
             org_contact_phone: u.org_contact_phone,
+            fee_tier: u.fee_tier ?? null,
+            assigned_region_id: u.assigned_region_id ?? null,
+            region_assignment_method: u.region_assignment_method ?? null,
           }));
 
         setVolunteerRequests(volunteers);
         setIndividualRequests(individuals);
         setOrganizationRequests(organizations);
+
+        // Pre-populate setup drafts with auto-assigned values
+        const drafts: Record<string, { feeTier: string; regionId: string }> = {};
+        for (const org of organizations) {
+          if (org.fee_tier || org.assigned_region_id) {
+            drafts[org.id] = {
+              feeTier: org.fee_tier ?? '',
+              regionId: org.assigned_region_id ? String(org.assigned_region_id) : '',
+            };
+          }
+        }
+        if (Object.keys(drafts).length > 0) {
+          setOrgSetupDraft(drafts);
+        }
+
+        // Pre-populate volunteer region drafts
+        const volDrafts: Record<string, string> = {};
+        for (const vol of volunteers) {
+          if (vol.assigned_region_id) {
+            volDrafts[vol.id] = String(vol.assigned_region_id);
+          }
+        }
+        if (Object.keys(volDrafts).length > 0) {
+          setVolRegionDraft(volDrafts);
+        }
 
         // Fetch incomplete signups
         const incompleteRes = await fetch('/api/admin/incomplete-signups');
@@ -178,6 +321,13 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
           setIncompleteSignups(incompleteJson.users || []);
         } else {
           console.error('[Admin] Error fetching incomplete signups:', incompleteJson.error);
+        }
+
+        // Fetch regions for org approval setup
+        const regionsRes = await fetch('/api/admin/regions');
+        const regionsJson = await regionsRes.json();
+        if (regionsRes.ok && regionsJson.regions) {
+          setRegions(regionsJson.regions.filter((r: Region) => r.is_active));
         }
       } catch (err) {
         console.error('[Admin] Error fetching pending users:', err);
@@ -202,11 +352,70 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
         setVolunteerRequests((prev) => prev.filter((v) => v.id !== userId));
         setIndividualRequests((prev) => prev.filter((i) => i.id !== userId));
         setOrganizationRequests((prev) => prev.filter((o) => o.id !== userId));
+        onCountChange?.();
       } else {
         console.error('[Admin] Failed to update user status');
       }
     } catch (err) {
       console.error('[Admin] Error updating user status', err);
+    }
+  };
+
+  const handleApproveOrg = async (orgId: string) => {
+    try {
+      const res = await fetch('/api/admin/updateUserStatus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: orgId, status: 'approved' }),
+      });
+      if (!res.ok) { console.error('[Admin] Failed to approve org'); return; }
+      onCountChange?.();
+
+      // Apply setup fields if provided (non-blocking — failures are logged, not fatal)
+      const setup = orgSetupDraft[orgId];
+      if (setup?.feeTier) {
+        fetch('/api/admin/update-org-fee-tier', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ org_id: orgId, fee_tier: setup.feeTier }),
+        }).catch(e => console.error('[Admin] Fee tier save failed:', e));
+      }
+      if (setup?.regionId) {
+        fetch('/api/admin/assign-org-region', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ org_id: orgId, region_id: Number(setup.regionId), cascade_visits: false }),
+        }).catch(e => console.error('[Admin] Region assignment save failed:', e));
+      }
+
+      setOrganizationRequests(prev => prev.filter(o => o.id !== orgId));
+    } catch (err) {
+      console.error('[Admin] Error approving org', err);
+    }
+  };
+
+  const handleApproveVolunteer = async (volId: string) => {
+    try {
+      const res = await fetch('/api/admin/updateUserStatus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: volId, status: 'approved' }),
+      });
+      if (!res.ok) { console.error('[Admin] Failed to approve volunteer'); return; }
+      onCountChange?.();
+
+      const regionId = volRegionDraft[volId];
+      if (regionId) {
+        fetch('/api/admin/assign-volunteer-region', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volunteer_id: volId, region_id: Number(regionId) }),
+        }).catch(e => console.error('[Admin] Volunteer region assignment failed:', e));
+      }
+
+      setVolunteerRequests(prev => prev.filter(v => v.id !== volId));
+    } catch (err) {
+      console.error('[Admin] Error approving volunteer', err);
     }
   };
 
@@ -217,30 +426,41 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
         {!hideIndividuals && (
           <button
             onClick={() => setActiveSubtab('individual')}
-            className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
-              }`}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
           >
             Individual Requests
+            {individualRequests.length > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                {individualRequests.length}
+              </span>
+            )}
           </button>
         )}
         <button
           onClick={() => setActiveSubtab('volunteer')}
-          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'volunteer' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
-            }`}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'volunteer' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
         >
           Volunteer Requests
+          {volunteerRequests.length > 0 && (
+            <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+              {volunteerRequests.length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveSubtab('organization')}
-          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'organization' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
-            }`}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'organization' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
         >
-          Organization Requests {organizationRequests.length > 0 && `(${organizationRequests.length})`}
+          Organization Requests
+          {organizationRequests.length > 0 && (
+            <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+              {organizationRequests.length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveSubtab('incomplete')}
-          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'incomplete' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'
-            }`}
+          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'incomplete' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
         >
           Incomplete Signups {incompleteSignups.length > 0 && `(${incompleteSignups.length})`}
         </button>
@@ -357,9 +577,59 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
                       )}
                     </div>
 
+                    <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Compliance */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Compliance</p>
+                          <button
+                            onClick={() => setDocModal({ id: user.id, name: `${user.first_name} ${user.last_name}` })}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            View Documents
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="font-medium text-gray-600 mb-1">VSC</p>
+                            <ComplianceBadge status={getComplianceStatus(user.vsc_document_url, user.vsc_renewal_due)} />
+                            {user.vsc_date_issued && <p className="text-xs text-gray-500 mt-1">Issued: {formatDate(user.vsc_date_issued)}</p>}
+                            {user.vsc_renewal_due && <p className="text-xs text-gray-500">Renewal: {formatDate(user.vsc_renewal_due)}</p>}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-600 mb-1">Vaccine{user.dog ? ` — ${user.dog.dog_name}` : ''}</p>
+                            <ComplianceBadge status={getComplianceStatus(user.dog?.vaccine_record_url ?? null, user.dog?.vaccine_expiry_date ?? null)} />
+                            {user.dog?.vaccine_expiry_date && <p className="text-xs text-gray-500 mt-1">Expires: {formatDate(user.dog.vaccine_expiry_date)}</p>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Region */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Region</label>
+                          {user.assigned_region_id && (
+                            <span className="text-xs text-blue-600 font-medium">
+                              Auto-assigned ({user.region_assignment_method === 'boundary_auto' ? 'boundary' : user.region_assignment_method === 'fsa_auto' ? 'FSA' : 'distance'})
+                            </span>
+                          )}
+                        </div>
+                        <select
+                          value={volRegionDraft[user.id] ?? ''}
+                          onChange={e => setVolRegionDraft(prev => ({ ...prev, [user.id]: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white"
+                        >
+                          <option value="">— Assign later —</option>
+                          {regions.map(r => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>{/* end compliance+region grid */}
+
                     <div className="mt-4 flex justify-center gap-4">
                       <button
-                        onClick={() => handleStatusChange(user.id, 'approved')}
+                        onClick={() => handleApproveVolunteer(user.id)}
                         className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 text-sm"
                       >
                         Approve
@@ -542,9 +812,46 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
                         </div>
                       </div>
                     </div>
-                    <div className="mt-2 flex justify-center gap-4">
+                    {/* Optional setup before approving */}
+                    <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Fee Tier (optional)</label>
+                        <select
+                          value={orgSetupDraft[org.id]?.feeTier ?? org.fee_tier ?? ''}
+                          onChange={e => setOrgSetupDraft(prev => ({ ...prev, [org.id]: { ...prev[org.id], feeTier: e.target.value, regionId: prev[org.id]?.regionId ?? '' } }))}
+                          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white"
+                        >
+                          <option value="">— Set later —</option>
+                          <option value="tier_500">$500 — Corporate / for-profit / large events</option>
+                          <option value="tier_200">$200 — Post-secondary / private / wellness</option>
+                          <option value="tier_0">$0 — Public schools / non-profits / inpatients</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Region</label>
+                          {org.assigned_region_id && (
+                            <span className="text-xs text-blue-600 font-medium">
+                              Auto-assigned ({org.region_assignment_method === 'fsa_auto' ? 'FSA' : org.region_assignment_method === 'boundary_auto' ? 'boundary' : 'distance'})
+                            </span>
+                          )}
+                        </div>
+                        <select
+                          value={orgSetupDraft[org.id]?.regionId ?? ''}
+                          onChange={e => setOrgSetupDraft(prev => ({ ...prev, [org.id]: { ...prev[org.id], regionId: e.target.value, feeTier: prev[org.id]?.feeTier ?? '' } }))}
+                          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white"
+                        >
+                          <option value="">— Assign later —</option>
+                          {regions.map(r => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-center gap-4">
                       <button
-                        onClick={() => handleStatusChange(org.id, 'approved')}
+                        onClick={() => handleApproveOrg(org.id)}
                         className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 text-sm"
                       >
                         Approve
@@ -599,6 +906,14 @@ export default function UserRequestsTab({ hideIndividuals = false }: { hideIndiv
             </div>
           )}
         </>
+      )}
+
+      {docModal && (
+        <DocumentModal
+          volunteerId={docModal.id}
+          volunteerName={docModal.name}
+          onClose={() => setDocModal(null)}
+        />
       )}
     </div>
   );

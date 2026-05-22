@@ -29,12 +29,13 @@ export default function IndividualDirectory() {
   const [myDogId, setMyDogId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDistance, setSelectedDistance] = useState<number>(0);
+  const [openToIndividualVisits, setOpenToIndividualVisits] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
 
     const fetchData = async () => {
-      const [individualsRes, dogRes] = await Promise.all([
+      const [individualsRes, dogRes, profileRes] = await Promise.all([
         supabase.rpc('get_individuals_for_volunteer', { volunteer_user_id: user.id }),
         supabase
           .from('dogs')
@@ -42,6 +43,11 @@ export default function IndividualDirectory() {
           .eq('volunteer_id', user.id)
           .eq('status', 'approved')
           .maybeSingle(),
+        supabase
+          .from('users')
+          .select('open_to_individual_visits')
+          .eq('id', user.id)
+          .single(),
       ]);
 
       if (individualsRes.error) {
@@ -51,6 +57,7 @@ export default function IndividualDirectory() {
       }
 
       if (dogRes.data) setMyDogId(dogRes.data.id);
+      setOpenToIndividualVisits(profileRes.data?.open_to_individual_visits ?? true);
 
       setLoading(false);
     };
@@ -96,6 +103,16 @@ export default function IndividualDirectory() {
   return (
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Connect with People</h2>
+
+      {openToIndividualVisits === false && (
+        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <p className="text-sm font-semibold text-amber-800">Your profile is currently hidden from individual members.</p>
+          <p className="text-sm text-amber-700 mt-1">
+            You can still browse members below and reach out yourself, but individual members cannot find your profile on their own.
+            To enable discoverability, turn on individual visit availability in your profile settings.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {individuals.map((person) => (

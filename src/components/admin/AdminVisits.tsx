@@ -23,6 +23,12 @@ interface PdUser {
   last_name: string;
 }
 
+interface Region {
+  id: number;
+  name: string;
+  owner_pd_id: string | null;
+}
+
 interface VisitSummary {
   id: number;
   title: string | null;
@@ -110,6 +116,7 @@ interface Props {
   selectedVisitId?: number | null;
   onSelectVisit?: (id: number) => void;
   onBackFromVisit?: () => void;
+  onCountChange?: () => void;
   pdMode?: boolean;
 }
 
@@ -1135,14 +1142,19 @@ function VisitDetailView({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, pdMode = false }: Props) {
+export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false }: Props) {
   const { user } = useUser();
   const currentUserId = user?.id ?? null;
   const [view, setView] = useState<ViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(pdMode ? 'approved' : 'pending_review');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending_review');
   const [filterUnassigned, setFilterUnassigned] = useState(false);
   const [filterMyAssignments, setFilterMyAssignments] = useState(pdMode);
+  const [regionFilter, setRegionFilter] = useState<string>('all');
+  const regionFilterInitialized = useRef(false);
+  const [regions, setRegions] = useState<Region[]>([]);
   const [visits, setVisits] = useState<VisitSummary[]>([]);
+  const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
+  const [activeVisitsCount, setActiveVisitsCount] = useState<number | null>(null);
   const [pdUsers, setPdUsers] = useState<PdUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1158,6 +1170,37 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch('/api/admin/regions')
+      .then(r => r.json())
+      .then(json => setRegions((json.regions ?? []).filter((r: Region & { is_active: boolean }) => r.is_active)))
+      .catch(() => {});
+  }, []);
+
+  // For PD mode: default region filter to the PD's own region once regions load
+  useEffect(() => {
+    if (!pdMode || !currentUserId || regions.length === 0 || regionFilterInitialized.current) return;
+    const myRegion = regions.find(r => r.owner_pd_id === currentUserId);
+    if (myRegion) setRegionFilter(String(myRegion.id));
+    regionFilterInitialized.current = true;
+  }, [regions, currentUserId, pdMode]);
+
+  // Fetch active visits count once (independent of which filter tab is selected)
+  useEffect(() => {
+    if (pdMode && !currentUserId) return;
+    fetch('/api/admin/visits?status=approved')
+      .then(r => r.json())
+      .then(json => {
+        const loaded = json.visits ?? [];
+        setActiveVisitsCount(
+          pdMode
+            ? loaded.filter((v: { assigned_pd_id: string | null }) => v.assigned_pd_id === currentUserId).length
+            : loaded.length
+        );
+      })
+      .catch(() => {});
+  }, [currentUserId]);
+
   const fetchVisits = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1166,7 +1209,15 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
       const res = await fetch(`/api/admin/visits${params}`);
       const json = await res.json();
       if (!res.ok) { setError(json.error || 'Failed to load visits'); return; }
-      setVisits(json.visits ?? []);
+      const loaded = json.visits ?? [];
+      setVisits(loaded);
+      if (statusFilter === 'pending_review') {
+        const count = pdMode
+          ? loaded.filter((v: { assigned_pd_id: string | null }) => v.assigned_pd_id === currentUserId).length
+          : loaded.length;
+        setPendingReviewCount(count);
+        onCountChange?.();
+      }
     } catch {
       setError('Failed to load visits');
     } finally {
@@ -1216,9 +1267,13 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
 
   // ── Derived: apply all active filters ──
   const myAssignmentsCount = visits.filter(v => v.assigned_pd_id === currentUserId).length;
+  const selectedRegion = regions.find(r => String(r.id) === regionFilter) ?? null;
   const displayedVisits = visits.filter(v => {
     if (filterMyAssignments && v.assigned_pd_id !== currentUserId) return false;
     if (filterUnassigned && v.assigned_pd_id != null) return false;
+    if (regionFilter !== 'all' && selectedRegion) {
+      if (v.assigned_pd_id !== selectedRegion.owner_pd_id) return false;
+    }
     return true;
   });
 
@@ -1258,23 +1313,49 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         {filterTabs.map(({ key, label }) => (
           <button key={key} onClick={() => setStatusFilter(key)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${
               statusFilter === key ? 'bg-[#0e62ae] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}>
             {label}
+            {key === 'pending_review' && pendingReviewCount !== null && pendingReviewCount > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                {pendingReviewCount}
+              </span>
+            )}
+            {key === 'approved' && activeVisitsCount !== null && activeVisitsCount > 0 && (
+              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none ${
+                statusFilter === key ? 'bg-white/30 text-white' : 'bg-gray-400 text-white'
+              }`}>
+                {activeVisitsCount}
+              </span>
+            )}
           </button>
         ))}
-        {!pdMode && (
-          <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={filterUnassigned}
-              onChange={e => setFilterUnassigned(e.target.checked)}
-              className="rounded accent-[#0e62ae]"
-            />
-            <span className="text-sm text-gray-600 whitespace-nowrap">Unassigned only</span>
-          </label>
-        )}
+        <div className="ml-auto flex items-center gap-3 flex-wrap">
+          {regions.length > 0 && (
+            <select
+              value={regionFilter}
+              onChange={e => setRegionFilter(e.target.value)}
+              className="border border-gray-300 px-3 py-1.5 rounded-md text-sm bg-white"
+            >
+              <option value="all">All Regions</option>
+              {regions.map(r => (
+                <option key={r.id} value={String(r.id)}>{r.name}</option>
+              ))}
+            </select>
+          )}
+          {!pdMode && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filterUnassigned}
+                onChange={e => setFilterUnassigned(e.target.checked)}
+                className="rounded accent-[#0e62ae]"
+              />
+              <span className="text-sm text-gray-600 whitespace-nowrap">Unassigned only</span>
+            </label>
+          )}
+        </div>
       </div>
 
       {loading && (

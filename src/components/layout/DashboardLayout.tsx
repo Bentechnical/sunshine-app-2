@@ -11,6 +11,7 @@ import MobileNavAdmin from './MobileNavAdmin';
 import { SignOutButton } from '@clerk/clerk-react';
 import { UnreadCountProvider } from '@/contexts/UnreadCountContext';
 import { useAdminUnreadCount } from '@/hooks/useAdminUnreadCount';
+import { useAdminAlertCounts } from '@/hooks/useAdminAlertCounts';
 
 // Maps URL pathnames to ActiveTab keys (used by admin nav and layout styling)
 export function pathnameToActiveTab(pathname: string): ActiveTab {
@@ -31,6 +32,7 @@ interface DashboardLayoutProps {
   activeTab?: ActiveTab;
   setActiveTab?: React.Dispatch<React.SetStateAction<ActiveTab>>;
   refreshTrigger?: number;
+  alertCountsRefreshTrigger?: number;
 }
 
 function getMainContentClasses(activeTab: ActiveTab, noMobileTopPadding: boolean): string {
@@ -53,11 +55,17 @@ export default function DashboardLayout({
   activeTab: adminActiveTab,
   setActiveTab: adminSetActiveTab,
   refreshTrigger,
+  alertCountsRefreshTrigger,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const activeTab = adminActiveTab ?? pathnameToActiveTab(pathname);
 
   const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger, role === 'admin');
+  const alertCounts = useAdminAlertCounts(role === 'admin' || role === 'pd', role === 'pd', alertCountsRefreshTrigger);
+  const tabAlertCounts: Record<string, number> = {
+    'user-requests': alertCounts.userRequests,
+    'group-visits': alertCounts.groupVisits,
+  };
 
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 
@@ -80,14 +88,14 @@ export default function DashboardLayout({
               <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-6">
                 <span className="text-sm font-medium">{role === 'pd' ? 'Program Director' : 'Admin Mode'}</span>
               </div>
-              <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} unreadCount={unreadCount} role={role === 'pd' ? 'pd' : 'admin'} />
+              <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} unreadCount={unreadCount} alertCounts={tabAlertCounts} role={role === 'pd' ? 'pd' : 'admin'} />
             </>
           ) : (
             <DesktopNav role={role as 'individual' | 'volunteer'} />
           )}
 
           <div className="mt-auto pt-6 flex flex-col gap-2">
-            {role !== 'admin' && (
+            {role !== 'admin' && role !== 'pd' && (
               <a
                 href={
                   role === 'volunteer'
@@ -148,6 +156,7 @@ export default function DashboardLayout({
                 setActiveTab={adminSetActiveTab!}
                 profileImage={profileImage}
                 unreadCount={unreadCount}
+                alertCounts={tabAlertCounts}
                 role={role === 'pd' ? 'pd' : 'admin'}
               />
             ) : (

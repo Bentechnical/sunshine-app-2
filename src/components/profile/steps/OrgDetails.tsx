@@ -16,18 +16,6 @@ const formatPhoneNumber = (value: string) => {
   return value;
 };
 
-const ORG_TYPES = [
-  'School',
-  'Hospital',
-  'Long-term Care Home',
-  'Mental Health Facility',
-  'Library',
-  'Community Centre',
-  'University / College',
-  'Workplace',
-  'Other',
-];
-
 const FEE_TIERS = [
   {
     value: 'tier_500',
@@ -49,8 +37,6 @@ const FEE_TIERS = [
 interface OrgDetailsProps {
   orgName: string;
   setOrgName: (v: string) => void;
-  orgType: string;
-  setOrgType: (v: string) => void;
   orgAddress: string;
   setOrgAddress: (v: string) => void;
   onOrgPlaceSelect: (result: PlaceResult) => void;
@@ -68,8 +54,6 @@ interface OrgDetailsProps {
 export default function OrgDetails({
   orgName,
   setOrgName,
-  orgType,
-  setOrgType,
   orgAddress,
   setOrgAddress,
   onOrgPlaceSelect,
@@ -118,26 +102,6 @@ export default function OrgDetails({
           disabled={isLoading}
           placeholder="e.g., Sunnybrook Hospital"
         />
-      </div>
-
-      <div>
-        <label htmlFor="orgType" className="block text-sm font-semibold text-gray-700 mb-2">
-          Organization Type <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="orgType"
-          value={orgType}
-          onChange={(e) => setOrgType(e.target.value)}
-          className="w-full px-4 py-2 border rounded-lg"
-          disabled={isLoading}
-        >
-          <option value="">Select type...</option>
-          {ORG_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div>

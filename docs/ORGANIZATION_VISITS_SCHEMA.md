@@ -35,14 +35,15 @@ Populated when `role = 'organization'`.
 | `org_contact_name` | text | YES | Primary contact person's name (column exists in DB but not currently collected by the profile form) |
 | `org_contact_phone` | text | YES | Primary contact phone number |
 
-#### Volunteer compliance fields
+#### Volunteer fields
 Populated when `role = 'volunteer'`.
 
-| Column | Type | Nullable | Description |
-|--------|------|----------|-------------|
-| `vsc_date_issued` | date | YES | Date VSC was issued |
-| `vsc_renewal_due` | date | YES | Date VSC renewal is due (issued + 3 years) |
-| `vsc_document_url` | text | YES | Storage path to uploaded VSC document (private bucket) |
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `vsc_date_issued` | date | YES | — | Date VSC was issued |
+| `vsc_renewal_due` | date | YES | — | Date VSC renewal is due (issued + 3 years) |
+| `vsc_document_url` | text | YES | — | Storage path to uploaded VSC document (private bucket) |
+| `open_to_individual_visits` | boolean | YES | `true` | Whether the volunteer is discoverable for individual visit requests (UC1). When `false`, the volunteer does not appear in individual member searches and is not matched against audience categories. Defaults to `true` for backward compatibility with existing volunteers. New volunteers set this explicitly during profile completion; if not opted in, travel distance and audience categories are silently defaulted (25 km and all categories) so search remains functional. |
 
 #### New role values
 The `role` column now accepts two additional values:
@@ -704,6 +705,106 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS fee_tier text;
 
 ---
 
+### Migration 19 — Update `get_dogs_for_individual` RPC to filter by `open_to_individual_visits`
+
+The `get_dogs_for_individual` Supabase function returns volunteer/dog results to individuals searching for a therapy dog. Volunteers who have not opted into individual visits (`open_to_individual_visits = false`) must be excluded from these results. Requires Migration 18 to be applied first.
+
+> Note: `get_individuals_for_volunteer` (the volunteer-side browse) does **not** need this filter — volunteers can still browse individuals regardless of their own opt-in status (one-way discovery).
+
+```sql
+CREATE OR REPLACE FUNCTION get_dogs_for_individual(
+  individual_user_id TEXT,
+  max_distance_km FLOAT DEFAULT 50
+)
+RETURNS TABLE (
+  dog_id INTEGER,
+  dog_name TEXT,
+  dog_breed TEXT,
+  dog_age INTEGER,
+  dog_bio TEXT,
+  dog_picture_url TEXT,
+  volunteer_id TEXT,
+  volunteer_first_name TEXT,
+  volunteer_last_initial TEXT,
+  volunteer_city TEXT,
+  general_availability TEXT,
+  distance_km DOUBLE PRECISION,
+  matching_categories TEXT[]
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    d.id as dog_id,
+    d.dog_name::TEXT as dog_name,
+    d.dog_breed::TEXT as dog_breed,
+    d.dog_age as dog_age,
+    d.dog_bio::TEXT as dog_bio,
+    d.dog_picture_url::TEXT as dog_picture_url,
+    v.id as volunteer_id,
+    v.first_name::TEXT as volunteer_first_name,
+    LEFT(v.last_name, 1) as volunteer_last_initial,
+    v.city::TEXT as volunteer_city,
+    v.general_availability::TEXT,
+    ST_Distance(
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      ST_MakePoint(u.location_lng, u.location_lat)::geography
+    ) / 1000 as distance_km,
+    ARRAY_AGG(DISTINCT ac.name) as matching_categories
+  FROM dogs d
+  JOIN users v ON v.id = d.volunteer_id
+  CROSS JOIN users u
+  LEFT JOIN volunteer_audience_preferences vap ON vap.volunteer_id = v.id
+  LEFT JOIN individual_audience_tags iat ON iat.individual_id = individual_user_id
+  LEFT JOIN audience_categories ac ON ac.id = vap.category_id
+  WHERE d.status = 'approved'
+    AND v.status = 'approved'
+    AND v.role = 'volunteer'
+    AND v.is_browsable = TRUE
+    AND v.open_to_individual_visits = TRUE
+    AND u.id = individual_user_id
+    AND u.role = 'individual'
+    AND vap.category_id = iat.category_id
+    AND ST_DWithin(
+      ST_MakePoint(v.location_lng, v.location_lat)::geography,
+      ST_MakePoint(u.location_lng, u.location_lat)::geography,
+      max_distance_km * 1000
+    )
+    AND v.id NOT IN (
+      SELECT recipient_id FROM chat_requests
+      WHERE requester_id = individual_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+      UNION
+      SELECT requester_id FROM chat_requests
+      WHERE recipient_id = individual_user_id
+        AND status = 'declined'
+        AND responded_at > NOW() - INTERVAL '30 days'
+    )
+    AND v.id NOT IN (
+      SELECT CASE WHEN requester_id = individual_user_id THEN recipient_id ELSE requester_id END
+      FROM chat_requests
+      WHERE (requester_id = individual_user_id OR recipient_id = individual_user_id)
+        AND snoozed_until > NOW()
+    )
+  GROUP BY d.id, v.id, u.location_lng, u.location_lat
+  ORDER BY distance_km ASC;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+```
+
+---
+
+### Migration 18 — Add `open_to_individual_visits` to `users` table
+
+Controls whether a volunteer is discoverable in individual member searches (UC1). When `false`, the volunteer is hidden from individual search results and excluded from audience category matching. Adding with `DEFAULT true` applies the value to all existing rows immediately, preserving backward compatibility.
+
+```sql
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS open_to_individual_visits boolean DEFAULT true;
+```
+
+---
+
 ### Migration 16 — Add `vaccine_date_issued` to `dogs` table
 
 Adds an issue date field for dog vaccine records. Previously only `vaccine_expiry_date` was collected; both dates are now captured explicitly. Computing expiry from issue date is not appropriate for vaccine records because validity varies by vaccine type and a single record typically covers multiple vaccines with differing expiry windows.
@@ -712,6 +813,233 @@ The expiry date remains the field used for compliance status calculations (`miss
 
 ```sql
 ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_date_issued date;
+```
+
+---
+
+### Migration 20 — Create `pd_regions` table
+
+Defines named geographic regions. Each region optionally has an owning Program Director (`owner_pd_id`). Regions can exist without an owner (e.g. while a new PD is being onboarded). Deactivating a region moves all assigned volunteers and orgs to the unassigned pool — this cascade is handled at the API layer, not via a DB trigger.
+
+```sql
+CREATE TABLE IF NOT EXISTS pd_regions (
+  id           serial PRIMARY KEY,
+  name         text NOT NULL,
+  owner_pd_id  text REFERENCES users(id) ON DELETE SET NULL,
+  is_active    boolean NOT NULL DEFAULT true,
+  created_at   timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS pd_regions_owner_pd_id_idx ON pd_regions (owner_pd_id);
+CREATE INDEX IF NOT EXISTS pd_regions_is_active_idx ON pd_regions (is_active);
+```
+
+---
+
+### Migration 21 — Create `pd_region_fsas` table
+
+> **Deprecated.** This table was the original FSA-based region definition system. Superseded by `pd_region_places` (Migration 24). The table and API routes remain in place but the UI no longer uses them.
+
+Maps Forward Sortation Areas (FSA — first 3 characters of a Canadian postal code, e.g. `N1G`) to regions. Each FSA can belong to at most one region (enforced by UNIQUE constraint).
+
+```sql
+CREATE TABLE IF NOT EXISTS pd_region_fsas (
+  id          serial PRIMARY KEY,
+  region_id   integer NOT NULL REFERENCES pd_regions(id) ON DELETE CASCADE,
+  fsa_prefix  text NOT NULL,
+  UNIQUE (fsa_prefix)
+);
+
+CREATE INDEX IF NOT EXISTS pd_region_fsas_region_id_idx ON pd_region_fsas (region_id);
+```
+
+---
+
+### Migration 22 — Add region assignment columns to `users`; remove `assigned_pd_id`
+
+Adds `assigned_region_id` (FK → `pd_regions`) and `region_assignment_method` to `users`, applicable to both `volunteer` and `organization` roles. Removes the old `assigned_pd_id` column, which linked org users directly to a PD — replaced by the region model.
+
+> **Prod note:** `assigned_pd_id` on `users` was introduced in Migration 15 and has only ever existed on dev/staging environments. It has never been deployed to production. Safe to drop.
+
+```sql
+-- Add region assignment columns
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS assigned_region_id integer REFERENCES pd_regions(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS region_assignment_method text
+    CHECK (region_assignment_method IN ('fsa_auto', 'distance_auto', 'manual'));
+
+CREATE INDEX IF NOT EXISTS users_assigned_region_id_idx ON users (assigned_region_id);
+
+-- Remove old direct PD assignment column (replaced by assigned_region_id)
+DROP INDEX IF EXISTS users_assigned_pd_id_idx;
+ALTER TABLE users DROP COLUMN IF EXISTS assigned_pd_id;
+```
+
+---
+
+### Migration 23 — Enable RLS and add policies for `pd_regions` and `pd_region_fsas`
+
+Region and FSA data is non-sensitive geographic configuration. All authenticated users can read it (volunteers display their region name; orgs and PDs browse it). Only admins can write.
+
+```sql
+ALTER TABLE pd_regions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pd_region_fsas ENABLE ROW LEVEL SECURITY;
+
+-- =====================
+-- pd_regions policies
+-- =====================
+
+-- All authenticated users can view regions
+CREATE POLICY "Authenticated users can view regions"
+  ON pd_regions FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- Admins can create regions
+CREATE POLICY "Admins can create regions"
+  ON pd_regions FOR INSERT
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role = 'admin')
+  );
+
+-- Admins can update regions
+CREATE POLICY "Admins can update regions"
+  ON pd_regions FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role = 'admin')
+  );
+
+-- Admins can delete regions
+CREATE POLICY "Admins can delete regions"
+  ON pd_regions FOR DELETE
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role = 'admin')
+  );
+
+-- Service role bypass
+CREATE POLICY "Service role full access to pd_regions"
+  ON pd_regions FOR ALL
+  USING (auth.role() = 'service_role');
+
+-- =====================
+-- pd_region_fsas policies
+-- =====================
+
+-- All authenticated users can view FSA mappings
+CREATE POLICY "Authenticated users can view region FSAs"
+  ON pd_region_fsas FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- Admins can manage FSA mappings (combined policy covers all operations)
+CREATE POLICY "Admins can manage region FSAs"
+  ON pd_region_fsas FOR ALL
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role = 'admin')
+  );
+
+-- Service role bypass
+CREATE POLICY "Service role full access to pd_region_fsas"
+  ON pd_region_fsas FOR ALL
+  USING (auth.role() = 'service_role');
+```
+
+---
+
+### Migration 24 — Create `pd_region_places` table
+
+Replaces FSA-based region definition with Google Places-based region definition. Each region has a collection of named Google Places (cities, regional municipalities, etc.) that define its geographic coverage. Admins add places via a Google Places Autocomplete input in the region management UI.
+
+```sql
+CREATE TABLE IF NOT EXISTS pd_region_places (
+  id               serial PRIMARY KEY,
+  region_id        integer NOT NULL REFERENCES pd_regions(id) ON DELETE CASCADE,
+  place_id         text NOT NULL,      -- Google Places place_id
+  place_name       text NOT NULL,      -- Short display name, e.g. "Kitchener"
+  place_type       text NOT NULL,      -- Google place type, e.g. "locality", "administrative_area_level_2"
+  match_value      text NOT NULL,      -- Value to match against geocoded address components
+  lat              double precision,
+  lng              double precision,
+  viewport_south   double precision,   -- Bounding box for map display
+  viewport_west    double precision,
+  viewport_north   double precision,
+  viewport_east    double precision,
+  created_at       timestamptz DEFAULT now(),
+  UNIQUE (region_id, place_id)
+);
+
+CREATE INDEX IF NOT EXISTS pd_region_places_region_id_idx ON pd_region_places (region_id);
+
+ALTER TABLE pd_region_places ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can view region places
+CREATE POLICY "Authenticated users can view region places"
+  ON pd_region_places FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- Admins can manage region places
+CREATE POLICY "Admins can manage region places"
+  ON pd_region_places FOR ALL
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role = 'admin')
+  );
+
+-- Service role bypass
+CREATE POLICY "Service role full access to pd_region_places"
+  ON pd_region_places FOR ALL
+  USING (auth.role() = 'service_role');
+```
+
+**`place_type` values** correspond to Google Places API types: `locality` (city/town), `administrative_area_level_2` (regional municipality/county), `sublocality`, etc.
+
+**`match_value`** is the `long_name` of the address component matching `place_type` — used by `autoAssignRegion` to compare against a user's geocoded address components.
+
+---
+
+### Migration 25 — Drop `pd_region_fsas` table
+
+Removes the deprecated FSA-based region definition table. Superseded by `pd_region_places` (Migration 24). All RLS policies on this table are dropped automatically by PostgreSQL when the table is dropped.
+
+> **Prerequisites before running:** Ensure Migration 24 has been applied and the codebase has been deployed (so no running code queries `pd_region_fsas`).
+
+```sql
+DROP TABLE IF EXISTS pd_region_fsas;
+```
+
+---
+
+### Migration 26 — Add boundary fields to `pd_region_places`
+
+Adds OpenStreetMap polygon boundary storage to `pd_region_places`. When an admin adds a place via Google Places Autocomplete, the server-side API fetches the boundary polygon from Nominatim (OSM) and stores it as JSONB. The map renders boundaries using Google Maps `map.data` layer with the stored GeoJSON — no Google Map ID or Data-driven styling required.
+
+```sql
+ALTER TABLE pd_region_places
+  ADD COLUMN boundary_json    jsonb,
+  ADD COLUMN boundary_status  text DEFAULT 'pending'
+    CHECK (boundary_status IN ('pending', 'found', 'not_found')),
+  ADD COLUMN boundary_osm_id   text,
+  ADD COLUMN boundary_osm_type text;
+
+-- Existing rows have no boundary data; mark as not_found.
+-- Admins can remove and re-add a place to trigger the boundary fetch.
+UPDATE pd_region_places SET boundary_status = 'not_found';
+```
+
+**`boundary_status` values:**
+- `pending` — initial state before fetch (should not persist after first save)
+- `found` — Nominatim returned a usable polygon; `boundary_json` contains GeoJSON geometry
+- `not_found` — Nominatim returned no suitable polygon; map falls back to viewport zoom only
+
+**Attribution requirement:** Any map displaying `boundary_json` polygons must show "© OpenStreetMap contributors" per OSM usage policy.
+
+---
+
+### Migration 27 — Add `boundary_auto` to `region_assignment_method` check constraint
+
+Adds the `boundary_auto` value to the `users_region_assignment_method_check` constraint so that `autoAssignRegion` can write `'boundary_auto'` when a user's coordinates fall inside a region's OSM boundary polygon.
+
+```sql
+ALTER TABLE users DROP CONSTRAINT users_region_assignment_method_check;
+ALTER TABLE users ADD CONSTRAINT users_region_assignment_method_check
+  CHECK (region_assignment_method IN ('fsa_auto', 'distance_auto', 'boundary_auto', 'manual'));
 ```
 
 ---
@@ -744,3 +1072,14 @@ ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_date_issued date;
 | May 2026 | 14 | Documented future RLS policy split for PD scoping (visits); currently PDs share the combined admin/pd SELECT policy; scoped policy to be activated when API layer enforcement is complete |
 | May 2026 | 15 | Added `assigned_pd_id text` to `users` table — FK → users.id ON DELETE SET NULL; links an organization account to their responsible PD; inherited by visits on creation; null = unassigned |
 | May 2026 | 16 | Added `vaccine_date_issued date` to `dogs` table — issue date for dog vaccine records; expiry date continues to drive compliance status; issue date stored for auditing |
+| May 2026 | 17 | Added `fee_tier text` to `users` table — three-tier fee-for-service model (`tier_500`, `tier_200`, `tier_0`); self-selected by org at signup, overridable by admin; snapshotted onto each visit at creation |
+| May 2026 | 18 | Added `open_to_individual_visits boolean DEFAULT true` to `users` — controls volunteer discoverability in individual member searches (UC1); `false` hides volunteer from search and audience category matching; existing volunteers default to `true` for backward compatibility |
+| May 2026 | 19 | Update `get_dogs_for_individual` RPC — add `AND v.open_to_individual_visits = TRUE` to WHERE clause; volunteers not opted in are excluded from individual search results; one-way browse (volunteers viewing individuals) is unaffected |
+| May 2026 | 20 | Created `pd_regions` table — named geographic regions with optional PD owner; regions can exist unowned; deactivation cascades unassignment via API |
+| May 2026 | 21 | Created `pd_region_fsas` table — FSA prefix → region mapping for auto-assignment; each FSA globally unique across all regions |
+| May 2026 | 22 | Added `assigned_region_id` (FK → pd_regions) and `region_assignment_method` to `users` for volunteer and org roles; removed `assigned_pd_id` (dev/staging only, never in prod) — replaced by region model |
+| May 2026 | 23 | Enabled RLS on `pd_regions` and `pd_region_fsas`; all authenticated users can read; admins only can write; service role bypass |
+| May 2026 | 24 | Created `pd_region_places` table — Google Places-based region definition replacing FSA system; stores place_id, place_name, place_type, match_value, lat/lng, viewport bounds; RLS mirrors pd_region_fsas |
+| May 2026 | 25 | Dropped `pd_region_fsas` table — deprecated FSA region definition system; replaced by `pd_region_places`; run after deploying code that removes all references to this table |
+| May 2026 | 26 | Added `boundary_json` (jsonb), `boundary_status`, `boundary_osm_id`, `boundary_osm_type` to `pd_region_places` — OSM polygon boundary storage; fetched server-side from Nominatim on place save; rendered via `map.data` layer |
+| May 2026 | 27 | Updated `users_region_assignment_method_check` constraint to include `'boundary_auto'` — required for polygon-based auto-assignment |

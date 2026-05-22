@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
+import { autoAssignRegion } from '@/utils/autoAssignRegion';
 
 export async function POST(req: NextRequest) {
   const check = await requireAdminOrPd();
@@ -62,6 +63,37 @@ export async function POST(req: NextRequest) {
       console.warn('[updateUserStatus] No dogs found for volunteer_id:', user_id);
     } else if (dogData) {
       console.log('[updateUserStatus] Successfully updated dog(s):', dogData.map(d => `${d.dog_name} (${d.id}) -> ${d.status}`));
+    }
+
+    // ✅ Auto-assign region on approval (volunteers and orgs only)
+    if (resolvedStatus === 'approved') {
+      const { data: roleCheck } = await supabase
+        .from('users')
+        .select('role, assigned_region_id')
+        .eq('id', user_id)
+        .single();
+
+      console.log(`[updateUserStatus] Role check for ${user_id}:`, roleCheck);
+      if (roleCheck && (roleCheck.role === 'volunteer' || roleCheck.role === 'organization') && !roleCheck.assigned_region_id) {
+        console.log(`[updateUserStatus] Running autoAssignRegion for ${user_id}...`);
+        const { region_id, method } = await autoAssignRegion(user_id);
+        console.log(`[updateUserStatus] autoAssignRegion result: region_id=${region_id}, method=${method}`);
+        if (region_id) {
+          const { error: assignErr } = await supabase
+            .from('users')
+            .update({ assigned_region_id: region_id, region_assignment_method: method })
+            .eq('id', user_id);
+          if (assignErr) {
+            console.error(`[updateUserStatus] Failed to write region assignment:`, assignErr.message);
+          } else {
+            console.log(`[updateUserStatus] Auto-assigned region ${region_id} (${method}) to user ${user_id}`);
+          }
+        } else {
+          console.warn(`[updateUserStatus] autoAssignRegion returned null — no FSA match and no distance fallback for user ${user_id}`);
+        }
+      } else {
+        console.log(`[updateUserStatus] Skipping auto-assign: role=${roleCheck?.role}, already_assigned=${!!roleCheck?.assigned_region_id}`);
+      }
     }
 
     // ✅ Send approval email if newly approved

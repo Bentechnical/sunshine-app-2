@@ -25,8 +25,6 @@ interface VolunteerBasicInfoProps {
   setBio: (v: string) => void;
   pronouns: string;
   setPronouns: (v: string) => void;
-  travelDistance: string;
-  setTravelDistance: (v: string) => void;
   profilePictureUrl: string;
   setProfilePictureUrl: (v: string) => void;
   user: UserResource;
@@ -42,8 +40,6 @@ export default function VolunteerBasicInfo({
   setBio,
   pronouns,
   setPronouns,
-  travelDistance,
-  setTravelDistance,
   profilePictureUrl,
   setProfilePictureUrl,
   user,
@@ -103,10 +99,14 @@ export default function VolunteerBasicInfo({
           id="postalCode"
           type="text"
           value={postalCode}
-          onChange={(e) => setPostalCode(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+            setPostalCode(raw.length > 3 ? `${raw.slice(0, 3)} ${raw.slice(3)}` : raw);
+          }}
           className="w-full px-4 py-2 border rounded-lg uppercase"
           disabled={isLoading}
           placeholder="A1A 1A1"
+          maxLength={7}
         />
       </div>
 
@@ -125,23 +125,6 @@ export default function VolunteerBasicInfo({
         />
       </div>
 
-      <div>
-        <label htmlFor="travelDistance" className="block text-sm font-semibold text-gray-700 mb-2">
-          How far are you willing to travel?
-        </label>
-        <select
-          id="travelDistance"
-          value={travelDistance}
-          onChange={(e) => setTravelDistance(e.target.value)}
-          className="w-full px-4 py-2 border rounded-lg"
-          disabled={isLoading}
-        >
-          <option value="5">5 km</option>
-          <option value="10">10 km</option>
-          <option value="25">25 km</option>
-          <option value="50">50 km</option>
-        </select>
-      </div>
     </div>
   );
 }

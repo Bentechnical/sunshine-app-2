@@ -52,7 +52,7 @@ function getStepTitle(role: Role | '', step: number): string {
     return ['', '', 'Basic Information', 'Visit Details', 'Terms & Conditions'][step] ?? '';
   }
   if (role === 'volunteer') {
-    return ['', '', 'About You', 'Your Dog', 'Preferences', 'Compliance Documents'][step] ?? '';
+    return ['', '', 'About You', 'Your Dog', 'Individual Visits', 'Compliance Documents'][step] ?? '';
   }
   if (role === 'organization') {
     return ['', '', 'Organization Details'][step] ?? '';
@@ -102,7 +102,8 @@ export default function ProfileCompleteForm() {
   const [liabilityWaiverAccepted, setLiabilityWaiverAccepted] = useState(false);
 
   // Volunteer fields
-  const [travelDistance, setTravelDistance] = useState('10');
+  const [openToIndividualVisits, setOpenToIndividualVisits] = useState(true);
+  const [travelDistance, setTravelDistance] = useState('25');
   const [dogName, setDogName] = useState('');
   const [dogBreed, setDogBreed] = useState('');
   const [dogAge, setDogAge] = useState('');
@@ -118,7 +119,6 @@ export default function ProfileCompleteForm() {
 
   // Organization fields
   const [orgName, setOrgName] = useState('');
-  const [orgType, setOrgType] = useState('');
   const [orgAddress, setOrgAddress] = useState('');
   const [orgPlaceId, setOrgPlaceId] = useState('');
   const [orgLat, setOrgLat] = useState<number | null>(null);
@@ -157,6 +157,7 @@ export default function ProfileCompleteForm() {
         setPostalCode(userData.postal_code || '');
         setProfilePictureUrl(userData.profile_image || '');
         if (userData.travel_distance_km) setTravelDistance(userData.travel_distance_km.toString());
+        setOpenToIndividualVisits(userData.open_to_individual_visits ?? true);
 
         setVisitRecipientType(userData.visit_recipient_type || '');
         setRelationshipToRecipient(userData.relationship_to_recipient || '');
@@ -171,7 +172,6 @@ export default function ProfileCompleteForm() {
         setLiabilityWaiverAccepted(userData.liability_waiver_accepted || false);
 
         setOrgName(userData.org_name || '');
-        setOrgType(userData.org_type || '');
         setOrgAddress(userData.org_address || '');
         setOrgPlaceId(userData.org_place_id || '');
         setOrgLat(userData.location_lat ?? null);
@@ -307,7 +307,6 @@ export default function ProfileCompleteForm() {
     if (selectedRole === 'organization') {
       if (currentStep === 2) {
         if (!orgName.trim()) { setSubmitError('Please enter your organization name.'); return false; }
-        if (!orgType) { setSubmitError('Please select your organization type.'); return false; }
         if (!orgContactName.trim()) { setSubmitError('Please enter your primary contact name.'); return false; }
         if (!orgContactPhone.trim()) { setSubmitError('Please enter a contact phone number.'); return false; }
         if (!orgAddress.trim()) { setSubmitError("Please select your organization's address."); return false; }
@@ -371,7 +370,8 @@ export default function ProfileCompleteForm() {
           postal_code: normalizePostalCode(postalCode),
           profile_image: profilePictureUrl,
           pronouns,
-          travel_distance_km: Number(travelDistance),
+          open_to_individual_visits: openToIndividualVisits,
+          travel_distance_km: openToIndividualVisits ? Number(travelDistance) : 25,
           vsc_document_url: vscDocumentUrl || null,
           vsc_date_issued: vscDate || null,
         };
@@ -381,7 +381,6 @@ export default function ProfileCompleteForm() {
         updatePayload = {
           ...updatePayload,
           org_name: orgName,
-          org_type: orgType,
           org_address: orgAddress,
           org_place_id: orgPlaceId || null,
           location_lat: orgLat,
@@ -450,8 +449,10 @@ export default function ProfileCompleteForm() {
           await supabase.from('dogs').insert(dogPayload);
         }
 
-        // If no categories selected, treat as "open to all" by saving all available categories
-        const categoriesToSave = selectedCategories.length > 0 ? selectedCategories : availableCategories;
+        // If not opted into individual visits or no categories selected, treat as "open to all"
+        const categoriesToSave = (openToIndividualVisits && selectedCategories.length > 0)
+          ? selectedCategories
+          : availableCategories;
 
         if (categoriesToSave.length > 0) {
           await supabase.from('volunteer_audience_preferences').delete().eq('volunteer_id', user.id);
@@ -505,6 +506,12 @@ export default function ProfileCompleteForm() {
         });
       } catch (e) {
         console.error('[ProfileComplete] Failed to send admin notification:', e);
+      }
+
+      // Auto-assign region (non-blocking — failure doesn't block the user)
+      if (selectedRole === 'volunteer' || selectedRole === 'organization') {
+        fetch('/api/user/auto-assign-region', { method: 'POST' })
+          .catch(e => console.error('[ProfileComplete] Auto-assign region failed:', e));
       }
 
       router.push('/dashboard');
@@ -565,7 +572,6 @@ export default function ProfileCompleteForm() {
           postalCode={postalCode} setPostalCode={setPostalCode}
           bio={bio} setBio={setBio}
           pronouns={pronouns} setPronouns={setPronouns}
-          travelDistance={travelDistance} setTravelDistance={setTravelDistance}
           profilePictureUrl={profilePictureUrl} setProfilePictureUrl={setProfilePictureUrl}
           user={user!}
           isLoading={isLoading}
@@ -583,6 +589,10 @@ export default function ProfileCompleteForm() {
       );
       if (currentStep === 4) return (
         <VolunteerAudiencePrefs
+          openToIndividualVisits={openToIndividualVisits}
+          setOpenToIndividualVisits={setOpenToIndividualVisits}
+          travelDistance={travelDistance}
+          setTravelDistance={setTravelDistance}
           availableCategories={availableCategories}
           selectedCategories={selectedCategories}
           setSelectedCategories={setSelectedCategories}
@@ -606,7 +616,6 @@ export default function ProfileCompleteForm() {
       if (currentStep === 2) return (
         <OrgDetails
           orgName={orgName} setOrgName={setOrgName}
-          orgType={orgType} setOrgType={setOrgType}
           orgAddress={orgAddress} setOrgAddress={setOrgAddress}
           onOrgPlaceSelect={handleOrgPlaceSelect}
           orgContactName={orgContactName} setOrgContactName={setOrgContactName}
