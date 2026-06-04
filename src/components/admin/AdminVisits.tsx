@@ -456,7 +456,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <div>
             <label className={labelClass}>Start Time <span className="text-red-500">*</span></label>
             <select className={inputClass} value={form.start_time}
-              onChange={e => { set('start_time', e.target.value); if (form.end_time && form.end_time <= e.target.value) set('end_time', ''); }}
+              onChange={e => { set('start_time', e.target.value); set('end_time', ''); }}
               required>
               <option value="">Select time</option>
               {VISIT_TIME_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -482,7 +482,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label className={labelClass}>Dogs Needed</label>
-            <input type="number" min={1} max={20} value={form.volunteer_slots} onChange={e => set('volunteer_slots', e.target.value)} className={inputClass} />
+            <input type="number" min={1} max={4} value={form.volunteer_slots} onChange={e => set('volunteer_slots', e.target.value)} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>Estimated Participants</label>

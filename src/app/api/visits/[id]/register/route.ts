@@ -69,7 +69,7 @@ export async function POST(
         .from('dogs')
         .select('vaccine_record_url')
         .eq('volunteer_id', userId)
-        .eq('status', 'approved')
+        .neq('status', 'archived')
         .maybeSingle();
 
       if (!dog?.vaccine_record_url) {

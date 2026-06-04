@@ -16,6 +16,7 @@
     "close-chats": "tsx scripts/closeExpiredChats.ts",
     "monitor-chat": "tsx scripts/monitorStreamChat.ts",
     "check-user": "tsx scripts/check-user-registration.ts",
+    "seed-test-users": "tsx scripts/seed-test-users.ts",
     "cap:sync": "npx cap sync",
     "cap:sync:ios": "npx cap sync ios",
     "cap:sync:android": "npx cap sync android",

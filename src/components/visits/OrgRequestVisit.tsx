@@ -253,7 +253,7 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
               value={form.start_time}
               onChange={e => {
                 set('start_time', e.target.value);
-                if (form.end_time && form.end_time <= e.target.value) set('end_time', '');
+                set('end_time', '');
               }}
               required
             >
@@ -300,7 +300,7 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
             <input
               type="number"
               min={1}
-              max={20}
+              max={4}
               className={inputClass}
               value={form.max_volunteers}
               onChange={e => set('max_volunteers', e.target.value)}

@@ -36,7 +36,20 @@ export const APPOINTMENT_TIME_OPTIONS = buildTimeOptions(30);
 /** 15-min options for visit scheduling (7 AM – 9 PM) */
 export const VISIT_TIME_OPTIONS = buildTimeOptions(15);
 
-/** Returns end-time options strictly after the given start time value */
-export function endTimeOptions(startTime: string, stepMinutes: 15 | 30 = 15): TimeOption[] {
-  return buildTimeOptions(stepMinutes).filter(o => o.value > startTime);
+/** Returns end-time options for visits: exactly 60 and 75 minutes after the given start time */
+export function endTimeOptions(startTime: string): TimeOption[] {
+  if (!startTime) return [];
+  const [h, m] = startTime.split(':').map(Number);
+  const startMinutes = h * 60 + m;
+  return [60, 75].map(offset => {
+    const total = startMinutes + offset;
+    const eh = Math.floor(total / 60);
+    const em = total % 60;
+    if (eh > 21) return null; // outside range
+    const hour12 = eh % 12 === 0 ? 12 : eh % 12;
+    const ampm = eh < 12 ? 'AM' : 'PM';
+    const label = `${hour12}:${String(em).padStart(2, '0')} ${ampm}`;
+    const value = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+    return { value, label };
+  }).filter(Boolean) as TimeOption[];
 }

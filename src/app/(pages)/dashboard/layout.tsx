@@ -111,6 +111,9 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
           <p className="text-gray-700">
             Thanks for registering! Our team is reviewing your information and will notify you once approved.
           </p>
+          <SignOutButton>
+            <button className="mt-4 text-sm text-gray-500 underline">Sign out</button>
+          </SignOutButton>
         </div>
       </div>
     );
