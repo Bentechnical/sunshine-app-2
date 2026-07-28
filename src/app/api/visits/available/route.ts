@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     // Verify caller is an approved volunteer
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('role, status, location_lat, location_lng, vsc_document_url')
+      .select('role, status, location_lat, location_lng, travel_distance_km, vsc_document_url')
       .eq('id', userId)
       .single();
 
@@ -154,8 +154,13 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    const maxDistance = volunteer.travel_distance_km as number | null;
+    const withinRange = maxDistance !== null && volunteerLat !== null && volunteerLng !== null
+      ? annotated.filter(v => v.distance_km === null || v.distance_km <= maxDistance)
+      : annotated;
+
     return NextResponse.json({
-      visits: annotated,
+      visits: withinRange,
       volunteer_has_vsc: !!(volunteer.vsc_document_url),
       volunteer_has_vaccine: volunteerHasVaccine,
       volunteer_location_set: volunteerLat !== null && volunteerLng !== null,
