@@ -365,10 +365,8 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
             >
               <option value="">— Select —</option>
               <option value="free_on_site">Free parking on-site</option>
-              <option value="parking_passes">Parking passes available</option>
-              <option value="reimburse_on_site">Volunteers pay — reimbursed on-site</option>
-              <option value="invoice_surcharge">Volunteers pay — $25 surcharge added to invoice</option>
-              <option value="other">Other (provide details below)</option>
+              <option value="reimbursed_on_site">Volunteers pay — reimbursed on-site</option>
+              <option value="invoice">Volunteers pay — added to invoice</option>
             </select>
           </div>
           <div>

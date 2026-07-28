@@ -507,10 +507,8 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <select value={form.parking_coverage} onChange={e => set('parking_coverage', e.target.value)} className={inputClass}>
             <option value="">— Select —</option>
             <option value="free_on_site">Free parking on-site</option>
-            <option value="parking_passes">Parking passes available</option>
-            <option value="reimburse_on_site">Volunteers pay — reimbursed on-site</option>
-            <option value="invoice_surcharge">Volunteers pay — $25 surcharge added to invoice</option>
-            <option value="other">Other (see parking instructions)</option>
+            <option value="reimbursed_on_site">Volunteers pay — reimbursed on-site</option>
+            <option value="invoice">Volunteers pay — added to invoice</option>
           </select>
         </div>
         <div className="flex flex-wrap items-center gap-5 pt-1">
@@ -1032,13 +1030,8 @@ function VisitDetailView({
             {visit.parking_coverage && (
               <p><span className="font-medium text-gray-500">Parking:</span> {{
                 free_on_site: 'Free parking on-site',
-                parking_passes: 'Parking passes available',
-                reimburse_on_site: 'Volunteers pay — reimbursed on-site',
-                invoice_surcharge: 'Volunteers pay — $25 surcharge added to invoice',
-                other: 'Other',
-                // legacy values
-                reimbursed_on_site: 'Reimbursed on-site',
-                invoice: 'On invoice',
+                reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
+                invoice: 'Volunteers pay — added to invoice',
               }[visit.parking_coverage] ?? visit.parking_coverage.replace(/_/g, ' ')}</p>
             )}
             {visit.approx_space_sqft && (
