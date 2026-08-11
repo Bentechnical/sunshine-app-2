@@ -6,6 +6,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface TransactionalEmailOptions {
   to: string | string[];
+  cc?: string | string[];
   subject: string;
   templateName: string;
   data: Record<string, any>;
@@ -13,6 +14,7 @@ interface TransactionalEmailOptions {
 
 export const sendTransactionalEmail = async ({
   to,
+  cc,
   subject,
   templateName,
   data,
@@ -24,6 +26,7 @@ export const sendTransactionalEmail = async ({
     const response = await resend.emails.send({
       from: "Sunshine App <no-reply@sunshinedogs.app>",
       to,
+      ...(cc ? { cc } : {}),
       subject,
       html,
       text,

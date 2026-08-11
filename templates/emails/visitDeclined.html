@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Update on Your Visit Request</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #e3f0f1; font-family: Arial, Helvetica, sans-serif;">
+    <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 6px; overflow: hidden;">
+      <!-- Header with Logo -->
+      <tr>
+        <td align="center" style="padding: 24px; background-color: #ffffff;">
+          <img src="https://rodqnqzfjixznlblnlpe.supabase.co/storage/v1/object/public/sunshine-pics/profile-pictures/assets/Sunshine-Therapy-Dogs-horiz.png"
+               alt="Sunshine Therapy Dogs" style="max-width: 250px; height: auto;" />
+        </td>
+      </tr>
+
+      <!-- Content -->
+      <tr>
+        <td style="padding: 30px;">
+          <h2 style="color: #0e62ae; margin-bottom: 16px;">Update on Your Visit Request</h2>
+          <p style="margin: 0 0 12px 0;">Hello {{contactName}},</p>
+          <p style="margin: 0 0 16px 0;">Thank you for your interest in a therapy dog visit for <strong>{{orgName}}</strong>. Unfortunately, we're unable to accommodate your request for <strong>{{visitDate}}</strong> at this time.</p>
+
+          {{#if adminNote}}
+          <!-- Team Comments -->
+          <div style="background-color: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 0 0 6px 0; font-weight: bold; color: #5d4037;">Comments from the Sunshine Team</p>
+            <p style="margin: 0; color: #5d4037;">{{adminNote}}</p>
+          </div>
+          {{/if}}
+
+          <p style="margin: 0 0 12px 0;">If you'd like to discuss this further or submit a new request for a different date, please don't hesitate to get in touch — we'd love to find a time that works.</p>
+
+          <!-- No-Reply Notice -->
+          <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-left: 4px solid #0e62ae; border-radius: 4px;">
+            <p style="margin: 0; font-size: 12px; color: #6c757d;">This email was sent from an unmonitored address. For support, please contact <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a></p>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
+          &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a> |
+          <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Contact Support</a>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

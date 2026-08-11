@@ -75,6 +75,8 @@ The PD regions system is complete. Admins define geographic regions using Google
 
 ---
 
-## Open Questions for This Conversation
+## Open Questions & Pending Decisions
 
-_To be filled in as we discuss._
+Things that need input, a conversation, or a decision before they can be built or finalised.
+
+- **Visit workflow process review** — Connect with Alanna to walk through the full transaction flow from the org/volunteer side: waitlist promotion steps, what language volunteers see when confirming attendance, when (if ever) visit details become locked for editing after approval. Want to make sure the process matches how Sunshine actually operates before finalising the UX around these touchpoints.

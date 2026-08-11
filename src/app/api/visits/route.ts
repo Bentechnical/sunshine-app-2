@@ -6,6 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
 import { geocodePostalCodeServer } from '@/utils/geocode';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
 
 const EASTERN = 'America/New_York';
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Verify caller is an approved organization
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('role, status, fee_tier, assigned_region_id')
+      .select('role, status, fee_tier, assigned_region_id, email, org_name, org_contact_name')
       .eq('id', userId)
       .single();
 
@@ -135,7 +136,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to submit visit request' }, { status: 500 });
     }
 
-    // TODO: Send confirmation email to org contact
+    // Send confirmation email to org contact
+    const primaryEmail = user.email;
+    const eventEmail = guest_contact_email ?? null;
+    const contactName = guest_contact_name || user.org_contact_name || user.org_name || 'there';
+    const formattedDate = new Date(visit_date).toLocaleDateString('en-CA', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    if (primaryEmail) {
+      const ccEmail = eventEmail && eventEmail !== primaryEmail ? eventEmail : undefined;
+      sendTransactionalEmail({
+        to: primaryEmail,
+        ...(ccEmail ? { cc: ccEmail } : {}),
+        subject: 'Your visit request has been received — Sunshine Therapy Dogs',
+        templateName: 'visitRequestReceived',
+        data: {
+          contactName,
+          orgName: user.org_name || guest_contact_name || 'your organization',
+          visitDate: formattedDate,
+          visitAddress: address,
+          year: new Date().getFullYear(),
+        },
+      }).catch(err => console.error('[POST /api/visits] Failed to send confirmation email:', err));
+    }
     // TODO: Notify admin/PD of new pending visit request
 
     return NextResponse.json({ success: true, visitId: visit.id }, { status: 201 });

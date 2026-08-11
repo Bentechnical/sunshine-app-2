@@ -1,0 +1,16 @@
+Hello {{contactName}},
+
+Thank you for reaching out! We've received your therapy dog visit request for {{orgName}} and our team will review it shortly.
+
+VISIT DETAILS
+Date: {{visitDate}}
+Location: {{visitAddress}}
+
+You can expect to hear from us within 1–2 business days. If you have any questions in the meantime, don't hesitate to get in touch.
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

@@ -1,0 +1,17 @@
+Hello {{contactName}},
+
+Thank you for your interest in a therapy dog visit for {{orgName}}. Unfortunately, we're unable to accommodate your request for {{visitDate}} at this time.
+
+{{#if adminNote}}
+COMMENTS FROM THE SUNSHINE TEAM
+{{adminNote}}
+
+{{/if}}
+If you'd like to discuss this further or submit a new request for a different date, please don't hesitate to get in touch — we'd love to find a time that works.
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

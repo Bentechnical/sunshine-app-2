@@ -1,0 +1,18 @@
+Hi {{firstName}},
+
+You're confirmed for the following visit. Thank you for signing up — we'll see you there!
+
+{{visitTitle}}
+Date: {{visitDate}}
+Time: {{visitTime}}
+Location: {{visitAddress}}
+
+You can view your upcoming visits and full visit details from your dashboard:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { addAttendeeToEvent } from '@/utils/googleCalendar';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(
   req: NextRequest,
@@ -156,7 +158,41 @@ export async function POST(
       }
     }
 
-    // TODO: Send confirmation email to volunteer (template: visitConfirmed or visitWaitlisted)
+    // Send confirmation email to volunteer
+    const { data: volunteerUser } = await supabase
+      .from('users')
+      .select('email, first_name')
+      .eq('id', userId)
+      .single();
+
+    if (volunteerUser?.email) {
+      const visitTitle = (visit as any).title || (visit as any).guest_org_name || 'Therapy Dog Visit';
+      const formattedDate = new Date((visit as any).visit_date).toLocaleDateString('en-CA', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      });
+      const formattedTime = [
+        new Date((visit as any).start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        new Date((visit as any).end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      ].join(' – ');
+
+      sendTransactionalEmail({
+        to: volunteerUser.email,
+        subject: newStatus === 'confirmed'
+          ? 'You\'re signed up for a visit — Sunshine Therapy Dogs'
+          : 'You\'ve been added to the waitlist — Sunshine Therapy Dogs',
+        templateName: newStatus === 'confirmed' ? 'visitSignupConfirmed' : 'visitWaitlisted',
+        data: {
+          firstName: volunteerUser.first_name || 'there',
+          visitTitle,
+          visitDate: formattedDate,
+          visitTime: formattedTime,
+          visitAddress: (visit as any).address,
+          waitlistPosition: waitlistPosition ?? undefined,
+          dashboardLink: `${getAppUrl()}/dashboard/visits`,
+          year: new Date().getFullYear(),
+        },
+      }).catch(err => console.error('[register] Failed to send volunteer email:', err));
+    }
 
     return NextResponse.json({
       success: true,

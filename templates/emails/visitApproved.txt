@@ -1,0 +1,27 @@
+Hello {{contactName}},
+
+Great news — your therapy dog visit request for {{orgName}} has been approved and is now open for volunteer sign-ups.
+
+VISIT DETAILS
+Date: {{visitDate}}
+Time: {{visitTime}}
+Location: {{visitAddress}}
+
+{{#if adminNote}}
+COMMENTS FROM THE SUNSHINE TEAM
+{{adminNote}}
+
+{{/if}}
+We'll be in touch as volunteers sign up for your visit. If you have any questions before then, don't hesitate to reach out.
+
+{{#if dashboardLink}}
+View and manage your visit:
+{{dashboardLink}}
+
+{{/if}}
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca
