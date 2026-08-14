@@ -46,7 +46,7 @@ export async function POST(
     // Load the visit
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id')
+      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, title, guest_org_name')
       .eq('id', visitId)
       .single();
 
