@@ -402,7 +402,7 @@ export default function BrowseOrgVisits({
 
           <h2 className="text-xl font-bold text-gray-900 mb-0.5">{selectedVisit.title || 'Untitled Visit'}</h2>
           {selectedVisit.org_name && (
-            <p className="text-sm text-gray-500 mb-3">{selectedVisit.org_name}</p>
+            <p className="text-base text-gray-500 mb-3">{selectedVisit.org_name}</p>
           )}
 
           <div className="space-y-1.5 text-sm text-gray-700">

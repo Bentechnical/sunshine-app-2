@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { updateVisitEvent } from '@/utils/googleCalendar';
+import { fromZonedTime } from 'date-fns-tz';
+
+const EASTERN = 'America/New_York';
 
 export async function GET(
   _req: NextRequest,
@@ -97,7 +100,7 @@ export async function PATCH(
     // Only allow updating specific fields
     const allowedFields = [
       'title', 'visit_date', 'start_time', 'end_time', 'address',
-      'location_lat', 'location_lng', 'audience_age_ranges',
+      'location_lat', 'location_lng', 'location_place_id', 'audience_age_ranges',
       'visitor_count_expected', 'special_needs_notes', 'approx_space_sqft',
       'fee_tier', 'fee_amount', 'volunteer_slots', 'parking_coverage',
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
@@ -111,6 +114,16 @@ export async function PATCH(
       if (field in body) {
         updates[field] = body[field];
       }
+    }
+
+    // Convert HH:MM time strings to UTC timestamps (same logic as POST)
+    const visitDate = body.visit_date ?? null;
+    const isHHMM = (v: any) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
+    if (visitDate && isHHMM(updates.start_time)) {
+      updates.start_time = fromZonedTime(`${visitDate}T${updates.start_time}:00`, EASTERN).toISOString();
+    }
+    if (visitDate && isHHMM(updates.end_time)) {
+      updates.end_time = fromZonedTime(`${visitDate}T${updates.end_time}:00`, EASTERN).toISOString();
     }
 
     if (Object.keys(updates).length === 0) {

@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { VISIT_TIME_OPTIONS, endTimeOptions } from '@/utils/timeOptions';
+import { VISIT_TIME_OPTIONS, VISIT_DURATION_OPTIONS, computeEndTime, formatTime } from '@/utils/timeOptions';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 
 interface Props {
@@ -65,6 +65,7 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
   const [form, setForm] = useState<FormState>(INITIAL);
+  const [visitDuration, setVisitDuration] = useState<number>(60);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,8 +253,9 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
               className={inputClass}
               value={form.start_time}
               onChange={e => {
-                set('start_time', e.target.value);
-                set('end_time', '');
+                const t = e.target.value;
+                set('start_time', t);
+                set('end_time', t ? computeEndTime(t, visitDuration) : '');
               }}
               required
             >
@@ -264,19 +266,24 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
             </select>
           </div>
           <div>
-            <label className={labelClass}>End Time <span className="text-red-500">*</span></label>
+            <label className={labelClass}>Duration <span className="text-red-500">*</span></label>
             <select
               className={inputClass}
-              value={form.end_time}
-              onChange={e => set('end_time', e.target.value)}
+              value={visitDuration}
+              onChange={e => {
+                const d = Number(e.target.value);
+                setVisitDuration(d);
+                set('end_time', form.start_time ? computeEndTime(form.start_time, d) : '');
+              }}
               required
-              disabled={!form.start_time}
             >
-              <option value="">Select time</option>
-              {endTimeOptions(form.start_time).map(opt => (
+              {VISIT_DURATION_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+            {form.start_time && form.end_time && (
+              <p className="text-xs text-gray-500 mt-1">Ends at {formatTime(form.end_time)}</p>
+            )}
           </div>
         </div>
 

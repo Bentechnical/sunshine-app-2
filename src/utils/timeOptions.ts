@@ -53,3 +53,38 @@ export function endTimeOptions(startTime: string): TimeOption[] {
     return { value, label };
   }).filter(Boolean) as TimeOption[];
 }
+
+/** Duration options for visit creation: 30 min – 4 hours in 15-min steps */
+export const VISIT_DURATION_OPTIONS: { value: number; label: string }[] = [
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 hr' },
+  { value: 75, label: '1 hr 15 min' },
+  { value: 90, label: '1 hr 30 min' },
+  { value: 105, label: '1 hr 45 min' },
+  { value: 120, label: '2 hrs' },
+  { value: 150, label: '2 hrs 30 min' },
+  { value: 180, label: '3 hrs' },
+  { value: 210, label: '3 hrs 30 min' },
+  { value: 240, label: '4 hrs' },
+];
+
+/** Computes end time (HH:MM) from a start time (HH:MM) and duration in minutes. Returns '' if invalid. */
+export function computeEndTime(startTime: string, durationMinutes: number): string {
+  if (!startTime || !durationMinutes) return '';
+  const [h, m] = startTime.split(':').map(Number);
+  const total = h * 60 + m + durationMinutes;
+  const eh = Math.floor(total / 60);
+  const em = total % 60;
+  if (eh > 23) return '';
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+}
+
+/** Formats an HH:MM value as a human-readable time (e.g. "2:30 PM") */
+export function formatTime(value: string): string {
+  if (!value) return '';
+  const [h, m] = value.split(':').map(Number);
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`;
+}

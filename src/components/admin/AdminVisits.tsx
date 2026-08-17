@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import {
   Calendar, Clock, MapPin, ChevronRight, Building2, PawPrint,
-  ExternalLink, ArrowLeft, Phone, Mail, User,
+  ExternalLink, ArrowLeft, Phone, Mail, User, Pencil,
 } from 'lucide-react';
-import { VISIT_TIME_OPTIONS, endTimeOptions } from '@/utils/timeOptions';
+import { VISIT_TIME_OPTIONS, VISIT_DURATION_OPTIONS, computeEndTime, formatTime } from '@/utils/timeOptions';
 import { formatCardTime } from '@/utils/timeZone';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 import VisitMap from '@/components/ui/VisitMap';
@@ -15,7 +15,7 @@ import VisitMap from '@/components/ui/VisitMap';
 
 type VisitStatus = 'pending_review' | 'approved' | 'declined' | 'cancelled' | 'completed';
 type ViewMode = 'list' | 'create';
-type StatusFilter = 'pending_review' | 'approved' | 'all';
+type StatusFilter = 'pending_review' | 'approved' | 'past' | 'all';
 
 interface PdUser {
   id: string;
@@ -224,6 +224,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   const { user } = useUser();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visitDuration, setVisitDuration] = useState<number>(60);
   const [form, setForm] = useState({
     title: '',
     organization_id: '',
@@ -456,18 +457,30 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <div>
             <label className={labelClass}>Start Time <span className="text-red-500">*</span></label>
             <select className={inputClass} value={form.start_time}
-              onChange={e => { set('start_time', e.target.value); set('end_time', ''); }}
+              onChange={e => {
+                const t = e.target.value;
+                set('start_time', t);
+                set('end_time', t ? computeEndTime(t, visitDuration) : '');
+              }}
               required>
               <option value="">Select time</option>
               {VISIT_TIME_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
           </div>
           <div>
-            <label className={labelClass}>End Time <span className="text-red-500">*</span></label>
-            <select className={inputClass} value={form.end_time} onChange={e => set('end_time', e.target.value)} required disabled={!form.start_time}>
-              <option value="">Select time</option>
-              {endTimeOptions(form.start_time).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            <label className={labelClass}>Duration <span className="text-red-500">*</span></label>
+            <select className={inputClass} value={visitDuration}
+              onChange={e => {
+                const d = Number(e.target.value);
+                setVisitDuration(d);
+                set('end_time', form.start_time ? computeEndTime(form.start_time, d) : '');
+              }}
+              required>
+              {VISIT_DURATION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
+            {form.start_time && form.end_time && (
+              <p className="text-xs text-gray-500 mt-1">Ends at {formatTime(form.end_time)}</p>
+            )}
           </div>
         </div>
         <div>
@@ -590,6 +603,29 @@ function VisitDetailView({
   const [savingSharedNote, setSavingSharedNote] = useState(false);
   // PD reassignment
   const [savingPd, setSavingPd] = useState(false);
+  // Edit mode
+  const [editMode, setEditMode] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    guest_org_name: string; guest_contact_name: string; guest_contact_email: string; guest_contact_phone: string;
+    visit_date: string; start_time: string; end_time: string;
+    address: string; location_place_id: string; location_lat: number | null; location_lng: number | null;
+    volunteer_slots: number; visitor_count_expected: string; approx_space_sqft: string;
+    audience_age_ranges: string[];
+    requires_vsc: boolean; requires_vaccine_record: boolean;
+    fee_tier: string; fee_amount: string;
+    parking_coverage: string; parking_instructions: string;
+    arrival_instructions: string; accessibility_notes: string; special_needs_notes: string;
+  } | null>(null);
+  // Volunteer assignment
+  type VolunteerOption = { id: string; first_name: string; last_name: string; dogs: Array<{ dog_name: string }> };
+  const [volunteerOptions, setVolunteerOptions] = useState<VolunteerOption[]>([]);
+  const [volunteerSearch, setVolunteerSearch] = useState('');
+  const [volunteerSearching, setVolunteerSearching] = useState(false);
+  const [showVolunteerDropdown, setShowVolunteerDropdown] = useState(false);
+  const [addingVolunteer, setAddingVolunteer] = useState(false);
+  const volunteerSearchRef = useRef<HTMLDivElement>(null);
 
   const handleAssignPd = async (pdId: string | null) => {
     if (!visit) return;
@@ -621,6 +657,55 @@ function VisitDetailView({
   }, [visitId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Search volunteers server-side with debounce
+  useEffect(() => {
+    const q = volunteerSearch.trim();
+    if (q.length < 2) {
+      setVolunteerOptions([]);
+      setVolunteerSearching(false);
+      return;
+    }
+    setVolunteerSearching(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/admin/volunteers?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(json => { setVolunteerOptions(json.volunteers ?? []); setVolunteerSearching(false); })
+        .catch(err => { console.error('[VisitDetailView] volunteer search error:', err); setVolunteerSearching(false); });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [volunteerSearch]);
+
+  // Close volunteer dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (volunteerSearchRef.current && !volunteerSearchRef.current.contains(e.target as Node)) {
+        setShowVolunteerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleAddVolunteer = async (volunteerId: string) => {
+    setVolunteerSearch('');
+    setShowVolunteerDropdown(false);
+    setAddingVolunteer(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/visits/${visitId}/registrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volunteer_id: volunteerId }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || 'Failed to add volunteer'); return; }
+      await load();
+      onUpdated();
+    } finally {
+      setAddingVolunteer(false);
+    }
+  };
 
   const doAction = async (path: string, body?: object) => {
     setBusy(true);
@@ -661,6 +746,110 @@ function VisitDetailView({
     } finally {
       setBusy(false);
     }
+  };
+
+  // Extracts HH:MM in Eastern time from a UTC ISO timestamp
+  function toEasternHHMM(iso: string): string {
+    return new Date(iso).toLocaleTimeString('en-CA', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York',
+    }).slice(0, 5);
+  }
+
+  const openEditMode = () => {
+    if (!visit) return;
+    setEditForm({
+      title: visit.title ?? '',
+      guest_org_name: visit.guest_org_name ?? '',
+      guest_contact_name: visit.guest_contact_name ?? '',
+      guest_contact_email: visit.guest_contact_email ?? '',
+      guest_contact_phone: visit.guest_contact_phone ?? '',
+      visit_date: visit.visit_date,
+      start_time: toEasternHHMM(visit.start_time),
+      end_time: toEasternHHMM(visit.end_time),
+      address: visit.address,
+      location_place_id: visit.location_place_id ?? '',
+      location_lat: visit.location_lat,
+      location_lng: visit.location_lng,
+      volunteer_slots: visit.volunteer_slots,
+      visitor_count_expected: visit.visitor_count_expected != null ? String(visit.visitor_count_expected) : '',
+      approx_space_sqft: visit.approx_space_sqft != null ? String(visit.approx_space_sqft) : '',
+      audience_age_ranges: visit.audience_age_ranges ?? [],
+      requires_vsc: visit.requires_vsc,
+      requires_vaccine_record: visit.requires_vaccine_record,
+      fee_tier: visit.fee_tier ?? '',
+      fee_amount: visit.fee_amount != null ? String(visit.fee_amount) : '',
+      parking_coverage: visit.parking_coverage ?? '',
+      parking_instructions: visit.parking_instructions ?? '',
+      arrival_instructions: visit.arrival_instructions ?? '',
+      accessibility_notes: visit.accessibility_notes ?? '',
+      special_needs_notes: visit.special_needs_notes ?? '',
+    });
+    setEditMode(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/visits/${visitId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editForm.title || null,
+          guest_org_name: editForm.guest_org_name || null,
+          guest_contact_name: editForm.guest_contact_name || null,
+          guest_contact_email: editForm.guest_contact_email || null,
+          guest_contact_phone: editForm.guest_contact_phone || null,
+          visit_date: editForm.visit_date,
+          start_time: editForm.start_time,
+          end_time: editForm.end_time,
+          address: editForm.address,
+          location_place_id: editForm.location_place_id || null,
+          location_lat: editForm.location_lat,
+          location_lng: editForm.location_lng,
+          volunteer_slots: editForm.volunteer_slots,
+          visitor_count_expected: editForm.visitor_count_expected ? parseInt(editForm.visitor_count_expected) : null,
+          approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
+          audience_age_ranges: editForm.audience_age_ranges.length > 0 ? editForm.audience_age_ranges : null,
+          requires_vsc: editForm.requires_vsc,
+          requires_vaccine_record: editForm.requires_vaccine_record,
+          fee_tier: editForm.fee_tier || null,
+          fee_amount: editForm.fee_tier === 'custom' && editForm.fee_amount ? parseFloat(editForm.fee_amount) : null,
+          parking_coverage: editForm.parking_coverage || null,
+          parking_instructions: editForm.parking_instructions || null,
+          arrival_instructions: editForm.arrival_instructions || null,
+          accessibility_notes: editForm.accessibility_notes || null,
+          special_needs_notes: editForm.special_needs_notes || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || 'Failed to save changes'); return; }
+      await load();
+      onUpdated();
+      setEditMode(false);
+      setEditForm(null);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleEditPlaceSelect = (result: PlaceResult) => {
+    setEditForm(f => f ? {
+      ...f,
+      address: result.formatted_address,
+      location_place_id: result.place_id,
+      location_lat: result.lat,
+      location_lng: result.lng,
+    } : f);
+  };
+
+  const toggleAgeRange = (range: string) => {
+    setEditForm(f => {
+      if (!f) return f;
+      const has = f.audience_age_ranges.includes(range);
+      return { ...f, audience_age_ranges: has ? f.audience_age_ranges.filter(r => r !== range) : [...f.audience_age_ranges, range] };
+    });
   };
 
   const handleSaveSharedNote = async () => {
@@ -719,10 +908,204 @@ function VisitDetailView({
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium transition">
           <ArrowLeft size={16} /> All Visits
         </button>
-        <CountdownBadge dateStr={visit.visit_date} />
+        <div className="flex items-center gap-2">
+          <CountdownBadge dateStr={visit.visit_date} />
+          {!editMode && (
+            <button onClick={openEditMode}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
+              <Pencil size={12} /> Edit
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Header card — logo + status + action buttons in top row */}
+      {/* ── Edit form (shown instead of read-only cards) ── */}
+      {editMode && editForm && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4 space-y-5">
+          <p className="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-3">Edit Visit Details</p>
+
+          {/* Basic info */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Basic Info</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Visit Title</label>
+              <input type="text" value={editForm.title} onChange={e => setEditForm(f => f ? { ...f, title: e.target.value } : f)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Optional title" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
+                <input type="text" value={editForm.guest_org_name} onChange={e => setEditForm(f => f ? { ...f, guest_org_name: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Name</label>
+                <input type="text" value={editForm.guest_contact_name} onChange={e => setEditForm(f => f ? { ...f, guest_contact_name: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                <input type="email" value={editForm.guest_contact_email} onChange={e => setEditForm(f => f ? { ...f, guest_contact_email: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
+                <input type="tel" value={editForm.guest_contact_phone} onChange={e => setEditForm(f => f ? { ...f, guest_contact_phone: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          {/* Date, Time & Location */}
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date, Time &amp; Location</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input type="date" value={editForm.visit_date} onChange={e => setEditForm(f => f ? { ...f, visit_date: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                <select value={editForm.start_time} onChange={e => setEditForm(f => f ? { ...f, start_time: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select</option>
+                  {VISIT_TIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                <select value={editForm.end_time} onChange={e => setEditForm(f => f ? { ...f, end_time: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select</option>
+                  {VISIT_TIME_OPTIONS.filter(o => o.value > editForm.start_time).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+              <PlacesAutocomplete
+                value={editForm.address}
+                onChange={v => setEditForm(f => f ? { ...f, address: v } : f)}
+                onSelect={handleEditPlaceSelect}
+                placeholder="Start typing the visit location…"
+              />
+            </div>
+          </div>
+
+          {/* Visit details */}
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Visit Details</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Volunteer Slots</label>
+                <input type="number" min={1} value={editForm.volunteer_slots} onChange={e => setEditForm(f => f ? { ...f, volunteer_slots: parseInt(e.target.value) || 1 } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Expected Visitors</label>
+                <input type="number" min={0} value={editForm.visitor_count_expected} onChange={e => setEditForm(f => f ? { ...f, visitor_count_expected: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Space (sq ft)</label>
+                <input type="number" min={0} value={editForm.approx_space_sqft} onChange={e => setEditForm(f => f ? { ...f, approx_space_sqft: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Audience Age Ranges</label>
+              <div className="flex flex-wrap gap-2">
+                {['children', 'youth', 'adults', 'seniors'].map(range => (
+                  <label key={range} className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={editForm.audience_age_ranges.includes(range)} onChange={() => toggleAgeRange(range)}
+                      className="rounded accent-[#0e62ae]" />
+                    <span className="text-sm text-gray-700 capitalize">{range}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Requirements */}
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Requirements &amp; Fees</p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editForm.requires_vsc} onChange={e => setEditForm(f => f ? { ...f, requires_vsc: e.target.checked } : f)}
+                  className="rounded accent-[#0e62ae]" />
+                <span className="text-sm text-gray-700">VSC Required</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editForm.requires_vaccine_record} onChange={e => setEditForm(f => f ? { ...f, requires_vaccine_record: e.target.checked } : f)}
+                  className="rounded accent-[#0e62ae]" />
+                <span className="text-sm text-gray-700">Vaccine Record Required</span>
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fee Tier</label>
+                <select value={editForm.fee_tier} onChange={e => setEditForm(f => f ? { ...f, fee_tier: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">None</option>
+                  <option value="tier_0">$0 — Public / non-profit</option>
+                  <option value="tier_200">$200 — Post-secondary / private</option>
+                  <option value="tier_500">$500 — Corporate / for-profit</option>
+                  <option value="custom">Custom amount</option>
+                </select>
+              </div>
+              {editForm.fee_tier === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Amount ($)</label>
+                  <input type="number" min={0} value={editForm.fee_amount} onChange={e => setEditForm(f => f ? { ...f, fee_amount: e.target.value } : f)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Logistics */}
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Logistics</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Parking Coverage</label>
+              <select value={editForm.parking_coverage} onChange={e => setEditForm(f => f ? { ...f, parking_coverage: e.target.value } : f)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Not specified</option>
+                <option value="free_on_site">Free parking on-site</option>
+                <option value="reimbursed_on_site">Volunteers pay — reimbursed on-site</option>
+                <option value="invoice">Volunteers pay — added to invoice</option>
+              </select>
+            </div>
+            {(['parking_instructions', 'arrival_instructions', 'accessibility_notes', 'special_needs_notes'] as const).map(field => (
+              <div key={field}>
+                <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
+                  {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </label>
+                <textarea rows={2} value={editForm[field]} onChange={e => setEditForm(f => f ? { ...f, [field]: e.target.value } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+            ))}
+          </div>
+
+          {/* Save / Cancel */}
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>}
+          <div className="flex gap-3 border-t border-gray-100 pt-4">
+            <button onClick={handleEditSave} disabled={savingEdit}
+              className="px-5 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+              {savingEdit ? 'Saving…' : 'Save Changes'}
+            </button>
+            <button onClick={() => { setEditMode(false); setEditForm(null); }} disabled={savingEdit}
+              className="px-5 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-50 transition">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header card + requirements + instructions — hidden in edit mode */}
+      {!editMode && (<>
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <OrgLogo url={orgImage ?? visit.org?.profile_image ?? null} size={56} />
@@ -765,10 +1148,10 @@ function VisitDetailView({
           </div>
         </div>
 
-        <p className="text-xl font-bold text-gray-900 mb-0.5">{orgName}</p>
         {visit.title && (
-          <p className="text-sm text-gray-500 mb-0.5">{visit.title}</p>
+          <p className="text-xl font-bold text-gray-900 mb-0.5">{visit.title}</p>
         )}
+        <p className="text-base text-gray-500 mb-0.5">{orgName}</p>
 
         <div className="space-y-1.5 text-sm text-gray-700 mt-3">
           <div className="flex items-center gap-2">
@@ -878,6 +1261,7 @@ function VisitDetailView({
           </div>
         )}
       </div>
+      </>)}
 
       {error && <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>}
 
@@ -899,6 +1283,47 @@ function VisitDetailView({
             <span className="text-gray-400">· {visit.visitor_count_expected} expected visitors</span>
           )}
         </div>
+
+        {/* Admin volunteer assignment */}
+        {visit.status === 'approved' && (
+          <div ref={volunteerSearchRef} className="relative mb-4">
+            <input
+              type="text"
+              placeholder="Assign a volunteer — search by name or dog…"
+              value={volunteerSearch}
+              onChange={e => { setVolunteerSearch(e.target.value); setShowVolunteerDropdown(true); }}
+              onFocus={() => setShowVolunteerDropdown(true)}
+              disabled={addingVolunteer}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            />
+            {showVolunteerDropdown && volunteerSearch.trim().length >= 2 && (() => {
+              const alreadyAssigned = new Set(
+                visit.visit_registrations.filter(r => r.status !== 'cancelled').map(r => r.volunteer_id)
+              );
+              const filtered = volunteerOptions.filter(v => !alreadyAssigned.has(v.id));
+              return (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {volunteerSearching ? (
+                    <p className="px-4 py-3 text-sm text-gray-400">Searching…</p>
+                  ) : filtered.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-gray-400">No volunteers found</p>
+                  ) : filtered.map(v => (
+                    <button
+                      key={v.id}
+                      onMouseDown={() => handleAddVolunteer(v.id)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm border-b border-gray-50 last:border-0"
+                    >
+                      <span className="font-semibold text-gray-900">{v.first_name} {v.last_name}</span>
+                      {v.dogs.length > 0 && (
+                        <span className="text-gray-400 ml-2">· {v.dogs.map(d => d.dog_name).join(', ')}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Confirmed dog cards */}
         <div className="space-y-2">
@@ -995,6 +1420,7 @@ function VisitDetailView({
         )}
       </div>
 
+      {!editMode && (<>
       {/* Requirements card */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Requirements</h3>
@@ -1064,6 +1490,7 @@ function VisitDetailView({
           />
         </div>
       )}
+      </>)}
 
       {/* Notes shared with organization (admin_note) */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
@@ -1186,7 +1613,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   // Fetch active visits count once (independent of which filter tab is selected)
   useEffect(() => {
     if (pdMode && !currentUserId) return;
-    fetch('/api/admin/visits?status=approved')
+    fetch('/api/admin/visits?scope=active')
       .then(r => r.json())
       .then(json => {
         const loaded = json.visits ?? [];
@@ -1203,7 +1630,10 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
     setLoading(true);
     setError(null);
     try {
-      const params = statusFilter !== 'all' ? `?status=${statusFilter}` : '';
+      const params =
+        statusFilter === 'approved' ? '?scope=active' :
+        statusFilter === 'past'     ? '?scope=past' :
+        statusFilter !== 'all'      ? `?status=${statusFilter}` : '';
       const res = await fetch(`/api/admin/visits${params}`);
       const json = await res.json();
       if (!res.ok) { setError(json.error || 'Failed to load visits'); return; }
@@ -1233,6 +1663,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const filterTabs: { key: StatusFilter; label: string }[] = [
     { key: 'pending_review', label: 'Visit Requests' },
     { key: 'approved', label: 'Active Visits' },
+    { key: 'past', label: 'Past Visits' },
     { key: 'all', label: 'All Visits' },
   ];
 
@@ -1365,12 +1796,23 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
             const isUrgent = visit.status === 'approved' && visit.slots_remaining > 0 && isWithinDays(visit.visit_date, 14);
             const assignedPd = pdUsers.find(p => p.id === visit.assigned_pd_id);
 
+            const isPast = statusFilter === 'past';
+
             return (
               <div
                 key={visit.id}
                 onClick={() => onSelectVisit?.(visit.id)}
-                className="bg-white rounded-xl border-2 border-gray-100 p-4 shadow-sm cursor-pointer hover:border-blue-200 hover:shadow-md transition-all group"
+                className={`bg-white rounded-xl border-2 p-4 shadow-sm cursor-pointer transition-all group ${
+                  isPast
+                    ? 'border-gray-200 hover:border-gray-300 hover:shadow-md opacity-90'
+                    : 'border-gray-100 hover:border-blue-200 hover:shadow-md'
+                }`}
               >
+                {isPast && (
+                  <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Visit Passed</span>
+                  </div>
+                )}
                 {/* Status row */}
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-wrap">

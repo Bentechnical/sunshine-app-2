@@ -18,8 +18,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const status = searchParams.get('status');
+    const scope = searchParams.get('scope'); // 'active' | 'past'
     const dateFrom = searchParams.get('date_from');
     const dateTo = searchParams.get('date_to');
+
+    const now = new Date().toISOString();
+
+    // scope=past: most recent first; everything else: soonest first
+    const ascending = scope !== 'past';
 
     let query = supabase
       .from('visits')
@@ -32,11 +38,18 @@ export async function GET(req: NextRequest) {
         org:organization_id(profile_image, org_name),
         visit_registrations(id, status)
       `)
-      .order('visit_date', { ascending: true });
+      .order('visit_date', { ascending });
 
-    if (status) {
+    if (scope === 'active') {
+      // Approved visits whose end_time is in the future
+      query = query.eq('status', 'approved').gt('end_time', now);
+    } else if (scope === 'past') {
+      // Approved visits that have ended (cleanup not yet run) + all completed visits
+      query = query.in('status', ['approved', 'completed']).lte('end_time', now);
+    } else if (status) {
       query = query.eq('status', status);
     }
+
     if (dateFrom) {
       query = query.gte('visit_date', dateFrom);
     }

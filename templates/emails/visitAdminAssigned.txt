@@ -1,0 +1,18 @@
+Hi {{firstName}},
+
+A Sunshine Therapy Dogs administrator has registered you for the following visit.
+
+{{visitTitle}}
+Date: {{visitDate}}
+Time: {{visitTime}}
+Location: {{visitAddress}}
+
+You can view your upcoming visits and full visit details from your dashboard:
+{{dashboardLink}}
+
+If you believe this registration was made in error, please contact us at info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca
