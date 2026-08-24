@@ -44,7 +44,7 @@ interface VisitSummary {
   waitlist_count: number;
   slots_remaining: number;
   requires_vsc: boolean;
-  requires_vaccine_record: boolean;
+
   status: VisitStatus;
   admin_note: string | null;
   created_at: string;
@@ -103,7 +103,7 @@ interface VisitDetail {
   arrival_instructions: string | null;
   accessibility_notes: string | null;
   requires_vsc: boolean;
-  requires_vaccine_record: boolean;
+
   status: VisitStatus;
   admin_note: string | null;
   assigned_pd_id: string | null;
@@ -243,7 +243,6 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     postal_code: '',
     volunteer_slots: 1,
     requires_vsc: false,
-    requires_vaccine_record: true,
     visitor_count_expected: '',
     approx_space_sqft: '',
     fee_tier: '',
@@ -334,6 +333,10 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       setError('Date, start time, end time, and address are required.');
       return;
     }
+    if (!form.fee_tier) {
+      setError('Fee tier is required.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -342,6 +345,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          organization_id: form.organization_id || null,
           volunteer_slots: Number(form.volunteer_slots),
           visitor_count_expected: form.visitor_count_expected ? Number(form.visitor_count_expected) : null,
           approx_space_sqft: form.approx_space_sqft ? Number(form.approx_space_sqft) : null,
@@ -506,9 +510,9 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
             <input type="number" min={1} value={form.approx_space_sqft} onChange={e => set('approx_space_sqft', e.target.value)} className={inputClass} placeholder="Optional" />
           </div>
           <div>
-            <label className={labelClass}>Fee Tier</label>
-            <select value={form.fee_tier} onChange={e => set('fee_tier', e.target.value)} className={inputClass}>
-              <option value="">— Not set —</option>
+            <label className={labelClass}>Fee Tier <span className="text-red-500">*</span></label>
+            <select value={form.fee_tier} onChange={e => set('fee_tier', e.target.value)} className={inputClass} required>
+              <option value="">— Select fee tier —</option>
               <option value="tier_500">$500 — Corporate / for-profit</option>
               <option value="tier_200">$200 — Post-secondary / private</option>
               <option value="tier_0">$0 — Public / non-profit</option>
@@ -528,10 +532,6 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.requires_vsc} onChange={e => set('requires_vsc', e.target.checked)} className="w-4 h-4 rounded" />
             <span className="text-sm text-gray-700">Requires VSC</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.requires_vaccine_record} onChange={e => set('requires_vaccine_record', e.target.checked)} className="w-4 h-4 rounded" />
-            <span className="text-sm text-gray-700">Requires Vaccine Record</span>
           </label>
           <div className="flex items-center gap-2 ml-auto">
             <label className="text-sm text-gray-700 whitespace-nowrap">Initial status:</label>
@@ -613,7 +613,7 @@ function VisitDetailView({
     address: string; location_place_id: string; location_lat: number | null; location_lng: number | null;
     volunteer_slots: number; visitor_count_expected: string; approx_space_sqft: string;
     audience_age_ranges: string[];
-    requires_vsc: boolean; requires_vaccine_record: boolean;
+    requires_vsc: boolean;
     fee_tier: string; fee_amount: string;
     parking_coverage: string; parking_instructions: string;
     arrival_instructions: string; accessibility_notes: string; special_needs_notes: string;
@@ -775,7 +775,6 @@ function VisitDetailView({
       approx_space_sqft: visit.approx_space_sqft != null ? String(visit.approx_space_sqft) : '',
       audience_age_ranges: visit.audience_age_ranges ?? [],
       requires_vsc: visit.requires_vsc,
-      requires_vaccine_record: visit.requires_vaccine_record,
       fee_tier: visit.fee_tier ?? '',
       fee_amount: visit.fee_amount != null ? String(visit.fee_amount) : '',
       parking_coverage: visit.parking_coverage ?? '',
@@ -813,7 +812,6 @@ function VisitDetailView({
           approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
           audience_age_ranges: editForm.audience_age_ranges.length > 0 ? editForm.audience_age_ranges : null,
           requires_vsc: editForm.requires_vsc,
-          requires_vaccine_record: editForm.requires_vaccine_record,
           fee_tier: editForm.fee_tier || null,
           fee_amount: editForm.fee_tier === 'custom' && editForm.fee_amount ? parseFloat(editForm.fee_amount) : null,
           parking_coverage: editForm.parking_coverage || null,
@@ -1036,11 +1034,6 @@ function VisitDetailView({
                 <input type="checkbox" checked={editForm.requires_vsc} onChange={e => setEditForm(f => f ? { ...f, requires_vsc: e.target.checked } : f)}
                   className="rounded accent-[#0e62ae]" />
                 <span className="text-sm text-gray-700">VSC Required</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={editForm.requires_vaccine_record} onChange={e => setEditForm(f => f ? { ...f, requires_vaccine_record: e.target.checked } : f)}
-                  className="rounded accent-[#0e62ae]" />
-                <span className="text-sm text-gray-700">Vaccine Record Required</span>
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1428,8 +1421,8 @@ function VisitDetailView({
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${visit.requires_vsc ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'}`}>
             VSC {visit.requires_vsc ? 'Required' : 'Not Required'}
           </span>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${visit.requires_vaccine_record ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-400'}`}>
-            Vaccine Records {visit.requires_vaccine_record ? 'Required' : 'Not Required'}
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+            Rabies Vaccine Record Required
           </span>
         </div>
         {(visit.fee_tier || visit.audience_age_ranges?.length) && (

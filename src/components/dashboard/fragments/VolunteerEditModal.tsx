@@ -8,7 +8,7 @@ import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpl
 import { geocodePostalCode } from '@/utils/geocode';
 
 type Tab = 'profile' | 'compliance';
-type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
+type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 interface InitialProfile {
   bio: string | null;
@@ -21,6 +21,7 @@ interface InitialProfile {
   vsc_document_url: string | null;
   vsc_date_issued: string | null;
   vsc_renewal_due: string | null;
+  vsc_verification_status: string | null;
 }
 
 interface Props {
@@ -29,21 +30,26 @@ interface Props {
   onSaved: () => void;
 }
 
-function getComplianceStatus(documentUrl: string | null, expiryDate: string | null): ComplianceStatus {
+function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
   if (!documentUrl) return 'missing';
-  if (!expiryDate) return 'uploaded';
+  if (verificationStatus === 'rejected') return 'rejected';
+  if (!verificationStatus || verificationStatus === 'pending_review') return 'pending_review';
+  // approved
+  if (!expiryDate) return 'approved';
   const expiry = new Date(expiryDate);
   const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   if (daysUntil < 0) return 'expired';
   if (daysUntil <= 30) return 'expiring';
-  return 'uploaded';
+  return 'approved';
 }
 
 const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:  { label: 'Not uploaded', icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
-  uploaded: { label: 'Valid',         icon: <CheckCircle size={14} />, classes: 'bg-green-100 text-green-700' },
-  expiring: { label: 'Expiring soon', icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-700' },
-  expired:  { label: 'Expired',       icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-800' },
+  missing:        { label: 'Not uploaded',  icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
+  pending_review: { label: 'Needs Review',  icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-800' },
+  approved:       { label: 'Valid',         icon: <CheckCircle size={14} />, classes: 'bg-green-100 text-green-700' },
+  expiring:       { label: 'Expiring soon', icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-700' },
+  expired:        { label: 'Expired',       icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-800' },
+  rejected:       { label: 'Rejected',      icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
 };
 
 function formatPhoneNumber(value: string): string {
@@ -85,13 +91,14 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
   const [vscDocUrl, setVscDocUrl] = useState(initialProfile.vsc_document_url ?? '');
   const [vscDateIssued, setVscDateIssued] = useState(initialProfile.vsc_date_issued ?? '');
   const [vscRenewalDue] = useState(initialProfile.vsc_renewal_due ?? '');
+  const [vscVerificationStatus, setVscVerificationStatus] = useState<string | null>(initialProfile.vsc_verification_status ?? null);
   const [vscUploading, setVscUploading] = useState(false);
   const [vscRemoving, setVscRemoving] = useState(false);
   const [vscUploadError, setVscUploadError] = useState<string | null>(null);
   const [complianceSaving, setComplianceSaving] = useState(false);
   const [complianceError, setComplianceError] = useState<string | null>(null);
 
-  const vscStatus = getComplianceStatus(vscDocUrl || null, vscRenewalDue || null);
+  const vscStatus = getComplianceStatus(vscDocUrl || null, vscRenewalDue || null, vscVerificationStatus);
 
   // ── Profile save ────────────────────────────────────────────────────────────
 
@@ -185,6 +192,7 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
 
       const newPath = data.path;
       setVscDocUrl(newPath);
+      setVscVerificationStatus('pending_review');
       await saveComplianceFields(newPath, vscDateIssued);
     } catch {
       setVscUploadError('Upload failed. Please try again.');
@@ -232,6 +240,7 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
       }
       setVscDocUrl('');
       setVscDateIssued('');
+      setVscVerificationStatus(null);
     } catch {
       setComplianceError('Failed to remove document.');
     } finally {
@@ -475,6 +484,17 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
                 {vscRenewalDue && (
                   <p className="text-xs text-gray-500">
                     Renewal due: <span className="font-medium text-gray-700">{new Date(vscRenewalDue + 'T00:00:00').toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                  </p>
+                )}
+
+                {vscVerificationStatus === 'pending_review' && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
+                  </p>
+                )}
+                {vscVerificationStatus === 'rejected' && (
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    Your document was not accepted. Please upload a new document.
                   </p>
                 )}
               </div>

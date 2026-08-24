@@ -30,7 +30,6 @@ interface Visit {
   confirmed_count: number;
   waitlisted_count: number;
   requires_vsc: boolean;
-  requires_vaccine_record: boolean;
   parking_coverage: string | null;
   parking_instructions: string | null;
   arrival_instructions: string | null;
@@ -151,14 +150,14 @@ function CountdownBadge({ dateStr }: { dateStr: string }) {
 function getLockReason(visit: Visit, meta: VolunteerMeta | null): string | null {
   if (!meta) return null;
   if (visit.requires_vsc && !meta.volunteer_has_vsc) return 'VSC document';
-  if (visit.requires_vaccine_record && !meta.volunteer_has_vaccine) return 'dog vaccine record';
+  if (!meta.volunteer_has_vaccine) return 'current rabies vaccine record';
   return null;
 }
 
 function getLockLabel(visit: Visit, meta: VolunteerMeta | null): string | null {
   if (!meta) return null;
   if (visit.requires_vsc && !meta.volunteer_has_vsc) return 'VSC Required';
-  if (visit.requires_vaccine_record && !meta.volunteer_has_vaccine) return 'Vaccine Record Required';
+  if (!meta.volunteer_has_vaccine) return 'Rabies Vaccine Record Required';
   return null;
 }
 
@@ -426,31 +425,27 @@ export default function BrowseOrgVisits({
             </a>
           </div>
 
-          {(selectedVisit.requires_vsc || selectedVisit.requires_vaccine_record) && (
-            <div className="border-t border-gray-100 pt-3 mt-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Requirements</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedVisit.requires_vsc && (
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    !meta?.volunteer_has_vsc
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-purple-100 text-purple-700'
-                  }`}>
-                    VSC Required {!meta?.volunteer_has_vsc ? '— missing' : '✓'}
-                  </span>
-                )}
-                {selectedVisit.requires_vaccine_record && (
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    !meta?.volunteer_has_vaccine
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-orange-100 text-orange-700'
-                  }`}>
-                    Vaccine Record Required {!meta?.volunteer_has_vaccine ? '— missing' : '✓'}
-                  </span>
-                )}
-              </div>
+          <div className="border-t border-gray-100 pt-3 mt-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Requirements</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedVisit.requires_vsc && (
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  !meta?.volunteer_has_vsc
+                    ? 'bg-red-50 text-red-700'
+                    : 'bg-purple-100 text-purple-700'
+                }`}>
+                  VSC Required {!meta?.volunteer_has_vsc ? '— missing' : '✓'}
+                </span>
+              )}
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                !meta?.volunteer_has_vaccine
+                  ? 'bg-red-50 text-red-700'
+                  : 'bg-orange-100 text-orange-700'
+              }`}>
+                Rabies Vaccine Record {!meta?.volunteer_has_vaccine ? '— missing' : '✓'}
+              </span>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Sign-up / status card */}

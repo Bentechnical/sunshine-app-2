@@ -52,7 +52,7 @@ export async function GET() {
         region_assignment_method,
         pd_postal_code,
         profile_complete,
-        dogs (
+        dogs!volunteer_id (
           dog_name,
           dog_breed,
           dog_bio,

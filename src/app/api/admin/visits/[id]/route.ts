@@ -104,7 +104,7 @@ export async function PATCH(
       'visitor_count_expected', 'special_needs_notes', 'approx_space_sqft',
       'fee_tier', 'fee_amount', 'volunteer_slots', 'parking_coverage',
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
-      'requires_vsc', 'requires_vaccine_record', 'organization_id',
+      'requires_vsc', 'organization_id',
       'guest_org_name', 'guest_contact_name', 'guest_contact_email', 'guest_contact_phone',
       'admin_note', 'assigned_pd_id',
     ];
@@ -143,7 +143,7 @@ export async function PATCH(
     // If any calendar-visible fields changed, update the Google Calendar event
     const calendarFields = ['title', 'visit_date', 'start_time', 'end_time', 'address',
       'guest_org_name', 'arrival_instructions', 'parking_instructions', 'parking_coverage',
-      'special_needs_notes', 'fee_tier', 'fee_amount', 'requires_vsc', 'requires_vaccine_record',
+      'special_needs_notes', 'fee_tier', 'fee_amount', 'requires_vsc',
       'admin_note', 'audience_age_ranges', 'visitor_count_expected'];
     const affectsCalendar = calendarFields.some(f => f in updates);
 

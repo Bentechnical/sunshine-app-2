@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const words = q.split(/\s+/).filter(Boolean);
   let nameQuery = supabase
     .from('users')
-    .select('id, first_name, last_name, email, dogs(dog_name)')
+    .select('id, first_name, last_name, email, dogs!volunteer_id(dog_name)')
     .eq('role', 'volunteer')
     .eq('status', 'approved');
   for (const word of words) {
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   if (extraIds.length > 0) {
     const { data } = await supabase
       .from('users')
-      .select('id, first_name, last_name, email, dogs(dog_name)')
+      .select('id, first_name, last_name, email, dogs!volunteer_id(dog_name)')
       .in('id', extraIds);
     extra = data ?? [];
   }

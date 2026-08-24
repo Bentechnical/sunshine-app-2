@@ -9,7 +9,7 @@ import { Loader2, CheckCircle, AlertCircle, Clock, Pencil } from 'lucide-react';
 import DogEditModal from './DogEditModal';
 import { optimizeSupabaseImage, getImageSizes } from '@/utils/imageOptimization';
 
-type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
+type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 interface Dog {
   dog_name: string;
@@ -20,23 +20,29 @@ interface Dog {
   vaccine_record_url: string | null;
   vaccine_date_issued: string | null;
   vaccine_expiry_date: string | null;
+  vaccine_verification_status: string | null;
 }
 
-function getComplianceStatus(documentUrl: string | null, expiryDate: string | null): ComplianceStatus {
+function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
   if (!documentUrl) return 'missing';
-  if (!expiryDate) return 'uploaded';
+  if (verificationStatus === 'rejected') return 'rejected';
+  if (!verificationStatus || verificationStatus === 'pending_review') return 'pending_review';
+  // approved
+  if (!expiryDate) return 'approved';
   const expiry = new Date(expiryDate);
   const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   if (daysUntil < 0) return 'expired';
   if (daysUntil <= 30) return 'expiring';
-  return 'uploaded';
+  return 'approved';
 }
 
 const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:  { label: 'Vaccine Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
-  uploaded: { label: 'Vaccine Valid',          icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
-  expiring: { label: 'Vaccine Expiring Soon',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
-  expired:  { label: 'Vaccine Expired',        icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-800' },
+  missing:        { label: 'Vaccine Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
+  pending_review: { label: 'Vaccine Needs Review',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-800' },
+  approved:       { label: 'Vaccine Valid',         icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
+  expiring:       { label: 'Vaccine Expiring Soon', icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
+  expired:        { label: 'Vaccine Expired',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-800' },
+  rejected:       { label: 'Vaccine Rejected',      icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
 };
 
 export default function TherapyDogCard() {
@@ -53,7 +59,7 @@ export default function TherapyDogCard() {
     try {
       const { data, error } = await supabase
         .from('dogs')
-        .select('dog_name, dog_breed, dog_bio, dog_age, dog_picture_url, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date')
+        .select('dog_name, dog_breed, dog_bio, dog_age, dog_picture_url, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status')
         .eq('volunteer_id', user.id)
         .single();
 
@@ -81,7 +87,8 @@ export default function TherapyDogCard() {
 
   const vaccineStatus = getComplianceStatus(
     dog?.vaccine_record_url ?? null,
-    dog?.vaccine_expiry_date ?? null
+    dog?.vaccine_expiry_date ?? null,
+    dog?.vaccine_verification_status ?? null
   );
   const vaccineConfig = statusConfig[vaccineStatus];
 
@@ -157,6 +164,7 @@ export default function TherapyDogCard() {
             vaccine_record_url: dog.vaccine_record_url,
             vaccine_date_issued: dog.vaccine_date_issued,
             vaccine_expiry_date: dog.vaccine_expiry_date,
+            vaccine_verification_status: dog.vaccine_verification_status,
           }}
           onClose={() => setShowEditModal(false)}
           onSaved={() => {

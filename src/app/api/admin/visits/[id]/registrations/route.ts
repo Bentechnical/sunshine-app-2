@@ -31,7 +31,7 @@ export async function GET(
         users:volunteer_id(
           first_name, last_name, email, phone_number,
           vsc_document_url, vsc_date_issued, vsc_renewal_due,
-          dogs(id, dog_name, dog_breed, vaccine_record_url, vaccine_expiry_date)
+          dogs!volunteer_id(id, dog_name, dog_breed, vaccine_record_url, vaccine_expiry_date)
         )
       `)
       .eq('visit_id', visitId)

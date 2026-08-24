@@ -7,7 +7,7 @@ import { Loader2, CheckCircle, AlertCircle, Clock, Pencil } from 'lucide-react';
 import Image from 'next/image';
 import VolunteerEditModal from './VolunteerEditModal';
 
-type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
+type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 interface ProfileData {
   first_name: string;
@@ -39,26 +39,32 @@ interface ProfileData {
   vsc_document_url?: string | null;
   vsc_date_issued?: string | null;
   vsc_renewal_due?: string | null;
+  vsc_verification_status?: string | null;
 }
 
-function getComplianceStatus(documentUrl: string | null, expiryDate: string | null): ComplianceStatus {
+function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
   if (!documentUrl) return 'missing';
-  if (!expiryDate) return 'uploaded';
+  if (verificationStatus === 'rejected') return 'rejected';
+  if (!verificationStatus || verificationStatus === 'pending_review') return 'pending_review';
+  // approved
+  if (!expiryDate) return 'approved';
   const expiry = new Date(expiryDate);
   const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   if (daysUntil < 0) return 'expired';
   if (daysUntil <= 30) return 'expiring';
-  return 'uploaded';
+  return 'approved';
 }
 
 const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:  { label: 'VSC Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
-  uploaded: { label: 'VSC Valid',          icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
-  expiring: { label: 'VSC Expiring Soon',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
-  expired:  { label: 'VSC Expired',        icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-800' },
+  missing:        { label: 'VSC Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
+  pending_review: { label: 'VSC Needs Review',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-800' },
+  approved:       { label: 'VSC Valid',         icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
+  expiring:       { label: 'VSC Expiring Soon', icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
+  expired:        { label: 'VSC Expired',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-800' },
+  rejected:       { label: 'VSC Rejected',      icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
 };
 
-const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due';
+const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status';
 
 export default function ProfileCardBlock() {
   const { user } = useUser();
@@ -119,7 +125,7 @@ export default function ProfileCardBlock() {
   // Only show compliance badge for volunteers
   const isVolunteer = profile.role === 'volunteer';
   const vscStatus = isVolunteer
-    ? getComplianceStatus(profile.vsc_document_url ?? null, profile.vsc_renewal_due ?? null)
+    ? getComplianceStatus(profile.vsc_document_url ?? null, profile.vsc_renewal_due ?? null, profile.vsc_verification_status ?? null)
     : null;
   const vscConfig = vscStatus ? statusConfig[vscStatus] : null;
 
@@ -279,6 +285,7 @@ export default function ProfileCardBlock() {
             vsc_document_url: profile.vsc_document_url ?? null,
             vsc_date_issued: profile.vsc_date_issued ?? null,
             vsc_renewal_due: profile.vsc_renewal_due ?? null,
+            vsc_verification_status: profile.vsc_verification_status ?? null,
           }}
           onClose={() => setShowEditModal(false)}
           onSaved={() => {

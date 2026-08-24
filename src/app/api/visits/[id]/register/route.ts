@@ -29,7 +29,7 @@ export async function POST(
     // Verify caller is an approved volunteer
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('role, status, vsc_document_url')
+      .select('role, status, vsc_document_url, vsc_verification_status')
       .eq('id', userId)
       .single();
 
@@ -57,29 +57,49 @@ export async function POST(
       return NextResponse.json({ error: 'This visit is not open for registration' }, { status: 400 });
     }
 
-    // Check compliance requirements
-    if (visit.requires_vsc && !volunteer.vsc_document_url) {
+    // Check VSC compliance (per-visit requirement) — must be uploaded and verified
+    if (visit.requires_vsc) {
+      if (!volunteer.vsc_document_url) {
+        return NextResponse.json(
+          { error: 'This visit requires a VSC document. Please upload your VSC before signing up.' },
+          { status: 403 }
+        );
+      }
+      if (volunteer.vsc_verification_status !== 'approved') {
+        return NextResponse.json(
+          { error: 'This visit requires a verified VSC document. Your VSC is awaiting review by Sunshine staff (allow up to 48 hours).' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Rabies vaccine record is always required for all visits — must exist, be verified, and not expired
+    const { data: dog } = await supabase
+      .from('dogs')
+      .select('vaccine_record_url, vaccine_expiry_date, vaccine_verification_status')
+      .eq('volunteer_id', userId)
+      .neq('status', 'archived')
+      .maybeSingle();
+
+    if (!dog?.vaccine_record_url) {
       return NextResponse.json(
-        { error: 'This visit requires a VSC document. Please upload your VSC before signing up.' },
+        { error: "A current rabies vaccine record is required to sign up for visits. Please upload your dog's vaccine record before signing up." },
         { status: 403 }
       );
     }
 
-    if (visit.requires_vaccine_record) {
-      // Check dog vaccine record
-      const { data: dog } = await supabase
-        .from('dogs')
-        .select('vaccine_record_url')
-        .eq('volunteer_id', userId)
-        .neq('status', 'archived')
-        .maybeSingle();
+    if (dog.vaccine_verification_status !== 'approved') {
+      return NextResponse.json(
+        { error: "Your rabies vaccine record is awaiting review by Sunshine staff. Please allow up to 48 hours for approval." },
+        { status: 403 }
+      );
+    }
 
-      if (!dog?.vaccine_record_url) {
-        return NextResponse.json(
-          { error: 'This visit requires a dog vaccine record. Please upload your dog\'s vaccine record before signing up.' },
-          { status: 403 }
-        );
-      }
+    if (dog.vaccine_expiry_date && new Date(dog.vaccine_expiry_date) < new Date()) {
+      return NextResponse.json(
+        { error: "Your dog's rabies vaccine record has expired. Please upload a current vaccine record before signing up." },
+        { status: 403 }
+      );
     }
 
     // Check if already registered (any non-cancelled status)

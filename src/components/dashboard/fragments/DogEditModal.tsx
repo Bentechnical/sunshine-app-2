@@ -7,7 +7,7 @@ import { X, CheckCircle, AlertCircle, Clock, ExternalLink, Trash2 } from 'lucide
 import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpload';
 
 type Tab = 'info' | 'vaccine';
-type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
+type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 interface InitialDog {
   dog_name: string;
@@ -18,6 +18,7 @@ interface InitialDog {
   vaccine_record_url: string | null;
   vaccine_date_issued: string | null;
   vaccine_expiry_date: string | null;
+  vaccine_verification_status: string | null;
 }
 
 interface Props {
@@ -26,21 +27,26 @@ interface Props {
   onSaved: () => void;
 }
 
-function getComplianceStatus(documentUrl: string | null, expiryDate: string | null): ComplianceStatus {
+function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
   if (!documentUrl) return 'missing';
-  if (!expiryDate) return 'uploaded';
+  if (verificationStatus === 'rejected') return 'rejected';
+  if (!verificationStatus || verificationStatus === 'pending_review') return 'pending_review';
+  // approved
+  if (!expiryDate) return 'approved';
   const expiry = new Date(expiryDate);
   const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   if (daysUntil < 0) return 'expired';
   if (daysUntil <= 30) return 'expiring';
-  return 'uploaded';
+  return 'approved';
 }
 
 const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:  { label: 'Not uploaded', icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
-  uploaded: { label: 'Valid',         icon: <CheckCircle size={14} />, classes: 'bg-green-100 text-green-700' },
-  expiring: { label: 'Expiring soon', icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-700' },
-  expired:  { label: 'Expired',       icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-800' },
+  missing:        { label: 'Not uploaded',  icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
+  pending_review: { label: 'Needs Review',  icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-800' },
+  approved:       { label: 'Valid',         icon: <CheckCircle size={14} />, classes: 'bg-green-100 text-green-700' },
+  expiring:       { label: 'Expiring soon', icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-700' },
+  expired:        { label: 'Expired',       icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-800' },
+  rejected:       { label: 'Rejected',      icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
 };
 
 export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
@@ -64,13 +70,14 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
   const [vaccineDocUrl, setVaccineDocUrl] = useState(initialDog.vaccine_record_url ?? '');
   const [vaccineIssued, setVaccineIssued] = useState(initialDog.vaccine_date_issued ?? '');
   const [vaccineExpiry, setVaccineExpiry] = useState(initialDog.vaccine_expiry_date ?? '');
+  const [vaccineVerificationStatus, setVaccineVerificationStatus] = useState<string | null>(initialDog.vaccine_verification_status ?? null);
   const [vaccineUploading, setVaccineUploading] = useState(false);
   const [vaccineRemoving, setVaccineRemoving] = useState(false);
   const [vaccineUploadError, setVaccineUploadError] = useState<string | null>(null);
   const [vaccineSaving, setVaccineSaving] = useState(false);
   const [vaccineError, setVaccineError] = useState<string | null>(null);
 
-  const vaccineStatus = getComplianceStatus(vaccineDocUrl || null, vaccineExpiry || null);
+  const vaccineStatus = getComplianceStatus(vaccineDocUrl || null, vaccineExpiry || null, vaccineVerificationStatus);
 
   // ── Dog info save ───────────────────────────────────────────────────────────
 
@@ -150,6 +157,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
 
       const newPath = data.path;
       setVaccineDocUrl(newPath);
+      setVaccineVerificationStatus('pending_review');
       await saveVaccineFields(newPath, vaccineIssued, vaccineExpiry);
     } catch {
       setVaccineUploadError('Upload failed. Please try again.');
@@ -198,6 +206,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
       setVaccineDocUrl('');
       setVaccineIssued('');
       setVaccineExpiry('');
+      setVaccineVerificationStatus(null);
     } catch {
       setVaccineError('Failed to remove document.');
     } finally {
@@ -242,7 +251,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
                   : 'border-transparent text-gray-400 hover:text-gray-600'
               }`}
             >
-              {t === 'info' ? 'Dog Info' : 'Vaccine Records'}
+              {t === 'info' ? 'Dog Info' : 'Rabies Vaccine'}
             </button>
           ))}
         </div>
@@ -329,12 +338,12 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
           {tab === 'vaccine' && (
             <div className="space-y-6">
               <p className="text-sm text-gray-500">
-                Keep your dog's vaccine records up to date. These may be required before visits.
+                A current rabies vaccine record is required for all visits. Keep this up to date.
               </p>
 
               <div className="rounded-xl border border-gray-200 p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-800">Vaccine Record</h3>
+                  <h3 className="text-sm font-bold text-gray-800">Rabies Vaccine Record</h3>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${vaccineClasses}`}>
                     {vaccineIcon}
                     {vaccineLabel}
@@ -416,6 +425,16 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                {vaccineVerificationStatus === 'pending_review' && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
+                  </p>
+                )}
+                {vaccineVerificationStatus === 'rejected' && (
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    Your document was not accepted. Please upload a new document.
+                  </p>
+                )}
               </div>
 
               {vaccineError && <p className="text-sm text-red-600">{vaccineError}</p>}

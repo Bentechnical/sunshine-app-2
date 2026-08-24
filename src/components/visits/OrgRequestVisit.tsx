@@ -28,7 +28,6 @@ interface FormState {
   max_volunteers: string;
   expected_visitors: string;
   requires_vsc: boolean;
-  requires_vaccine: boolean;
   parking_coverage: string;
   parking_info: string;
   approx_space_sqft: string;
@@ -53,7 +52,6 @@ const INITIAL: FormState = {
   max_volunteers: '2',
   expected_visitors: '',
   requires_vsc: false,
-  requires_vaccine: false,
   parking_coverage: '',
   parking_info: '',
   approx_space_sqft: '',
@@ -137,7 +135,6 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           volunteer_slots: parseInt(form.max_volunteers) || 2,
           visitor_count_expected: form.expected_visitors ? parseInt(form.expected_visitors) : null,
           requires_vsc: form.requires_vsc,
-          requires_vaccine_record: form.requires_vaccine,
           parking_coverage: form.parking_coverage || null,
           parking_instructions: form.parking_info || null,
           approx_space_sqft: form.approx_space_sqft ? parseInt(form.approx_space_sqft) : null,
@@ -349,14 +346,6 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
                 onChange={e => set('requires_vsc', e.target.checked)}
               />
               <span>VSC (Vulnerable Sector Check) required</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.requires_vaccine}
-                onChange={e => set('requires_vaccine', e.target.checked)}
-              />
-              <span>Dog vaccine records required</span>
             </label>
           </div>
         </div>

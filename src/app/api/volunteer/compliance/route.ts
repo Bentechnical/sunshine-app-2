@@ -25,7 +25,15 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await supabase
     .from('users')
-    .update({ vsc_document_url, vsc_date_issued, vsc_renewal_due })
+    .update({
+      vsc_document_url,
+      vsc_date_issued,
+      vsc_renewal_due,
+      // Reset verification on every upload/update — requires re-review by admin/PD
+      vsc_verification_status: 'pending_review',
+      vsc_verified_at: null,
+      vsc_verified_by: null,
+    })
     .eq('id', userId)
     .eq('role', 'volunteer');
 
@@ -61,7 +69,14 @@ export async function DELETE() {
 
   const { error } = await supabase
     .from('users')
-    .update({ vsc_document_url: null, vsc_date_issued: null, vsc_renewal_due: null })
+    .update({
+      vsc_document_url: null,
+      vsc_date_issued: null,
+      vsc_renewal_due: null,
+      vsc_verification_status: null,
+      vsc_verified_at: null,
+      vsc_verified_by: null,
+    })
     .eq('id', userId);
 
   if (error) {

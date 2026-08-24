@@ -124,7 +124,6 @@ export async function POST(req: NextRequest) {
       arrival_instructions,
       accessibility_notes,
       requires_vsc,
-      requires_vaccine_record,
       status,
       assigned_pd_id,
     } = body;
@@ -179,7 +178,7 @@ export async function POST(req: NextRequest) {
         arrival_instructions: arrival_instructions ?? null,
         accessibility_notes: accessibility_notes ?? null,
         requires_vsc: requires_vsc ?? false,
-        requires_vaccine_record: requires_vaccine_record ?? true,
+        requires_vaccine_record: true, // always required for all visits
         status: status ?? 'pending_review',
         assigned_pd_id: assigned_pd_id ?? null,
         created_by: userId,

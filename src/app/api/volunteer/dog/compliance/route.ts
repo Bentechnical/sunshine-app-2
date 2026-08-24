@@ -17,7 +17,15 @@ export async function PATCH(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('dogs')
-    .update({ vaccine_record_url, vaccine_expiry_date, vaccine_date_issued })
+    .update({
+      vaccine_record_url,
+      vaccine_expiry_date,
+      vaccine_date_issued,
+      // Reset verification on every upload/update — requires re-review by admin/PD
+      vaccine_verification_status: 'pending_review',
+      vaccine_verified_at: null,
+      vaccine_verified_by: null,
+    })
     .eq('volunteer_id', userId)
     .select('id');
 
@@ -58,7 +66,14 @@ export async function DELETE() {
 
   const { error } = await supabase
     .from('dogs')
-    .update({ vaccine_record_url: null, vaccine_expiry_date: null, vaccine_date_issued: null })
+    .update({
+      vaccine_record_url: null,
+      vaccine_expiry_date: null,
+      vaccine_date_issued: null,
+      vaccine_verification_status: null,
+      vaccine_verified_at: null,
+      vaccine_verified_by: null,
+    })
     .eq('volunteer_id', userId);
 
   if (error) {

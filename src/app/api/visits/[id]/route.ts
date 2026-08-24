@@ -54,7 +54,7 @@ export async function GET(
         status, admin_note, created_at, updated_at,
         visit_registrations(
           id, volunteer_id, status, waitlist_position, contact_shared, created_at,
-          users:volunteer_id(first_name, dogs(dog_name, dog_breed, dog_picture_url))
+          users:volunteer_id(first_name, dogs!volunteer_id(dog_name, dog_breed, dog_picture_url))
         )
       `)
       .eq('id', visitId)

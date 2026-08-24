@@ -1057,6 +1057,77 @@ ALTER TABLE visits ADD CONSTRAINT visits_fee_tier_check
 
 ---
 
+### Migration 30 — Add verification status columns to `users` and `dogs`
+
+Adds document verification workflow fields to support the admin/PD review flow. A volunteer uploading a document resets their status to `pending_review`. An admin approving or rejecting sets the status accordingly.
+
+**Grandfather rule:** Existing uploaded documents are immediately set to `'approved'` so that no currently-active volunteers are disrupted by the new enforcement.
+
+**Note:** `vsc_verified_by` and `vaccine_verified_by` are plain `text` columns with **no FK constraint**. Adding `REFERENCES users(id)` on these columns creates additional FK paths between `users` and `dogs` that cause PostgREST relationship ambiguity errors on any embedded query (e.g. `dogs(...)` from a `users` select). Storing the admin ID as plain text is sufficient — the `document_verifications` audit table (Migration 31) provides the full audit trail with proper FK integrity.
+
+```sql
+-- Add VSC verification fields to users
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS vsc_verification_status text
+    CHECK (vsc_verification_status IN ('pending_review', 'approved', 'rejected')),
+  ADD COLUMN IF NOT EXISTS vsc_verified_at timestamptz,
+  ADD COLUMN IF NOT EXISTS vsc_verified_by text;
+
+-- Add vaccine verification fields to dogs
+ALTER TABLE dogs
+  ADD COLUMN IF NOT EXISTS vaccine_verification_status text
+    CHECK (vaccine_verification_status IN ('pending_review', 'approved', 'rejected')),
+  ADD COLUMN IF NOT EXISTS vaccine_verified_at timestamptz,
+  ADD COLUMN IF NOT EXISTS vaccine_verified_by text;
+
+-- Grandfather existing uploaded documents as approved
+-- (preserves access for all currently active volunteers)
+UPDATE users
+SET vsc_verification_status = 'approved'
+WHERE vsc_document_url IS NOT NULL AND role = 'volunteer';
+
+UPDATE dogs
+SET vaccine_verification_status = 'approved'
+WHERE vaccine_record_url IS NOT NULL;
+```
+
+---
+
+### Migration 31 — Create `document_verifications` audit table
+
+Append-only log of all admin/PD actions on compliance documents. Each approve or reject action writes one row. Provides full history even when a volunteer re-uploads and resets the current status.
+
+```sql
+CREATE TABLE IF NOT EXISTS document_verifications (
+  id            serial PRIMARY KEY,
+  volunteer_id  text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  document_type text NOT NULL CHECK (document_type IN ('vsc', 'vaccine')),
+  action        text NOT NULL CHECK (action IN ('approved', 'rejected')),
+  performed_by  text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  performed_at  timestamptz NOT NULL DEFAULT now(),
+  notes         text
+);
+
+CREATE INDEX IF NOT EXISTS document_verifications_volunteer_id_idx ON document_verifications (volunteer_id);
+CREATE INDEX IF NOT EXISTS document_verifications_performed_by_idx  ON document_verifications (performed_by);
+
+ALTER TABLE document_verifications ENABLE ROW LEVEL SECURITY;
+
+-- Only admins and PDs can read the audit log
+CREATE POLICY "Admins and PDs can view document verifications"
+  ON document_verifications FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid()::text AND role IN ('admin', 'pd'))
+  );
+
+-- Service role full access (API layer uses admin client)
+CREATE POLICY "Service role full access to document_verifications"
+  ON document_verifications FOR ALL
+  USING (auth.role() = 'service_role');
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -1097,3 +1168,6 @@ ALTER TABLE visits ADD CONSTRAINT visits_fee_tier_check
 | May 2026 | 26 | Added `boundary_json` (jsonb), `boundary_status`, `boundary_osm_id`, `boundary_osm_type` to `pd_region_places` — OSM polygon boundary storage; fetched server-side from Nominatim on place save; rendered via `map.data` layer |
 | May 2026 | 27 | Updated `users_region_assignment_method_check` constraint to include `'boundary_auto'` — required for polygon-based auto-assignment |
 | May 2026 | 28 | Fixed `visits_fee_tier_check` constraint — replaced placeholder values (`free`, `standard`, `reduced`, `custom`) with actual app values (`tier_500`, `tier_200`, `tier_0`, `custom`) |
+| Aug 2026 | 29 (no SQL) | Rabies vaccine record made universally required — enforcement change only, no schema migration needed. `visits.requires_vaccine_record` column retained in DB but ignored by all write paths (hard-coded `true` on insert). Registration API (`POST /api/visits/[id]/register`) now always checks: dog must have `vaccine_record_url` AND `vaccine_expiry_date` must be null or in the future. `requires_vaccine_record` toggle removed from all admin and org-facing UIs. Label "Vaccine Record" updated to "Rabies Vaccine Record" throughout. |
+| Aug 2026 | 30 | Added verification status columns to `users` and `dogs` for compliance document review workflow. Existing uploaded documents grandfathered as `'approved'`. |
+| Aug 2026 | 31 | Created `document_verifications` audit table — append-only log of all admin approve/reject actions on compliance documents. |

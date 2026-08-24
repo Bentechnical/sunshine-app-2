@@ -40,7 +40,7 @@ interface Volunteer {
   region_assignment_method: string | null;
 }
 
-type ComplianceStatus = 'missing' | 'uploaded' | 'expiring' | 'expired';
+type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 interface ComplianceRecord {
   vsc: { status: ComplianceStatus; date_issued: string | null; renewal_due: string | null; document_url: string | null };
@@ -70,10 +70,12 @@ interface ActiveAppointment {
 const allCategories = ['Young Kids', 'Teens/Young Adults', 'Adults', 'Seniors'];
 
 const statusConfig: Record<ComplianceStatus, { label: string; classes: string }> = {
-  missing:  { label: 'Missing',       classes: 'bg-red-100 text-red-700' },
-  uploaded: { label: 'Compliant',     classes: 'bg-green-100 text-green-700' },
-  expiring: { label: 'Expiring Soon', classes: 'bg-amber-100 text-amber-700' },
-  expired:  { label: 'Expired',       classes: 'bg-red-100 text-red-800' },
+  missing:        { label: 'Missing',       classes: 'bg-red-100 text-red-700' },
+  pending_review: { label: 'Needs Review',  classes: 'bg-amber-100 text-amber-800' },
+  approved:       { label: 'Compliant',     classes: 'bg-green-100 text-green-700' },
+  expiring:       { label: 'Expiring Soon', classes: 'bg-amber-100 text-amber-700' },
+  expired:        { label: 'Expired',       classes: 'bg-red-100 text-red-800' },
+  rejected:       { label: 'Rejected',      classes: 'bg-red-100 text-red-700' },
 };
 
 function ComplianceBadge({ status }: { status: ComplianceStatus | undefined }) {

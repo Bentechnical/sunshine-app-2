@@ -149,11 +149,11 @@ export default function VolunteerCompliance({
       </div>
 
       <div className="p-4 border border-gray-200 rounded-lg space-y-4">
-        <h3 className="text-sm font-bold text-gray-800">Dog Vaccine Records</h3>
+        <h3 className="text-sm font-bold text-gray-800">Rabies Vaccine Record</h3>
 
         <FileUploadField
-          label="Vaccine Record Document"
-          hint="Upload your dog's current vaccine record (PDF or image)"
+          label="Rabies Vaccine Record"
+          hint="Upload your dog's current rabies vaccine record (PDF or image)"
           documentType="vaccine"
           currentPath={vaccineDocumentUrl}
           onUpload={setVaccineDocumentUrl}
