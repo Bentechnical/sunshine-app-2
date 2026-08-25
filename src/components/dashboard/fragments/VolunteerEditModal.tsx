@@ -22,6 +22,10 @@ interface InitialProfile {
   vsc_date_issued: string | null;
   vsc_renewal_due: string | null;
   vsc_verification_status: string | null;
+  vaccine_record_url: string | null;
+  vaccine_date_issued: string | null;
+  vaccine_expiry_date: string | null;
+  vaccine_verification_status: string | null;
 }
 
 interface Props {
@@ -73,6 +77,7 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
   const supabase = useSupabaseClient();
   const avatarRef = useRef<AvatarUploadHandle>(null);
   const vscFileRef = useRef<HTMLInputElement>(null);
+  const vaccineFileRef = useRef<HTMLInputElement>(null);
 
   const [tab, setTab] = useState<Tab>('profile');
 
@@ -98,7 +103,19 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
   const [complianceSaving, setComplianceSaving] = useState(false);
   const [complianceError, setComplianceError] = useState<string | null>(null);
 
+  // Vaccine state
+  const [vaccineDocUrl, setVaccineDocUrl] = useState(initialProfile.vaccine_record_url ?? '');
+  const [vaccineIssued, setVaccineIssued] = useState(initialProfile.vaccine_date_issued ?? '');
+  const [vaccineExpiry, setVaccineExpiry] = useState(initialProfile.vaccine_expiry_date ?? '');
+  const [vaccineVerificationStatus, setVaccineVerificationStatus] = useState<string | null>(initialProfile.vaccine_verification_status ?? null);
+  const [vaccineUploading, setVaccineUploading] = useState(false);
+  const [vaccineRemoving, setVaccineRemoving] = useState(false);
+  const [vaccineUploadError, setVaccineUploadError] = useState<string | null>(null);
+  const [vaccineSaving, setVaccineSaving] = useState(false);
+  const [vaccineError, setVaccineError] = useState<string | null>(null);
+
   const vscStatus = getComplianceStatus(vscDocUrl || null, vscRenewalDue || null, vscVerificationStatus);
+  const vaccineStatus = getComplianceStatus(vaccineDocUrl || null, vaccineExpiry || null, vaccineVerificationStatus);
 
   // ── Profile save ────────────────────────────────────────────────────────────
 
@@ -208,7 +225,7 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
     }
   };
 
-  const handleSaveCompliance = async () => {
+  const handleSaveVscOnly = async () => {
     if (!vscDocUrl) {
       setComplianceError('Please upload a VSC document.');
       return;
@@ -219,8 +236,22 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
     }
     const ok = await saveComplianceFields(vscDocUrl, vscDateIssued);
     if (ok) {
-      onSaved();
-      onClose();
+      setComplianceError(null);
+    }
+  };
+
+  const handleSaveVaccineOnly = async () => {
+    if (!vaccineDocUrl) {
+      setVaccineError('Please upload a vaccine record document.');
+      return;
+    }
+    if (!vaccineIssued || !vaccineExpiry) {
+      setVaccineError('Please enter both the date of issue and expiry date.');
+      return;
+    }
+    const ok = await saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
+    if (ok) {
+      setVaccineError(null);
     }
   };
 
@@ -258,12 +289,111 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
     }
   };
 
+  // ── Vaccine compliance ─────────────────────────────────────────────────────
+
+  const saveVaccineFields = async (docUrl: string, issued: string, expiry: string): Promise<boolean> => {
+    setVaccineSaving(true);
+    setVaccineError(null);
+    try {
+      const res = await fetch('/api/volunteer/dog/compliance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vaccine_record_url: docUrl || null, vaccine_date_issued: issued || null, vaccine_expiry_date: expiry || null }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setVaccineError(json.error || 'Failed to save. Please try again.');
+        return false;
+      }
+      return true;
+    } catch {
+      setVaccineError('Failed to save. Please try again.');
+      return false;
+    } finally {
+      setVaccineSaving(false);
+    }
+  };
+
+  const handleVaccineFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setVaccineUploadError(null);
+    setVaccineUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'vaccine');
+
+      const res = await fetch('/api/compliance/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setVaccineUploadError(data.error || 'Upload failed. Please try again.');
+        return;
+      }
+
+      const newPath = data.path;
+      setVaccineDocUrl(newPath);
+      setVaccineVerificationStatus('pending_review');
+      await saveVaccineFields(newPath, vaccineIssued, vaccineExpiry);
+    } catch {
+      setVaccineUploadError('Upload failed. Please try again.');
+    } finally {
+      setVaccineUploading(false);
+      if (vaccineFileRef.current) vaccineFileRef.current.value = '';
+    }
+  };
+
+  const handleVaccineDateBlur = () => {
+    if (vaccineDocUrl && vaccineIssued && vaccineExpiry) {
+      saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
+    }
+  };
+
+  const handleViewVaccine = async () => {
+    try {
+      const res = await fetch('/api/volunteer/compliance/documents');
+      const data = await res.json();
+      if (data.vaccine_signed_url) {
+        window.open(data.vaccine_signed_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const handleRemoveVaccine = async () => {
+    if (!confirm("Remove your dog's vaccine record? This cannot be undone.")) return;
+
+    setVaccineRemoving(true);
+    setVaccineError(null);
+    try {
+      const res = await fetch('/api/volunteer/dog/compliance', { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setVaccineError(json.error || 'Failed to remove document.');
+        return;
+      }
+      setVaccineDocUrl('');
+      setVaccineIssued('');
+      setVaccineExpiry('');
+      setVaccineVerificationStatus(null);
+    } catch {
+      setVaccineError('Failed to remove document.');
+    } finally {
+      setVaccineRemoving(false);
+    }
+  };
+
   // ── Shared styles ────────────────────────────────────────────────────────────
 
   const ic = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
   const lc = 'block text-sm font-semibold text-gray-700 mb-1.5';
 
   const { label: vscLabel, icon: vscIcon, classes: vscClasses } = statusConfig[vscStatus];
+  const { label: vaccineLabel, icon: vaccineIcon, classes: vaccineClasses } = statusConfig[vaccineStatus];
 
   return (
     <div
@@ -414,7 +544,7 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
           {tab === 'compliance' && (
             <div className="space-y-6">
               <p className="text-sm text-gray-500">
-                These documents may be required before your first visit. Upload updates here any time.
+                These documents may be required before your first visit. All submissions are manually reviewed by Sunshine staff. If you replace or remove a document, the new submission will need to be re-approved.
               </p>
 
               {/* VSC section */}
@@ -507,9 +637,127 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
                     Your document was not accepted. Please upload a new document.
                   </p>
                 )}
+
+                {complianceError && <p className="text-xs text-red-600">{complianceError}</p>}
+
+                <button
+                  type="button"
+                  onClick={handleSaveVscOnly}
+                  disabled={complianceSaving || vscUploading || vscRemoving}
+                  className="w-full py-2 px-3 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-[#094e8b] transition disabled:opacity-50"
+                >
+                  {complianceSaving ? 'Saving…' : 'Save VSC'}
+                </button>
               </div>
 
-              {complianceError && <p className="text-sm text-red-600">{complianceError}</p>}
+              {/* Vaccine section */}
+              <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-gray-800">Rabies Vaccine Record</h3>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${vaccineClasses}`}>
+                    {vaccineIcon}
+                    {vaccineLabel}
+                  </span>
+                </div>
+
+                {/* Upload / View / Remove */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-700 mb-1">Document</p>
+                  <p className="text-xs text-gray-500 mb-2">PDF or image (max 10 MB)</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => vaccineFileRef.current?.click()}
+                      disabled={vaccineUploading || vaccineRemoving}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      {vaccineUploading ? 'Uploading…' : vaccineDocUrl ? 'Replace' : 'Upload document'}
+                    </button>
+
+                    {vaccineDocUrl && !vaccineUploading && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleViewVaccine}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                        >
+                          <ExternalLink size={13} />
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveVaccine}
+                          disabled={vaccineRemoving}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 size={13} />
+                          {vaccineRemoving ? 'Removing…' : 'Remove'}
+                        </button>
+                      </>
+                    )}
+
+                    {vaccineSaving && (
+                      <span className="text-xs text-gray-400">Saving…</span>
+                    )}
+                  </div>
+                  <input
+                    ref={vaccineFileRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={handleVaccineFileChange}
+                    className="hidden"
+                    disabled={vaccineUploading}
+                  />
+                  {vaccineUploadError && <p className="text-xs text-red-500 mt-1">{vaccineUploadError}</p>}
+                </div>
+
+                {/* Issue date */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date of Issue</label>
+                  <input
+                    type="date"
+                    value={vaccineIssued}
+                    onChange={e => setVaccineIssued(e.target.value)}
+                    onBlur={handleVaccineDateBlur}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Expiry date */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={vaccineExpiry}
+                    onChange={e => setVaccineExpiry(e.target.value)}
+                    onBlur={handleVaccineDateBlur}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {vaccineVerificationStatus === 'pending_review' && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
+                  </p>
+                )}
+                {vaccineVerificationStatus === 'rejected' && (
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    Your document was not accepted. Please upload a new document.
+                  </p>
+                )}
+
+                {vaccineError && <p className="text-xs text-red-600">{vaccineError}</p>}
+
+                <button
+                  type="button"
+                  onClick={handleSaveVaccineOnly}
+                  disabled={vaccineSaving || vaccineUploading || vaccineRemoving}
+                  className="w-full py-2 px-3 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-[#094e8b] transition disabled:opacity-50"
+                >
+                  {vaccineSaving ? 'Saving…' : 'Save Vaccine Record'}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -523,18 +771,6 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
               className="w-full py-2.5 px-4 bg-[#0e62ae] text-white text-sm font-semibold rounded-xl hover:bg-[#094e8b] transition disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-        )}
-
-        {tab === 'compliance' && (
-          <div className="px-6 py-4 border-t border-gray-100 shrink-0">
-            <button
-              onClick={handleSaveCompliance}
-              disabled={complianceSaving || vscUploading || vscRemoving}
-              className="w-full py-2.5 px-4 bg-[#0e62ae] text-white text-sm font-semibold rounded-xl hover:bg-[#094e8b] transition disabled:opacity-50"
-            >
-              {complianceSaving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         )}

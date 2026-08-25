@@ -28,7 +28,7 @@ export async function PATCH(
     // Verify this is actually a volunteer
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('id, role, dogs!volunteer_id(id)')
+      .select('id, role')
       .eq('id', volunteerId)
       .eq('role', 'volunteer')
       .single();
@@ -36,6 +36,13 @@ export async function PATCH(
     if (volunteerError || !volunteer) {
       return NextResponse.json({ error: 'Volunteer not found' }, { status: 404 });
     }
+
+    // Fetch dog separately to avoid FK-embed ambiguity
+    const { data: dogRow } = await supabase
+      .from('dogs')
+      .select('id')
+      .eq('volunteer_id', volunteerId)
+      .maybeSingle();
 
     // ── Mode 1: Verification action ──────────────────────────────────────────
     const { action } = body as { action?: VerificationAction };
@@ -61,8 +68,7 @@ export async function PATCH(
           return NextResponse.json({ error: 'Failed to update VSC verification' }, { status: 500 });
         }
       } else {
-        const dog = (volunteer.dogs as any[])?.[0];
-        if (!dog) {
+        if (!dogRow) {
           return NextResponse.json({ error: 'No dog found for this volunteer' }, { status: 404 });
         }
 
@@ -73,7 +79,7 @@ export async function PATCH(
             vaccine_verified_at: now,
             vaccine_verified_by: adminId,
           })
-          .eq('id', dog.id);
+          .eq('id', dogRow.id);
 
         if (vaccineError) {
           console.error('[PATCH compliance] Vaccine verification error:', vaccineError);
@@ -129,15 +135,14 @@ export async function PATCH(
     if (vaccine_cycle_years !== undefined) dogUpdates.vaccine_cycle_years = vaccine_cycle_years;
 
     if (Object.keys(dogUpdates).length > 0) {
-      const dog = (volunteer.dogs as any[])?.[0];
-      if (!dog) {
+      if (!dogRow) {
         return NextResponse.json({ error: 'No dog found for this volunteer' }, { status: 404 });
       }
 
       const { error: dogUpdateError } = await supabase
         .from('dogs')
         .update(dogUpdates)
-        .eq('id', dog.id);
+        .eq('id', dogRow.id);
 
       if (dogUpdateError) {
         console.error('[PATCH compliance] Dog update error:', dogUpdateError);

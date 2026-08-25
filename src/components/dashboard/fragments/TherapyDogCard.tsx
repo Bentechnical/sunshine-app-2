@@ -141,14 +141,13 @@ export default function TherapyDogCard() {
             )}
 
             {/* Vaccine compliance badge */}
-            <button
-              onClick={() => setShowEditModal(true)}
-              className={`self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80 ${vaccineConfig.classes}`}
-              title="Click to manage vaccine records"
+            <span
+              className={`self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${vaccineConfig.classes}`}
+              title="Manage vaccine records in Edit Profile → Documents"
             >
               {vaccineConfig.icon}
               {vaccineConfig.label}
-            </button>
+            </span>
           </div>
         </div>
       </div>
@@ -161,10 +160,6 @@ export default function TherapyDogCard() {
             dog_bio: dog.dog_bio,
             dog_age: dog.dog_age,
             dog_picture_url: dog.dog_picture_url,
-            vaccine_record_url: dog.vaccine_record_url,
-            vaccine_date_issued: dog.vaccine_date_issued,
-            vaccine_expiry_date: dog.vaccine_expiry_date,
-            vaccine_verification_status: dog.vaccine_verification_status,
           }}
           onClose={() => setShowEditModal(false)}
           onSaved={() => {

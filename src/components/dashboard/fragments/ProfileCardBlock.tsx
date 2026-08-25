@@ -72,6 +72,7 @@ export default function ProfileCardBlock() {
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [regionInfo, setRegionInfo] = useState<{ name: string; pd_first_name: string | null } | null>(null);
+  const [dogVaccine, setDogVaccine] = useState<{ vaccine_record_url: string | null; vaccine_date_issued: string | null; vaccine_expiry_date: string | null; vaccine_verification_status: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -103,6 +104,16 @@ export default function ProfileCardBlock() {
       }
     } else {
       setRegionInfo(null);
+    }
+
+    // Fetch dog vaccine data for volunteer edit modal
+    if (data?.role === 'volunteer') {
+      const { data: dog } = await supabase
+        .from('dogs')
+        .select('vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status')
+        .eq('volunteer_id', user.id)
+        .single();
+      setDogVaccine(dog ?? null);
     }
   };
 
@@ -286,6 +297,10 @@ export default function ProfileCardBlock() {
             vsc_date_issued: profile.vsc_date_issued ?? null,
             vsc_renewal_due: profile.vsc_renewal_due ?? null,
             vsc_verification_status: profile.vsc_verification_status ?? null,
+            vaccine_record_url: dogVaccine?.vaccine_record_url ?? null,
+            vaccine_date_issued: dogVaccine?.vaccine_date_issued ?? null,
+            vaccine_expiry_date: dogVaccine?.vaccine_expiry_date ?? null,
+            vaccine_verification_status: dogVaccine?.vaccine_verification_status ?? null,
           }}
           onClose={() => {
             setShowEditModal(false);
