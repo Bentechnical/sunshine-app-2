@@ -301,7 +301,20 @@ export default function ProfileCompleteForm() {
           return false;
         }
       }
-      // Steps 4 (audience) and 5 (compliance) are optional
+      if (currentStep === 5) {
+        if (vscDocumentUrl && !vscDate) {
+          setSubmitError('Please enter the VSC issue date.');
+          return false;
+        }
+        if (vaccineDocumentUrl && !vaccineIssuedDate) {
+          setSubmitError('Please enter the rabies vaccine date of issue.');
+          return false;
+        }
+        if (vaccineDocumentUrl && !vaccineExpiryDate) {
+          setSubmitError('Please enter the rabies vaccine expiry date.');
+          return false;
+        }
+      }
     }
 
     if (selectedRole === 'organization') {

@@ -287,10 +287,12 @@ export default function ProfileCardBlock() {
             vsc_renewal_due: profile.vsc_renewal_due ?? null,
             vsc_verification_status: profile.vsc_verification_status ?? null,
           }}
-          onClose={() => setShowEditModal(false)}
+          onClose={() => {
+            setShowEditModal(false);
+            loadProfile();
+          }}
           onSaved={() => {
             setShowEditModal(false);
-            setLoading(true);
             loadProfile();
           }}
         />

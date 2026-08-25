@@ -23,6 +23,7 @@ interface ComplianceRecord {
   vaccine: {
     status: ComplianceStatus;
     document_url: string | null;
+    date_issued: string | null;
     expiry_date: string | null;
     dog_name: string | null;
     verification_status: string | null;
@@ -144,25 +145,36 @@ function VerificationActions({
   );
 }
 
+type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; dog_name: string | null };
+
 function DocumentModal({
   volunteerId,
   volunteerName,
   record,
+  prefetchedDocs,
   onClose,
   onVerified,
 }: {
   volunteerId: string;
   volunteerName: string;
   record: ComplianceRecord;
+  prefetchedDocs?: SignedDocs | null;
   onClose: () => void;
   onVerified: (updated: ComplianceRecord) => void;
 }) {
-  const [loading, setLoading] = useState(true);
-  const [docs, setDocs] = useState<{ vsc_signed_url: string | null; vaccine_signed_url: string | null; dog_name: string | null } | null>(null);
+  const [loading, setLoading] = useState(!prefetchedDocs);
+  const [docs, setDocs] = useState<SignedDocs | null>(prefetchedDocs ?? null);
   const [error, setError] = useState<string | null>(null);
   const [localRecord, setLocalRecord] = useState(record);
 
+  const vscHasDoc = !!(prefetchedDocs?.vsc_signed_url ?? docs?.vsc_signed_url);
+  const vaccineHasDoc = !!(prefetchedDocs?.vaccine_signed_url ?? docs?.vaccine_signed_url);
+  const showTabs = vscHasDoc && vaccineHasDoc;
+  const defaultTab = record.vsc.verification_status === 'pending_review' && vscHasDoc ? 'vsc' : 'vaccine';
+  const [activeTab, setActiveTab] = useState<'vsc' | 'vaccine'>(defaultTab);
+
   useEffect(() => {
+    if (prefetchedDocs) return;
     const fetch_ = async () => {
       try {
         const res = await fetch(`/api/admin/compliance/${volunteerId}/documents`);
@@ -176,106 +188,161 @@ function DocumentModal({
       }
     };
     fetch_();
-  }, [volunteerId]);
+  }, [volunteerId, prefetchedDocs]);
 
   const handleVscVerified = (newStatus: 'approved' | 'rejected') => {
-    const updated = {
-      ...localRecord,
-      vsc: {
-        ...localRecord.vsc,
-        verification_status: newStatus,
-        verified_at: new Date().toISOString(),
-      },
-    };
+    const updated = { ...localRecord, vsc: { ...localRecord.vsc, verification_status: newStatus, verified_at: new Date().toISOString() } };
     setLocalRecord(updated);
     onVerified(updated);
   };
 
   const handleVaccineVerified = (newStatus: 'approved' | 'rejected') => {
-    const updated = {
-      ...localRecord,
-      vaccine: {
-        ...localRecord.vaccine,
-        verification_status: newStatus,
-        verified_at: new Date().toISOString(),
-      },
-    };
+    const updated = { ...localRecord, vaccine: { ...localRecord.vaccine, verification_status: newStatus, verified_at: new Date().toISOString() } };
     setLocalRecord(updated);
     onVerified(updated);
   };
 
+  const rawUrl = docs ? (activeTab === 'vsc' ? docs.vsc_signed_url : docs.vaccine_signed_url) : null;
+  const activeUrl = rawUrl ? `${rawUrl}#toolbar=0&navpanes=0` : null;
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-5 max-h-[90dvh] overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">Documents — {volunteerName}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 pl-70">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style={{ height: '85vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">{volunteerName}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Review compliance documents and approve or reject submissions</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-6">&times;</button>
         </div>
 
-        {loading && (
-          <div className="flex items-center gap-2 py-6 justify-center">
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-gray-600">Loading signed URLs…</span>
+        {/* Tabs — only when both documents exist */}
+        {!loading && !error && showTabs && (
+          <div className="flex border-b border-gray-100 px-6 shrink-0">
+            {(['vsc', 'vaccine'] as const).map(tab => {
+              const isPending = tab === 'vsc'
+                ? localRecord.vsc.verification_status === 'pending_review'
+                : localRecord.vaccine.verification_status === 'pending_review';
+              const label = tab === 'vsc'
+                ? 'VSC Document'
+                : `Rabies Vaccine${docs?.dog_name ? ` — ${docs.dog_name}` : ''}`;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
+                    activeTab === tab
+                      ? 'border-[#0e62ae] text-[#0e62ae]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                  {isPending && (
+                    <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Needs Review</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {/* Body */}
+        {loading && (
+          <div className="flex-1 flex items-center justify-center gap-2">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-gray-600">Loading document…</span>
+          </div>
+        )}
+        {error && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
 
         {!loading && !error && docs && (
-          <div className="space-y-5">
-            {/* VSC section */}
-            <div className="p-4 border border-gray-100 rounded-xl space-y-3">
-              <p className="text-sm font-bold text-gray-800">VSC Document</p>
-              {docs.vsc_signed_url ? (
-                <a href={docs.vsc_signed_url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">
-                  Open VSC Document
-                </a>
-              ) : (
-                <p className="text-sm text-gray-400 italic">No document uploaded</p>
-              )}
-              {docs.vsc_signed_url && (
-                <VerificationActions
-                  volunteerId={volunteerId}
-                  documentType="vsc"
-                  currentStatus={localRecord.vsc.verification_status}
-                  verifiedAt={localRecord.vsc.verified_at}
-                  onVerified={handleVscVerified}
+          <div className="flex flex-1 min-h-0">
+            {/* Document preview */}
+            <div className="flex-1 bg-gray-100 min-h-0">
+              {activeUrl ? (
+                <iframe
+                  key={activeUrl}
+                  src={activeUrl}
+                  className="w-full h-full border-0"
+                  title="Compliance document preview"
                 />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-sm text-gray-400 italic">No document uploaded</p>
+                </div>
               )}
             </div>
 
-            {/* Vaccine section */}
-            <div className="p-4 border border-gray-100 rounded-xl space-y-3">
-              <p className="text-sm font-bold text-gray-800">
-                Rabies Vaccine Record{docs.dog_name ? ` — ${docs.dog_name}` : ''}
-              </p>
-              {docs.vaccine_signed_url ? (
-                <a href={docs.vaccine_signed_url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">
-                  Open Vaccine Record
-                </a>
-              ) : (
-                <p className="text-sm text-gray-400 italic">No document uploaded</p>
+            {/* Metadata + actions panel */}
+            <div className="w-72 shrink-0 border-l border-gray-100 flex flex-col p-5 overflow-y-auto">
+              {/* Document type heading (when no tabs) */}
+              {!showTabs && (
+                <p className="text-sm font-bold text-gray-800 mb-4">
+                  {activeTab === 'vsc' ? 'Volunteer Screening Check' : `Rabies Vaccine Record${docs.dog_name ? ` — ${docs.dog_name}` : ''}`}
+                </p>
               )}
-              {docs.vaccine_signed_url && (
-                <VerificationActions
-                  volunteerId={volunteerId}
-                  documentType="vaccine"
-                  currentStatus={localRecord.vaccine.verification_status}
-                  verifiedAt={localRecord.vaccine.verified_at}
-                  onVerified={handleVaccineVerified}
-                />
-              )}
-            </div>
 
-            <p className="text-xs text-gray-400">Document links expire after 1 hour.</p>
+              {/* VSC metadata */}
+              {activeTab === 'vsc' && (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date Issued</p>
+                    <p className="text-sm text-gray-900">{formatDate(localRecord.vsc.date_issued)}</p>
+                  </div>
+                  {localRecord.vsc.renewal_due && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Renewal Due</p>
+                      <p className="text-sm text-gray-900">{formatDate(localRecord.vsc.renewal_due)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Vaccine metadata */}
+              {activeTab === 'vaccine' && (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date Issued</p>
+                    <p className="text-sm text-gray-900">{formatDate(localRecord.vaccine.date_issued)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Expiry Date</p>
+                    <p className="text-sm text-gray-900">{formatDate(localRecord.vaccine.expiry_date)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Verification actions */}
+              <div className="mt-auto space-y-3">
+                {activeTab === 'vsc' && docs.vsc_signed_url && (
+                  <VerificationActions
+                    volunteerId={volunteerId}
+                    documentType="vsc"
+                    currentStatus={localRecord.vsc.verification_status}
+                    verifiedAt={localRecord.vsc.verified_at}
+                    onVerified={handleVscVerified}
+                  />
+                )}
+                {activeTab === 'vaccine' && docs.vaccine_signed_url && (
+                  <VerificationActions
+                    volunteerId={volunteerId}
+                    documentType="vaccine"
+                    currentStatus={localRecord.vaccine.verification_status}
+                    verifiedAt={localRecord.vaccine.verified_at}
+                    onVerified={handleVaccineVerified}
+                  />
+                )}
+                <p className="text-xs text-gray-400">Document links expire after 1 hour.</p>
+              </div>
+            </div>
           </div>
         )}
-
-        <button onClick={onClose} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50">
-          Close
-        </button>
       </div>
     </div>
   );
@@ -291,6 +358,7 @@ export default function AdminCompliance() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedVolunteer, setSelectedVolunteer] = useState<ComplianceRecord | null>(null);
+  const [signedUrlCache, setSignedUrlCache] = useState<Map<string, SignedDocs>>(new Map());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -310,6 +378,30 @@ export default function AdminCompliance() {
     };
     fetchData();
   }, [statusFilter]);
+
+  // Pre-fetch signed URLs for all pending_review volunteers in the background
+  useEffect(() => {
+    const pending = volunteers.filter(v =>
+      v.vsc.verification_status === 'pending_review' ||
+      v.vaccine.verification_status === 'pending_review'
+    );
+    if (pending.length === 0) return;
+
+    pending.forEach(async (v) => {
+      if (signedUrlCache.has(v.id)) return;
+      try {
+        const res = await fetch(`/api/admin/compliance/${v.id}/documents`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.documents) {
+          setSignedUrlCache(prev => new Map(prev).set(v.id, { ...json.documents, dog_name: json.dog_name }));
+        }
+      } catch {
+        // Non-fatal — modal will fall back to fetching on open
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volunteers]);
 
   const filterTabs: { key: StatusFilter; label: string }[] = [
     { key: 'all', label: 'All Volunteers' },
@@ -399,9 +491,15 @@ export default function AdminCompliance() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setSelectedVolunteer(v)}
-                          className="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap"
+                          className={`text-xs font-semibold whitespace-nowrap px-2.5 py-1 rounded-lg transition ${
+                            v.vsc.verification_status === 'pending_review' || v.vaccine.verification_status === 'pending_review'
+                              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                              : 'text-blue-600 hover:underline'
+                          }`}
                         >
-                          View Docs
+                          {v.vsc.verification_status === 'pending_review' || v.vaccine.verification_status === 'pending_review'
+                            ? 'Review'
+                            : 'View Docs'}
                         </button>
                       </td>
                     </tr>
@@ -419,6 +517,7 @@ export default function AdminCompliance() {
           volunteerId={selectedVolunteer.id}
           volunteerName={`${selectedVolunteer.first_name} ${selectedVolunteer.last_name}`}
           record={selectedVolunteer}
+          prefetchedDocs={signedUrlCache.get(selectedVolunteer.id) ?? null}
           onClose={() => setSelectedVolunteer(null)}
           onVerified={(updated) => {
             setVolunteers(prev => prev.map(v => v.id === updated.id ? updated : v));

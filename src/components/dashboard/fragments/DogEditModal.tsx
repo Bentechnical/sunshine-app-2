@@ -168,10 +168,20 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
   };
 
   const handleVaccineDateBlur = () => {
-    saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
+    if (vaccineDocUrl && vaccineIssued && vaccineExpiry) {
+      saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
+    }
   };
 
   const handleSaveVaccine = async () => {
+    if (!vaccineDocUrl) {
+      setVaccineError('Please upload a vaccine record document.');
+      return;
+    }
+    if (!vaccineIssued || !vaccineExpiry) {
+      setVaccineError('Please enter both the date of issue and expiry date.');
+      return;
+    }
     const ok = await saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
     if (ok) {
       onSaved();

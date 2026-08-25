@@ -203,10 +203,20 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
   };
 
   const handleVscDateBlur = () => {
-    saveComplianceFields(vscDocUrl, vscDateIssued);
+    if (vscDocUrl && vscDateIssued) {
+      saveComplianceFields(vscDocUrl, vscDateIssued);
+    }
   };
 
   const handleSaveCompliance = async () => {
+    if (!vscDocUrl) {
+      setComplianceError('Please upload a VSC document.');
+      return;
+    }
+    if (!vscDateIssued) {
+      setComplianceError('Please enter the VSC issue date.');
+      return;
+    }
     const ok = await saveComplianceFields(vscDocUrl, vscDateIssued);
     if (ok) {
       onSaved();
