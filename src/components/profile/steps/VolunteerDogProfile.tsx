@@ -73,13 +73,16 @@ export default function VolunteerDogProfile({
         </label>
         <input
           id="dogAge"
-          type="text"
+          type="number"
+          min="0"
+          max="30"
           value={dogAge}
           onChange={(e) => setDogAge(e.target.value)}
           className="w-full px-4 py-2 border rounded-lg"
           disabled={isLoading}
-          placeholder="e.g., 3 years"
+          placeholder="e.g., 3"
         />
+        <p className="text-xs text-gray-400 mt-1">Age in years (numbers only)</p>
       </div>
 
       <div>

@@ -282,6 +282,10 @@ export default function ProfileCompleteForm() {
       if (currentStep === 3) {
         if (!bio.trim()) { setSubmitError("Please tell us why you're interested in meeting with a therapy dog."); return false; }
         if (!birthday.trim()) { setSubmitError('Please enter a birth year.'); return false; }
+        const parsedBirthday = parseInt(birthday, 10);
+        if (isNaN(parsedBirthday) || parsedBirthday < 1900 || parsedBirthday > new Date().getFullYear()) {
+          setSubmitError('Please enter a valid birth year (e.g., 1990).'); return false;
+        }
         if (!physicalAddress.trim()) { setSubmitError("Please enter where you'd like to meet."); return false; }
       }
       if (currentStep === 4) {
@@ -298,6 +302,11 @@ export default function ProfileCompleteForm() {
       if (currentStep === 3) {
         if (!dogName.trim() || !dogBreed.trim() || !dogAge.trim() || !dogBio.trim()) {
           setSubmitError("Please complete all fields for your dog's profile.");
+          return false;
+        }
+        const parsedAge = parseInt(dogAge, 10);
+        if (isNaN(parsedAge) || parsedAge < 0 || parsedAge > 30) {
+          setSubmitError("Please enter a valid age for your dog (a number between 0 and 30).");
           return false;
         }
       }
@@ -361,7 +370,7 @@ export default function ProfileCompleteForm() {
           postal_code: normalizePostalCode(postalCode),
           profile_image: profilePictureUrl,
           pronouns,
-          birthday,
+          birthday: parseInt(birthday, 10),
           physical_address: physicalAddress,
           other_pets_on_site: otherPetsOnSite,
           other_pets_description: otherPetsDescription,
@@ -446,7 +455,7 @@ export default function ProfileCompleteForm() {
         const dogPayload = {
           volunteer_id: user.id,
           dog_name: dogName,
-          dog_age: dogAge,
+          dog_age: parseInt(dogAge, 10),
           dog_breed: dogBreed,
           dog_bio: dogBio,
           dog_picture_url: dogPhotoUrl || DEFAULT_DOG_IMAGE,
@@ -457,9 +466,11 @@ export default function ProfileCompleteForm() {
         };
 
         if (existingDog) {
-          await supabase.from('dogs').update(dogPayload).eq('volunteer_id', user.id);
+          const { error: dogError } = await supabase.from('dogs').update(dogPayload).eq('volunteer_id', user.id);
+          if (dogError) throw new Error(dogError.message);
         } else {
-          await supabase.from('dogs').insert(dogPayload);
+          const { error: dogError } = await supabase.from('dogs').insert(dogPayload);
+          if (dogError) throw new Error(dogError.message);
         }
 
         // If not opted into individual visits or no categories selected, treat as "open to all"
