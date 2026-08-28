@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
-import { addAttendeeToEvent } from '@/utils/googleCalendar';
+import { addAttendeeToEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
 
@@ -46,7 +46,7 @@ export async function POST(
     // Load the visit
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, title, guest_org_name')
+      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, title, guest_org_name, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, special_needs_notes, guest_contact_name, guest_contact_email, guest_contact_phone')
       .eq('id', visitId)
       .single();
 
@@ -166,16 +166,21 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to register for visit' }, { status: 500 });
     }
 
-    // Add volunteer as attendee on Google Calendar event (confirmed only)
+    // Add volunteer as attendee on Google Calendar event and refresh description (confirmed only)
+    // Runs in background — sequential to avoid rate limits, but doesn't block the response.
     if (newStatus === 'confirmed' && (visit as any).google_calendar_event_id) {
-      const { data: volunteerUser } = await supabase
-        .from('users')
-        .select('email')
-        .eq('id', userId)
-        .single();
-      if (volunteerUser?.email) {
-        await addAttendeeToEvent((visit as any).google_calendar_event_id, volunteerUser.email);
-      }
+      const gcalEventId = (visit as any).google_calendar_event_id;
+      (async () => {
+        const { data: volUser } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', userId)
+          .single();
+        if (volUser?.email) {
+          await addAttendeeToEvent(gcalEventId, volUser.email);
+        }
+        await refreshVisitEventDescription(visitId);
+      })().catch(err => console.error('[register] GCal update failed:', err));
     }
 
     // Send confirmation email to volunteer
@@ -195,6 +200,16 @@ export async function POST(
         new Date((visit as any).end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
       ].join(' – ');
 
+      const parkingCoverageLabels: Record<string, string> = {
+        free_on_site: 'Free parking on-site',
+        reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
+        invoice: 'Volunteers pay — added to invoice',
+      };
+      const rawCoverage = (visit as any).parking_coverage as string | null;
+      const visitAddressMapLink = (visit as any).address
+        ? `https://maps.google.com/?q=${encodeURIComponent((visit as any).address)}`
+        : null;
+
       sendTransactionalEmail({
         to: volunteerUser.email,
         subject: newStatus === 'confirmed'
@@ -207,6 +222,15 @@ export async function POST(
           visitDate: formattedDate,
           visitTime: formattedTime,
           visitAddress: (visit as any).address,
+          visitAddressMapLink,
+          parkingCoverage: rawCoverage ? (parkingCoverageLabels[rawCoverage] ?? rawCoverage) : null,
+          parkingInstructions: (visit as any).parking_instructions || null,
+          arrivalInstructions: (visit as any).arrival_instructions || null,
+          accessibilityNotes: (visit as any).accessibility_notes || null,
+          specialNeedsNotes: (visit as any).special_needs_notes || null,
+          contactName: (visit as any).guest_contact_name || null,
+          contactEmail: (visit as any).guest_contact_email || null,
+          contactPhone: (visit as any).guest_contact_phone || null,
           waitlistPosition: waitlistPosition ?? undefined,
           dashboardLink: `${getAppUrl()}/dashboard/visits`,
           year: new Date().getFullYear(),

@@ -4,7 +4,8 @@ Thank you for reaching out! We've received your therapy dog visit request for {{
 
 VISIT DETAILS
 Date: {{visitDate}}
-Location: {{visitAddress}}
+Location: {{visitAddress}}{{#if visitAddressMapLink}}
+Map: {{visitAddressMapLink}}{{/if}}
 
 You can expect to hear from us within 1–2 business days. If you have any questions in the meantime, don't hesitate to get in touch.
 

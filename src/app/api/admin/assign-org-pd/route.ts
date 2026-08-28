@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
+import { addAttendeeToEvent, removeAttendeeFromEvent } from '@/utils/googleCalendar';
 
 export async function POST(req: NextRequest) {
   const check = await requireAdminOrPd();
@@ -31,6 +32,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Read old PD before updating (needed for calendar attendee swap)
+    let oldPdId: string | null = null;
+    if (cascade_visits) {
+      const { data: orgData } = await supabase
+        .from('users')
+        .select('assigned_pd_id')
+        .eq('id', org_id)
+        .single();
+      oldPdId = orgData?.assigned_pd_id ?? null;
+    }
+
     // Update the org's assigned PD
     const { error: orgError } = await supabase
       .from('users')
@@ -51,13 +63,36 @@ export async function POST(req: NextRequest) {
         .update({ assigned_pd_id: pd_id ?? null })
         .eq('organization_id', org_id)
         .in('status', ['pending_review', 'approved'])
-        .select('id');
+        .select('id, google_calendar_event_id, status');
 
       if (visitError) {
         console.error('[assign-org-pd] Failed to cascade to visits:', visitError.message);
         // Don't fail the whole request — org was updated
       } else {
         visits_updated = updated?.length ?? 0;
+
+        // Swap PD attendees on approved calendar events
+        const approvedWithEvents = (updated ?? []).filter(
+          (v: any) => v.google_calendar_event_id && v.status === 'approved'
+        );
+        if (approvedWithEvents.length > 0) {
+          let oldPdEmail: string | null = null;
+          let newPdEmail: string | null = null;
+
+          if (oldPdId) {
+            const { data: oldPd } = await supabase.from('users').select('email').eq('id', oldPdId).single();
+            oldPdEmail = oldPd?.email ?? null;
+          }
+          if (pd_id) {
+            const { data: newPd } = await supabase.from('users').select('email').eq('id', pd_id).single();
+            newPdEmail = newPd?.email ?? null;
+          }
+
+          for (const v of approvedWithEvents) {
+            if (oldPdEmail) removeAttendeeFromEvent(v.google_calendar_event_id, oldPdEmail).catch(() => {});
+            if (newPdEmail) addAttendeeToEvent(v.google_calendar_event_id, newPdEmail).catch(() => {});
+          }
+        }
       }
     }
 

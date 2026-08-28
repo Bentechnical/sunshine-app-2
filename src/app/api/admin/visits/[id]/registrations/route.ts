@@ -6,6 +6,7 @@ import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { addAttendeeToEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
 
 export async function GET(
   _req: NextRequest,
@@ -73,7 +74,7 @@ export async function POST(
     // Fetch visit to check slot count
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, title, guest_org_name, address, visit_date, start_time, end_time, volunteer_slots')
+      .select('id, title, guest_org_name, address, visit_date, start_time, end_time, volunteer_slots, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, special_needs_notes, guest_contact_name, guest_contact_email, guest_contact_phone, google_calendar_event_id, status')
       .eq('id', visitId)
       .single();
 
@@ -139,6 +140,23 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to add volunteer' }, { status: 500 });
     }
 
+    // Add volunteer to Google Calendar event and refresh description (confirmed only)
+    // Runs in background — sequential to avoid rate limits, but doesn't block the response.
+    if (status === 'confirmed' && (visit as any).google_calendar_event_id && (visit as any).status === 'approved') {
+      const gcalEventId = (visit as any).google_calendar_event_id;
+      (async () => {
+        const { data: volUser } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', volunteer_id)
+          .single();
+        if (volUser?.email) {
+          await addAttendeeToEvent(gcalEventId, volUser.email);
+        }
+        await refreshVisitEventDescription(visitId);
+      })().catch(err => console.error('[POST registrations] GCal update failed:', err));
+    }
+
     // Send confirmation email to the assigned volunteer
     const { data: volunteerUser } = await supabase
       .from('users')
@@ -157,6 +175,16 @@ export async function POST(
         new Date(v.end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
       ].join(' – ');
 
+      const parkingCoverageLabels: Record<string, string> = {
+        free_on_site: 'Free parking on-site',
+        reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
+        invoice: 'Volunteers pay — added to invoice',
+      };
+      const rawCoverage = v.parking_coverage as string | null;
+      const visitAddressMapLink = v.address
+        ? `https://maps.google.com/?q=${encodeURIComponent(v.address)}`
+        : null;
+
       sendTransactionalEmail({
         to: volunteerUser.email,
         subject: 'You\'ve been registered for a visit — Sunshine Therapy Dogs',
@@ -167,6 +195,15 @@ export async function POST(
           visitDate: formattedDate,
           visitTime: formattedTime,
           visitAddress: v.address,
+          visitAddressMapLink,
+          parkingCoverage: rawCoverage ? (parkingCoverageLabels[rawCoverage] ?? rawCoverage) : null,
+          parkingInstructions: v.parking_instructions || null,
+          arrivalInstructions: v.arrival_instructions || null,
+          accessibilityNotes: v.accessibility_notes || null,
+          specialNeedsNotes: v.special_needs_notes || null,
+          contactName: v.guest_contact_name || null,
+          contactEmail: v.guest_contact_email || null,
+          contactPhone: v.guest_contact_phone || null,
           dashboardLink: `${getAppUrl()}/dashboard/visits`,
           year: new Date().getFullYear(),
         },

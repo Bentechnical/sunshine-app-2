@@ -31,12 +31,12 @@ export async function POST(
     const { data: visit, error: fetchError } = await supabase
       .from('visits')
       .select(`
-        id, status, title, organization_id,
+        id, status, title, organization_id, assigned_pd_id,
         guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
         visit_date, start_time, end_time, address,
         postal_code, location_lat, location_lng,
         audience_age_ranges, visitor_count_expected, special_needs_notes,
-        volunteer_slots, parking_coverage, parking_instructions,
+        accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
         arrival_instructions, fee_tier, fee_amount,
         requires_vsc, requires_vaccine_record, admin_note
       `)
@@ -94,10 +94,22 @@ export async function POST(
     // Use event-specific contact name if provided
     if (visit.guest_contact_name) contactName = visit.guest_contact_name;
 
+    // Resolve assigned PD email for calendar invite
+    let pdEmail: string | null = null;
+    if ((visit as any).assigned_pd_id) {
+      const { data: pdUser } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', (visit as any).assigned_pd_id)
+        .single();
+      if (pdUser?.email) pdEmail = pdUser.email;
+    }
+
     // Create Google Calendar event in background — does not block the response
+    const attendeeEmails = [orgContactEmail, pdEmail].filter((e): e is string => !!e);
     createVisitEvent(
-      { ...visit, admin_note: adminNote ?? visit.admin_note },
-      orgContactEmail,
+      { ...visit, admin_note: adminNote ?? visit.admin_note } as any,
+      attendeeEmails,
     ).then(calendarEventId => {
       if (calendarEventId) {
         supabase
@@ -135,6 +147,7 @@ export async function POST(
           visitDate: formattedDate,
           visitTime: formattedTime,
           visitAddress: visit.address,
+          visitAddressMapLink: visit.address ? `https://maps.google.com/?q=${encodeURIComponent(visit.address)}` : null,
           adminNote: adminNote || visit.admin_note || null,
           dashboardLink: isAccountHolder ? `${getAppUrl()}/dashboard/organization` : null,
           year: new Date().getFullYear(),

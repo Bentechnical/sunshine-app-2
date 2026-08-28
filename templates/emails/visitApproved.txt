@@ -5,7 +5,8 @@ Great news — your therapy dog visit request for {{orgName}} has been approved 
 VISIT DETAILS
 Date: {{visitDate}}
 Time: {{visitTime}}
-Location: {{visitAddress}}
+Location: {{visitAddress}}{{#if visitAddressMapLink}}
+Map: {{visitAddressMapLink}}{{/if}}
 
 {{#if adminNote}}
 COMMENTS FROM THE SUNSHINE TEAM

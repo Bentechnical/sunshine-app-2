@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
-import { updateVisitEvent } from '@/utils/googleCalendar';
+import { updateVisitEvent, getTeamAssigned, addAttendeeToEvent, removeAttendeeFromEvent } from '@/utils/googleCalendar';
 import { fromZonedTime } from 'date-fns-tz';
 
 const EASTERN = 'America/New_York';
@@ -130,6 +130,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
+    // Read old PD before updating (needed for calendar attendee swap)
+    let oldPdId: string | null = null;
+    if ('assigned_pd_id' in updates) {
+      const { data: oldVisit } = await supabase
+        .from('visits')
+        .select('assigned_pd_id')
+        .eq('id', visitId)
+        .single();
+      oldPdId = oldVisit?.assigned_pd_id ?? null;
+    }
+
     const { error } = await supabase
       .from('visits')
       .update(updates)
@@ -142,18 +153,19 @@ export async function PATCH(
 
     // If any calendar-visible fields changed, update the Google Calendar event
     const calendarFields = ['title', 'visit_date', 'start_time', 'end_time', 'address',
-      'guest_org_name', 'arrival_instructions', 'parking_instructions', 'parking_coverage',
-      'special_needs_notes', 'fee_tier', 'fee_amount', 'requires_vsc',
-      'admin_note', 'audience_age_ranges', 'visitor_count_expected'];
+      'guest_org_name', 'guest_contact_name', 'guest_contact_phone', 'guest_contact_email',
+      'arrival_instructions', 'parking_instructions', 'parking_coverage', 'accessibility_notes',
+      'special_needs_notes', 'fee_tier', 'fee_amount',
+      'audience_age_ranges', 'visitor_count_expected'];
     const affectsCalendar = calendarFields.some(f => f in updates);
 
-    if (affectsCalendar) {
+    if (affectsCalendar || 'assigned_pd_id' in updates) {
       const { data: fullVisit } = await supabase
         .from('visits')
         .select(`
           id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
           address, start_time, end_time, audience_age_ranges, visitor_count_expected,
-          special_needs_notes, volunteer_slots, parking_coverage, parking_instructions,
+          special_needs_notes, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
           arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
           admin_note, google_calendar_event_id, status
         `)
@@ -161,7 +173,27 @@ export async function PATCH(
         .single();
 
       if (fullVisit?.google_calendar_event_id && fullVisit.status === 'approved') {
-        await updateVisitEvent(fullVisit.google_calendar_event_id, fullVisit as any);
+        // Update description/color/time (runs in background)
+        if (affectsCalendar) {
+          const teamAssigned = await getTeamAssigned(visitId);
+          updateVisitEvent(fullVisit.google_calendar_event_id, fullVisit as any, teamAssigned)
+            .catch(err => console.error('[PATCH visit] GCal update failed:', err));
+        }
+
+        // Swap PD attendee if assigned_pd_id changed
+        if ('assigned_pd_id' in updates && oldPdId !== updates.assigned_pd_id) {
+          const gcalEventId = fullVisit.google_calendar_event_id;
+          (async () => {
+            if (oldPdId) {
+              const { data: oldPd } = await supabase.from('users').select('email').eq('id', oldPdId).single();
+              if (oldPd?.email) await removeAttendeeFromEvent(gcalEventId, oldPd.email);
+            }
+            if (updates.assigned_pd_id) {
+              const { data: newPd } = await supabase.from('users').select('email').eq('id', updates.assigned_pd_id).single();
+              if (newPd?.email) await addAttendeeToEvent(gcalEventId, newPd.email);
+            }
+          })().catch(err => console.error('[PATCH visit] GCal PD swap failed:', err));
+        }
       }
     }
 

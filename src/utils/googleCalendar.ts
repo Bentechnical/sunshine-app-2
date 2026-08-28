@@ -4,23 +4,31 @@
 // never throw, so they never block the main API operation.
 
 import { google } from 'googleapis';
+import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // GCal color IDs: 1=Lavender, 2=Sage, 3=Grape, 4=Flamingo, 5=Banana,
 // 6=Tangerine, 7=Peacock, 8=Graphite, 9=Blueberry, 10=Basil, 11=Tomato
 //
-// TODO: Update these mappings once production calendar color conventions are confirmed.
-
-const FEE_TIER_COLOR: Record<string, string> = {
-  free:     '2',  // Sage
-  standard: '7',  // Peacock
-  reduced:  '5',  // Banana
-  custom:   '6',  // Tangerine
+// Color is derived from fee_tier + parking_coverage combination.
+// "+parking" color variants apply when parking_coverage = 'invoice' (added to invoice).
+const COLOR_MAP: Record<string, string> = {
+  tier_500:          '4',  // Flamingo
+  tier_500_parking:  '7',  // Peacock
+  tier_200:          '3',  // Grape
+  tier_200_parking:  '2',  // Sage
+  tier_0:            '5',  // Banana
+  custom:            '8',  // Graphite
 };
-const DEFAULT_COLOR = '7'; // Peacock
+const DEFAULT_COLOR = '4'; // Flamingo
 
-function getColorId(feeTier: string | null | undefined): string {
-  return feeTier ? (FEE_TIER_COLOR[feeTier] ?? DEFAULT_COLOR) : DEFAULT_COLOR;
+function getColorId(feeTier: string | null | undefined, parkingCoverage: string | null | undefined): string {
+  if (!feeTier) return DEFAULT_COLOR;
+  const hasParkingInvoice = parkingCoverage === 'invoice';
+  const key = hasParkingInvoice && (feeTier === 'tier_500' || feeTier === 'tier_200')
+    ? `${feeTier}_parking`
+    : feeTier;
+  return COLOR_MAP[key] ?? DEFAULT_COLOR;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -28,6 +36,11 @@ function getColorId(feeTier: string | null | undefined): string {
 function getCalendarClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+  const calId = process.env.GOOGLE_CALENDAR_ID;
+
+  console.log('[GCal] Auth check — email:', email ? 'set' : 'MISSING',
+    '| key:', rawKey ? `set (${rawKey.length} chars)` : 'MISSING',
+    '| calendarId:', calId ? 'set' : 'MISSING');
 
   if (!email || !rawKey) {
     throw new Error('Google Calendar env vars not configured');
@@ -36,9 +49,11 @@ function getCalendarClient() {
   // .env.local stores \n as literal two-char sequence; convert to real newlines
   const privateKey = rawKey.replace(/\\n/g, '\n');
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: { client_email: email, private_key: privateKey },
+  const auth = new google.auth.JWT({
+    email,
+    key: privateKey,
     scopes: ['https://www.googleapis.com/auth/calendar'],
+    subject: process.env.GOOGLE_CALENDAR_IMPERSONATE_EMAIL,
   });
 
   return google.calendar({ version: 'v3', auth });
@@ -63,6 +78,7 @@ interface VisitForCalendar {
   parking_instructions: string | null;
   parking_coverage: string | null;
   special_needs_notes: string | null;
+  accessibility_notes: string | null;
   fee_tier: string | null;
   fee_amount: number | null;
   requires_vsc: boolean;
@@ -70,63 +86,48 @@ interface VisitForCalendar {
   admin_note: string | null;
 }
 
-function buildDescription(visit: VisitForCalendar, confirmedVolunteers: string[] = []): string {
+// Team assigned entries: "FirstName & DogName" pairs for confirmed volunteers
+function buildDescription(visit: VisitForCalendar, teamAssigned: string[] = []): string {
   const lines: string[] = [];
 
-  lines.push(`Organization: ${visit.guest_org_name ?? '—'}`);
-  if (visit.guest_contact_name) lines.push(`Contact: ${visit.guest_contact_name}`);
-  if (visit.guest_contact_phone) lines.push(`Phone: ${visit.guest_contact_phone}`);
-  if (visit.guest_contact_email) lines.push(`Email: ${visit.guest_contact_email}`);
-
-  lines.push('');
-  lines.push(`Location: ${visit.address}`);
-
-  if (visit.audience_age_ranges?.length) {
-    lines.push(`Audience: ${visit.audience_age_ranges.join(', ')}`);
+  // On-site contact
+  if (visit.guest_contact_name) {
+    let contactLine = `<b>On-site contact:</b> ${visit.guest_contact_name}`;
+    if (visit.guest_contact_phone) contactLine += ` - ${visit.guest_contact_phone}`;
+    lines.push(contactLine);
+    if (visit.guest_contact_email) lines.push(`  ${visit.guest_contact_email}`);
   }
-  if (visit.visitor_count_expected) {
-    lines.push(`Expected visitors: ${visit.visitor_count_expected}`);
-  }
-  lines.push(`Volunteer slots: ${visit.volunteer_slots}`);
 
-  if (visit.arrival_instructions) {
-    lines.push('');
-    lines.push(`Arrival: ${visit.arrival_instructions}`);
+  // Sunshine contact (hardcoded for now)
+  lines.push(`<b>Sunshine contact:</b> Alanna - 416-333-6940`);
+
+  // Visit info (audience, visitor count, special needs)
+  const visitInfoParts: string[] = [];
+  if (visit.visitor_count_expected) visitInfoParts.push(`${visit.visitor_count_expected} expected visitors`);
+  if (visit.audience_age_ranges?.length) visitInfoParts.push(visit.audience_age_ranges.join(', '));
+  if (visit.special_needs_notes) visitInfoParts.push(visit.special_needs_notes);
+  if (visitInfoParts.length) {
+    lines.push(`<b>Visit info:</b> ${visitInfoParts.join(' - ')}`);
   }
+
+  // Parking
   if (visit.parking_instructions) {
-    lines.push(`Parking: ${visit.parking_instructions}`);
-  } else if (visit.parking_coverage) {
-    lines.push(`Parking: ${visit.parking_coverage.replace(/_/g, ' ')}`);
-  }
-  if (visit.special_needs_notes) {
-    lines.push(`Special needs: ${visit.special_needs_notes}`);
+    lines.push(`<b>Parking:</b> ${visit.parking_instructions}`);
   }
 
-  if (visit.fee_tier) {
-    const feeStr = visit.fee_tier === 'custom' && visit.fee_amount
-      ? `Custom ($${visit.fee_amount})`
-      : visit.fee_tier.charAt(0).toUpperCase() + visit.fee_tier.slice(1);
-    lines.push('');
-    lines.push(`Fee: ${feeStr}`);
+  // Arrival/check-in instructions
+  if (visit.arrival_instructions) {
+    lines.push(`<b>Arrival/check-in instructions:</b> ${visit.arrival_instructions}`);
   }
 
-  const reqs: string[] = [];
-  if (visit.requires_vsc) reqs.push('VSC');
-  if (visit.requires_vaccine_record) reqs.push('Vaccine record');
-  if (reqs.length) lines.push(`Requirements: ${reqs.join(', ')}`);
-
-  if (confirmedVolunteers.length) {
-    lines.push('');
-    lines.push(`Confirmed volunteers: ${confirmedVolunteers.join(', ')}`);
+  // Accessibility notes
+  if (visit.accessibility_notes) {
+    lines.push(`<b>Accessibility notes:</b> ${visit.accessibility_notes}`);
   }
 
-  if (visit.admin_note) {
-    lines.push('');
-    lines.push(`Note: ${visit.admin_note}`);
-  }
-
-  lines.push('');
-  lines.push(`Sunshine App visit ID: ${visit.id}`);
+  // Team assigned
+  const teamLine = teamAssigned.length > 0 ? teamAssigned.join(', ') : 'TBD';
+  lines.push(`<b>Team assigned:</b> ${teamLine}`);
 
   return lines.join('\n');
 }
@@ -143,30 +144,49 @@ function buildSummary(visit: VisitForCalendar): string {
  * Returns the Google Calendar event ID, or null on failure.
  */
 export async function createVisitEvent(
-  visit: VisitForCalendar & { start_time: string; end_time: string; fee_tier: string | null },
-  orgContactEmail: string | null,
+  visit: VisitForCalendar & { start_time: string; end_time: string },
+  attendeeEmails: string[],
+  teamAssigned?: string[],
 ): Promise<string | null> {
+  console.log(`[GCal] createVisitEvent called for visit ${visit.id}`, {
+    attendeeEmails,
+    feeTier: visit.fee_tier,
+    parkingCoverage: visit.parking_coverage,
+    hasStartTime: !!visit.start_time,
+    hasEndTime: !!visit.end_time,
+    calendarId: CALENDAR_ID,
+  });
   try {
     const calendar = getCalendarClient();
 
-    const attendees: { email: string }[] = [];
-    if (orgContactEmail) attendees.push({ email: orgContactEmail });
-
+    // Create event without attendees first (service accounts can't invite
+    // attendees directly without Domain-Wide Delegation), then add them via patch.
     const event = await calendar.events.insert({
       calendarId: CALENDAR_ID,
+      sendUpdates: 'none',
       requestBody: {
         summary: buildSummary(visit),
-        description: buildDescription(visit),
+        description: buildDescription(visit, teamAssigned ?? []),
         location: visit.address,
         start: { dateTime: visit.start_time },
         end: { dateTime: visit.end_time },
-        colorId: getColorId(visit.fee_tier),
-        attendees,
+        colorId: getColorId(visit.fee_tier, visit.parking_coverage),
+        guestsCanModify: false,
+        guestsCanInviteOthers: false,
+        guestsCanSeeOtherGuests: false,
       },
     });
 
     const eventId = event.data.id ?? null;
     console.log(`[GCal] Created event ${eventId} for visit ${visit.id}`);
+
+    // Add attendees one-by-one after creation
+    if (eventId && attendeeEmails.length > 0) {
+      for (const email of attendeeEmails.filter(Boolean)) {
+        await addAttendeeToEvent(eventId, email);
+      }
+    }
+
     return eventId;
   } catch (err: any) {
     console.error(`[GCal] Failed to create event for visit ${visit.id}:`, err.message);
@@ -183,6 +203,7 @@ export async function cancelVisitEvent(googleCalendarEventId: string): Promise<v
     await calendar.events.patch({
       calendarId: CALENDAR_ID,
       eventId: googleCalendarEventId,
+      sendUpdates: 'none',
       requestBody: { status: 'cancelled' },
     });
     console.log(`[GCal] Cancelled event ${googleCalendarEventId}`);
@@ -197,20 +218,21 @@ export async function cancelVisitEvent(googleCalendarEventId: string): Promise<v
 export async function updateVisitEvent(
   googleCalendarEventId: string,
   visit: VisitForCalendar & { start_time: string; end_time: string },
-  confirmedVolunteers?: string[],
+  teamAssigned?: string[],
 ): Promise<void> {
   try {
     const calendar = getCalendarClient();
     await calendar.events.patch({
       calendarId: CALENDAR_ID,
       eventId: googleCalendarEventId,
+      sendUpdates: 'none',
       requestBody: {
         summary: buildSummary(visit),
-        description: buildDescription(visit, confirmedVolunteers ?? []),
+        description: buildDescription(visit, teamAssigned ?? []),
         location: visit.address,
         start: { dateTime: visit.start_time },
         end: { dateTime: visit.end_time },
-        colorId: getColorId(visit.fee_tier),
+        colorId: getColorId(visit.fee_tier, visit.parking_coverage),
       },
     });
     console.log(`[GCal] Updated event ${googleCalendarEventId}`);
@@ -242,6 +264,7 @@ export async function addAttendeeToEvent(
     await calendar.events.patch({
       calendarId: CALENDAR_ID,
       eventId: googleCalendarEventId,
+      sendUpdates: 'none',
       requestBody: {
         attendees: [...currentAttendees, { email }],
       },
@@ -275,10 +298,75 @@ export async function removeAttendeeFromEvent(
     await calendar.events.patch({
       calendarId: CALENDAR_ID,
       eventId: googleCalendarEventId,
+      sendUpdates: 'none',
       requestBody: { attendees: filtered },
     });
     console.log(`[GCal] Removed attendee ${email} from event ${googleCalendarEventId}`);
   } catch (err: any) {
     console.error(`[GCal] Failed to remove attendee ${email} from event ${googleCalendarEventId}:`, err.message);
   }
+}
+
+/**
+ * Fetch "FirstName & DogName" strings for all confirmed volunteers on a visit.
+ * Used to build the "Team assigned" line in the GCal description.
+ */
+export async function getTeamAssigned(visitId: number): Promise<string[]> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: regs } = await supabase
+    .from('visit_registrations')
+    .select('volunteer_id')
+    .eq('visit_id', visitId)
+    .eq('status', 'confirmed');
+
+  if (!regs?.length) return [];
+
+  const volunteerIds = regs.map(r => r.volunteer_id);
+
+  const { data: volunteers } = await supabase
+    .from('users')
+    .select('id, first_name')
+    .in('id', volunteerIds);
+
+  const { data: dogs } = await supabase
+    .from('dogs')
+    .select('volunteer_id, dog_name')
+    .in('volunteer_id', volunteerIds)
+    .neq('status', 'archived');
+
+  const dogByVolunteer = new Map<string, string>();
+  for (const dog of dogs ?? []) {
+    dogByVolunteer.set(dog.volunteer_id, dog.dog_name);
+  }
+
+  return (volunteers ?? []).map(v => {
+    const dogName = dogByVolunteer.get(v.id);
+    return dogName ? `${v.first_name} & ${dogName}` : v.first_name;
+  });
+}
+
+/**
+ * Convenience: refresh only the description (team assigned) on a GCal event.
+ * Fetches visit data and current team, then calls updateVisitEvent.
+ */
+export async function refreshVisitEventDescription(visitId: number): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: visit } = await supabase
+    .from('visits')
+    .select(`
+      id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
+      address, start_time, end_time, audience_age_ranges, visitor_count_expected,
+      special_needs_notes, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
+      arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
+      admin_note, google_calendar_event_id, status
+    `)
+    .eq('id', visitId)
+    .single();
+
+  if (!visit?.google_calendar_event_id || visit.status !== 'approved') return;
+
+  const teamAssigned = await getTeamAssigned(visitId);
+  await updateVisitEvent(visit.google_calendar_event_id, visit as any, teamAssigned);
 }

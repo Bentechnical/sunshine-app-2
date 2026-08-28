@@ -25,7 +25,7 @@
           <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
             <p style="margin: 0 0 8px 0;"><strong>Date:</strong> {{visitDate}}</p>
             <p style="margin: 0 0 8px 0;"><strong>Time:</strong> {{visitTime}}</p>
-            <p style="margin: 0;"><strong>Location:</strong> {{visitAddress}}</p>
+            <p style="margin: 0;"><strong>Location:</strong> {{#if visitAddressMapLink}}<a href="{{visitAddressMapLink}}" style="color: #0e62ae; text-decoration: none;">{{visitAddress}}</a>{{else}}{{visitAddress}}{{/if}}</p>
           </div>
 
           {{#if adminNote}}

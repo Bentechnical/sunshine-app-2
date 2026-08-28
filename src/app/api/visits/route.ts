@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
           orgName: user.org_name || guest_contact_name || 'your organization',
           visitDate: formattedDate,
           visitAddress: address,
+          visitAddressMapLink: address ? `https://maps.google.com/?q=${encodeURIComponent(address)}` : null,
           year: new Date().getFullYear(),
         },
       }).catch(err => console.error('[POST /api/visits] Failed to send confirmation email:', err));

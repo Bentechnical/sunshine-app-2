@@ -5,7 +5,21 @@ A Sunshine Therapy Dogs administrator has registered you for the following visit
 {{visitTitle}}
 Date: {{visitDate}}
 Time: {{visitTime}}
-Location: {{visitAddress}}
+Location: {{visitAddress}}{{#if visitAddressMapLink}}
+Map: {{visitAddressMapLink}}{{/if}}
+{{#if parkingCoverage}}
+Parking: {{parkingCoverage}}{{/if}}
+{{#if parkingInstructions}}
+Parking Instructions: {{parkingInstructions}}{{/if}}
+{{#if arrivalInstructions}}
+Arrival Instructions: {{arrivalInstructions}}{{/if}}
+{{#if contactName}}
+
+On-Site Contact: {{contactName}}{{#if contactEmail}} | {{contactEmail}}{{/if}}{{#if contactPhone}} | {{contactPhone}}{{/if}}{{/if}}
+{{#if accessibilityNotes}}
+Accessibility Notes: {{accessibilityNotes}}{{/if}}
+{{#if specialNeedsNotes}}
+Special Needs Notes: {{specialNeedsNotes}}{{/if}}
 
 You can view your upcoming visits and full visit details from your dashboard:
 {{dashboardLink}}

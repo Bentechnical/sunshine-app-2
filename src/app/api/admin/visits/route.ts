@@ -6,6 +6,7 @@ import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
 import { geocodePostalCodeServer } from '@/utils/geocode';
+import { createVisitEvent } from '@/utils/googleCalendar';
 
 const EASTERN = 'America/New_York';
 
@@ -191,7 +192,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create visit' }, { status: 500 });
     }
 
-    // TODO: If status = 'approved', create Google Calendar event
+    // If created as approved, create Google Calendar event in background
+    if ((status ?? 'pending_review') === 'approved') {
+      const { data: fullVisit } = await supabase
+        .from('visits')
+        .select(`
+          id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
+          address, start_time, end_time, audience_age_ranges, visitor_count_expected,
+          special_needs_notes, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
+          arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
+          admin_note, assigned_pd_id
+        `)
+        .eq('id', visit.id)
+        .single();
+
+      if (fullVisit) {
+        // Collect attendee emails (org contact + assigned PD)
+        const attendeeEmails: string[] = [];
+        if (fullVisit.guest_contact_email) attendeeEmails.push(fullVisit.guest_contact_email);
+        if (fullVisit.assigned_pd_id) {
+          const { data: pdUser } = await supabase
+            .from('users')
+            .select('email')
+            .eq('id', fullVisit.assigned_pd_id)
+            .single();
+          if (pdUser?.email) attendeeEmails.push(pdUser.email);
+        }
+
+        createVisitEvent(fullVisit as any, attendeeEmails).then(calendarEventId => {
+          if (calendarEventId) {
+            supabase
+              .from('visits')
+              .update({ google_calendar_event_id: calendarEventId })
+              .eq('id', visit.id)
+              .then(({ error: updateErr }) => {
+                if (updateErr) console.error('[POST /api/admin/visits] Failed to store calendar event ID:', updateErr);
+              });
+          }
+        }).catch(err => console.error('[POST /api/admin/visits] Calendar event creation failed:', err));
+      }
+    }
 
     return NextResponse.json({ success: true, visitId: visit.id }, { status: 201 });
   } catch (err: any) {

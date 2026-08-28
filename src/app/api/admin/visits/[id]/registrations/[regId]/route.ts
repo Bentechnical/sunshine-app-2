@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
-import { removeAttendeeFromEvent } from '@/utils/googleCalendar';
+import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
 
 export async function DELETE(
   req: NextRequest,
@@ -78,6 +78,10 @@ export async function DELETE(
         if (volunteerUser?.email) {
           await removeAttendeeFromEvent(visitData.google_calendar_event_id, volunteerUser.email);
         }
+        // Refresh description to update "Team assigned" line
+        refreshVisitEventDescription(visitId).catch(err =>
+          console.error('[DELETE registration] Failed to refresh GCal description:', err)
+        );
       }
     }
 

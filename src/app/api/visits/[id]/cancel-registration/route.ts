@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
-import { removeAttendeeFromEvent } from '@/utils/googleCalendar';
+import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
 
 export async function POST(
   req: NextRequest,
@@ -68,7 +68,7 @@ export async function POST(
         .eq('id', visitId)
         .single();
 
-      // Remove volunteer from Google Calendar event
+      // Remove volunteer from Google Calendar event and refresh description
       if ((visit as any)?.google_calendar_event_id) {
         const { data: volunteerUser } = await supabase
           .from('users')
@@ -78,6 +78,9 @@ export async function POST(
         if (volunteerUser?.email) {
           await removeAttendeeFromEvent((visit as any).google_calendar_event_id, volunteerUser.email);
         }
+        refreshVisitEventDescription(visitId).catch(err =>
+          console.error('[cancel-registration] Failed to refresh GCal description:', err)
+        );
       }
 
       // TODO: Notify admin/PD of volunteer cancellation

@@ -11,6 +11,19 @@ import { formatCardTime } from '@/utils/timeZone';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 import VisitMap from '@/components/ui/VisitMap';
 
+const formatPhoneNumber = (value: string) => {
+  const cleaned = value.replace(/\D/g, '').slice(0, 10);
+  const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+  if (match) {
+    const parts = [match[1], match[2], match[3]].filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return `(${parts[0]}`;
+    if (parts.length === 2) return `(${parts[0]}) ${parts[1]}`;
+    return `(${parts[0]}) ${parts[1]}-${parts[2]}`;
+  }
+  return value;
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type VisitStatus = 'pending_review' | 'approved' | 'declined' | 'cancelled' | 'completed';
@@ -435,7 +448,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           </div>
           <div>
             <label className={labelClass}>Contact Phone</label>
-            <input type="tel" value={form.guest_contact_phone} onChange={e => set('guest_contact_phone', e.target.value)} className={inputClass} />
+            <input type="tel" value={form.guest_contact_phone} onChange={e => set('guest_contact_phone', formatPhoneNumber(e.target.value))} className={inputClass} placeholder="(416) 555-1234" />
           </div>
           {pdOptions.length > 0 && (
             <div>
@@ -949,8 +962,8 @@ function VisitDetailView({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
-                <input type="tel" value={editForm.guest_contact_phone} onChange={e => setEditForm(f => f ? { ...f, guest_contact_phone: e.target.value } : f)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="tel" value={editForm.guest_contact_phone} onChange={e => setEditForm(f => f ? { ...f, guest_contact_phone: formatPhoneNumber(e.target.value) } : f)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="(416) 555-1234" />
               </div>
             </div>
           </div>
