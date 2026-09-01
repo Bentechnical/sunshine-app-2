@@ -38,7 +38,7 @@ interface OrgVisit {
   guest_contact_email: string | null;
   guest_contact_phone: string | null;
   audience_age_ranges: string[] | null;
-  special_needs_notes: string | null;
+  event_description: string | null;
   approx_space_sqft: number | null;
   parking_coverage: string | null;
   parking_instructions: string | null;
@@ -70,13 +70,13 @@ interface EditForm {
   guest_contact_phone: string;
   visitor_count_expected: string;
   volunteer_slots: string;
-  special_needs_notes: string;
+  event_description: string;
   approx_space_sqft: string;
+  parking_coverage: string;
   parking_instructions: string;
   arrival_instructions: string;
   accessibility_notes: string;
   requires_vsc: boolean;
-  requires_vaccine_record: boolean;
 }
 
 interface Props {
@@ -176,13 +176,13 @@ function visitToEditForm(v: OrgVisit): EditForm {
     guest_contact_phone: v.guest_contact_phone ?? '',
     visitor_count_expected: v.expected_visitors?.toString() ?? '',
     volunteer_slots: v.max_volunteers?.toString() ?? '1',
-    special_needs_notes: v.special_needs_notes ?? '',
+    event_description: v.event_description ?? '',
     approx_space_sqft: v.approx_space_sqft?.toString() ?? '',
+    parking_coverage: v.parking_coverage ?? '',
     parking_instructions: v.parking_instructions ?? '',
     arrival_instructions: v.arrival_instructions ?? '',
     accessibility_notes: v.accessibility_notes ?? '',
     requires_vsc: v.requires_vsc,
-    requires_vaccine_record: v.requires_vaccine,
   };
 }
 
@@ -275,13 +275,13 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
           guest_contact_phone: editForm.guest_contact_phone,
           visitor_count_expected: editForm.visitor_count_expected ? parseInt(editForm.visitor_count_expected) : null,
           volunteer_slots: parseInt(editForm.volunteer_slots) || 1,
-          special_needs_notes: editForm.special_needs_notes,
+          event_description: editForm.event_description,
           approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
+          parking_coverage: editForm.parking_coverage || null,
           parking_instructions: editForm.parking_instructions,
           arrival_instructions: editForm.arrival_instructions,
           accessibility_notes: editForm.accessibility_notes,
           requires_vsc: editForm.requires_vsc,
-          requires_vaccine_record: editForm.requires_vaccine_record,
         }),
       });
       const json = await res.json();
@@ -302,13 +302,13 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
           guest_contact_phone: editForm.guest_contact_phone || null,
           expected_visitors: editForm.visitor_count_expected ? parseInt(editForm.visitor_count_expected) : null,
           max_volunteers: parseInt(editForm.volunteer_slots) || 1,
-          special_needs_notes: editForm.special_needs_notes || null,
+          event_description: editForm.event_description || null,
           approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
+          parking_coverage: editForm.parking_coverage || null,
           parking_instructions: editForm.parking_instructions || null,
           arrival_instructions: editForm.arrival_instructions || null,
           accessibility_notes: editForm.accessibility_notes || null,
           requires_vsc: editForm.requires_vsc,
-          requires_vaccine: editForm.requires_vaccine_record,
         };
       }));
       setEditForm(null);
@@ -623,31 +623,50 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
                 <input type="checkbox" className="rounded" checked={editForm!.requires_vsc} onChange={setCheck('requires_vsc')} />
                 <span className="text-sm text-gray-700">Volunteer Screening Check (VSC) required</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="rounded" checked={editForm!.requires_vaccine_record} onChange={setCheck('requires_vaccine_record')} />
-                <span className="text-sm text-gray-700">Vaccine records required</span>
-              </label>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedVisit.requires_vsc ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'}`}>
                 VSC {selectedVisit.requires_vsc ? 'Required' : 'Not Required'}
               </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedVisit.requires_vaccine ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-400'}`}>
-                Vaccine Records {selectedVisit.requires_vaccine ? 'Required' : 'Not Required'}
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                Rabies Vaccine Record Required
               </span>
             </div>
           )}
         </div>
 
+        {/* Event description */}
+        {(isEditing || selectedVisit.event_description) && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Event Description</h3>
+            {isEditing ? (
+              <textarea rows={3} className={ic} value={editForm!.event_description} onChange={set('event_description')}
+                placeholder="What should volunteers know about this visit? Describe the event, audience, what to expect…" />
+            ) : (
+              <p className="text-sm text-gray-700 whitespace-pre-line">{selectedVisit.event_description}</p>
+            )}
+          </div>
+        )}
+
         {/* Instructions & notes */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Instructions &amp; Notes</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Logistics</h3>
           {isEditing ? (
             <div className="space-y-3">
               <div>
                 <label className={lc}>Space Size (sq ft)</label>
                 <input type="number" className={ic} value={editForm!.approx_space_sqft} onChange={set('approx_space_sqft')} placeholder="Optional" />
+              </div>
+              <div>
+                <label className={lc}>Parking Coverage</label>
+                <select className={ic} value={editForm!.parking_coverage}
+                  onChange={e => setEditForm(prev => prev ? { ...prev, parking_coverage: e.target.value } : prev)}>
+                  <option value="">Not specified</option>
+                  <option value="free_on_site">Free parking on-site</option>
+                  <option value="reimbursed_on_site">Volunteers pay — reimbursed on-site</option>
+                  <option value="invoice">Volunteers pay — added to invoice</option>
+                </select>
               </div>
               <div>
                 <label className={lc}>Parking Instructions</label>
@@ -658,21 +677,24 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
                 <textarea rows={2} className={ic} value={editForm!.arrival_instructions} onChange={set('arrival_instructions')} placeholder="How should volunteers arrive / check in?" />
               </div>
               <div>
-                <label className={lc}>Accessibility Notes</label>
-                <textarea rows={2} className={ic} value={editForm!.accessibility_notes} onChange={set('accessibility_notes')} placeholder="Any accessibility considerations?" />
-              </div>
-              <div>
-                <label className={lc}>Special Needs / Notes</label>
-                <textarea rows={2} className={ic} value={editForm!.special_needs_notes} onChange={set('special_needs_notes')} placeholder="Any special needs for the audience?" />
+                <label className={lc}>Accessibility</label>
+                <textarea rows={2} className={ic} value={editForm!.accessibility_notes} onChange={set('accessibility_notes')} placeholder="Any accessibility requirements or notes?" />
               </div>
             </div>
           ) : (
             <div className="space-y-2 text-sm text-gray-700">
+              {selectedVisit.parking_coverage && (
+                <p><span className="font-medium text-gray-500">Parking:</span> {{
+                  free_on_site: 'Free parking on-site',
+                  reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
+                  invoice: 'Volunteers pay — added to invoice',
+                }[selectedVisit.parking_coverage] ?? selectedVisit.parking_coverage.replace(/_/g, ' ')}</p>
+              )}
               {selectedVisit.approx_space_sqft && (
                 <p><span className="font-medium text-gray-500">Space:</span> {selectedVisit.approx_space_sqft.toLocaleString()} sq ft</p>
               )}
               {selectedVisit.parking_instructions && (
-                <p><span className="font-medium text-gray-500">Parking:</span> {selectedVisit.parking_instructions}</p>
+                <p><span className="font-medium text-gray-500">Parking instructions:</span> {selectedVisit.parking_instructions}</p>
               )}
               {selectedVisit.arrival_instructions && (
                 <p><span className="font-medium text-gray-500">Arrival:</span> {selectedVisit.arrival_instructions}</p>
@@ -680,13 +702,10 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
               {selectedVisit.accessibility_notes && (
                 <p><span className="font-medium text-gray-500">Accessibility:</span> {selectedVisit.accessibility_notes}</p>
               )}
-              {selectedVisit.special_needs_notes && (
-                <p><span className="font-medium text-gray-500">Special Needs:</span> {selectedVisit.special_needs_notes}</p>
-              )}
               {!selectedVisit.approx_space_sqft && !selectedVisit.parking_instructions &&
                !selectedVisit.arrival_instructions && !selectedVisit.accessibility_notes &&
-               !selectedVisit.special_needs_notes && (
-                <p className="text-gray-400 italic text-xs">No instructions provided</p>
+               !selectedVisit.parking_coverage && (
+                <p className="text-gray-400 italic text-xs">No logistics details provided</p>
               )}
             </div>
           )}

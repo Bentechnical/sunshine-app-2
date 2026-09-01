@@ -33,7 +33,7 @@ export async function GET() {
         volunteer_slots, visitor_count_expected, status, admin_note, created_at,
         requires_vsc, requires_vaccine_record,
         guest_contact_name, guest_contact_email, guest_contact_phone,
-        audience_age_ranges, special_needs_notes, approx_space_sqft,
+        audience_age_ranges, event_description, approx_space_sqft,
         parking_coverage, parking_instructions, arrival_instructions, accessibility_notes,
         visit_registrations(id, status)
       `)
@@ -69,7 +69,7 @@ export async function GET() {
         guest_contact_email: v.guest_contact_email ?? null,
         guest_contact_phone: v.guest_contact_phone ?? null,
         audience_age_ranges: v.audience_age_ranges ?? null,
-        special_needs_notes: v.special_needs_notes ?? null,
+        event_description: v.event_description ?? null,
         approx_space_sqft: v.approx_space_sqft ?? null,
         parking_coverage: v.parking_coverage ?? null,
         parking_instructions: v.parking_instructions ?? null,

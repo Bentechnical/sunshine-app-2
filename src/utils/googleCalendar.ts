@@ -77,7 +77,7 @@ interface VisitForCalendar {
   arrival_instructions: string | null;
   parking_instructions: string | null;
   parking_coverage: string | null;
-  special_needs_notes: string | null;
+  event_description: string | null;
   accessibility_notes: string | null;
   fee_tier: string | null;
   fee_amount: number | null;
@@ -101,11 +101,11 @@ function buildDescription(visit: VisitForCalendar, teamAssigned: string[] = []):
   // Sunshine contact (hardcoded for now)
   lines.push(`<b>Sunshine contact:</b> Alanna - 416-333-6940`);
 
-  // Visit info (audience, visitor count, special needs)
+  // Visit info (description, audience, visitor count)
   const visitInfoParts: string[] = [];
+  if (visit.event_description) visitInfoParts.push(visit.event_description);
   if (visit.visitor_count_expected) visitInfoParts.push(`${visit.visitor_count_expected} expected visitors`);
   if (visit.audience_age_ranges?.length) visitInfoParts.push(visit.audience_age_ranges.join(', '));
-  if (visit.special_needs_notes) visitInfoParts.push(visit.special_needs_notes);
   if (visitInfoParts.length) {
     lines.push(`<b>Visit info:</b> ${visitInfoParts.join(' - ')}`);
   }
@@ -358,7 +358,7 @@ export async function refreshVisitEventDescription(visitId: number): Promise<voi
     .select(`
       id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
       address, start_time, end_time, audience_age_ranges, visitor_count_expected,
-      special_needs_notes, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
+      event_description, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
       arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
       admin_note, google_calendar_event_id, status
     `)

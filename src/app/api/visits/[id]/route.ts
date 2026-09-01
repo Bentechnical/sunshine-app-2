@@ -47,7 +47,7 @@ export async function GET(
       .select(`
         id, title, organization_id, guest_org_name, guest_contact_name,
         visit_date, start_time, end_time, address, location_lat, location_lng, location_place_id,
-        audience_age_ranges, visitor_count_expected, special_needs_notes,
+        audience_age_ranges, visitor_count_expected, event_description,
         approx_space_sqft, fee_tier, fee_amount, volunteer_slots,
         parking_coverage, parking_instructions, arrival_instructions,
         accessibility_notes, requires_vsc, requires_vaccine_record,
@@ -154,7 +154,7 @@ export async function PATCH(
       guest_contact_phone,
       visitor_count_expected,
       volunteer_slots,
-      special_needs_notes,
+      event_description,
       approx_space_sqft,
       audience_age_ranges,
       parking_coverage,
@@ -191,7 +191,7 @@ export async function PATCH(
     if (guest_contact_phone !== undefined) updates.guest_contact_phone = guest_contact_phone || null;
     if (visitor_count_expected !== undefined) updates.visitor_count_expected = visitor_count_expected || null;
     if (volunteer_slots !== undefined) updates.volunteer_slots = volunteer_slots;
-    if (special_needs_notes !== undefined) updates.special_needs_notes = special_needs_notes || null;
+    if (event_description !== undefined) updates.event_description = event_description || null;
     if (approx_space_sqft !== undefined) updates.approx_space_sqft = approx_space_sqft || null;
     if (audience_age_ranges !== undefined) updates.audience_age_ranges = audience_age_ranges;
     if (parking_coverage !== undefined) updates.parking_coverage = parking_coverage || null;

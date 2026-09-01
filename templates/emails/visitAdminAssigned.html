@@ -29,19 +29,34 @@
             <p style="margin: 0;"><strong>Location:</strong> {{#if visitAddressMapLink}}<a href="{{visitAddressMapLink}}" style="color: #0e62ae; text-decoration: none;">{{visitAddress}}</a>{{else}}{{visitAddress}}{{/if}}</p>
           </div>
 
+          {{#if eventDescription}}
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
+            <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">About This Visit</p>
+            <p style="margin: 0;">{{eventDescription}}</p>
+          </div>
+          {{/if}}
+
           {{#if parkingInstructions}}
           <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
             <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">Parking & Arrival Details</p>
             {{#if parkingCoverage}}<p style="margin: 0 0 6px 0;"><strong>Parking:</strong> {{parkingCoverage}}</p>{{/if}}
             <p style="margin: 0 0 6px 0;"><strong>Parking Instructions:</strong> {{parkingInstructions}}</p>
-            {{#if arrivalInstructions}}<p style="margin: 0;"><strong>Arrival Instructions:</strong> {{arrivalInstructions}}</p>{{/if}}
+            {{#if arrivalInstructions}}<p style="margin: 0 0 6px 0;"><strong>Arrival Instructions:</strong> {{arrivalInstructions}}</p>{{/if}}
+            {{#if accessibilityNotes}}<p style="margin: 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>{{/if}}
           </div>
           {{else}}
           {{#if arrivalInstructions}}
           <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
             <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">Arrival Details</p>
-            <p style="margin: 0;"><strong>Arrival Instructions:</strong> {{arrivalInstructions}}</p>
+            <p style="margin: 0 0 {{#if accessibilityNotes}}6px{{else}}0{{/if}} 0;"><strong>Arrival Instructions:</strong> {{arrivalInstructions}}</p>
+            {{#if accessibilityNotes}}<p style="margin: 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>{{/if}}
           </div>
+          {{else}}
+          {{#if accessibilityNotes}}
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
+            <p style="margin: 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>
+          </div>
+          {{/if}}
           {{/if}}
           {{/if}}
 
@@ -52,19 +67,6 @@
             {{#if contactEmail}}<p style="margin: 0 0 6px 0;"><strong>Email:</strong> <a href="mailto:{{contactEmail}}" style="color: #0e62ae; text-decoration: none;">{{contactEmail}}</a></p>{{/if}}
             {{#if contactPhone}}<p style="margin: 0;"><strong>Phone:</strong> {{contactPhone}}</p>{{/if}}
           </div>
-          {{/if}}
-
-          {{#if accessibilityNotes}}
-          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            {{#if accessibilityNotes}}<p style="margin: 0 0 {{#if specialNeedsNotes}}6px{{else}}0{{/if}} 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>{{/if}}
-            {{#if specialNeedsNotes}}<p style="margin: 0;"><strong>Special Needs:</strong> {{specialNeedsNotes}}</p>{{/if}}
-          </div>
-          {{else}}
-          {{#if specialNeedsNotes}}
-          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            <p style="margin: 0;"><strong>Special Needs:</strong> {{specialNeedsNotes}}</p>
-          </div>
-          {{/if}}
           {{/if}}
 
           <p style="margin: 0 0 16px 0;">You can view your upcoming visits and full visit details from your dashboard.</p>

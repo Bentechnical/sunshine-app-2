@@ -35,7 +35,7 @@ export async function POST(
         guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
         visit_date, start_time, end_time, address,
         postal_code, location_lat, location_lng,
-        audience_age_ranges, visitor_count_expected, special_needs_notes,
+        audience_age_ranges, visitor_count_expected, event_description,
         accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
         arrival_instructions, fee_tier, fee_amount,
         requires_vsc, requires_vaccine_record, admin_note

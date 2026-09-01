@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>You're on the Waitlist</title>
+    <title>Reminder: Your Visit is Coming Up!</title>
   </head>
   <body style="margin: 0; padding: 0; background-color: #e3f0f1; font-family: Arial, Helvetica, sans-serif;">
     <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 6px; overflow: hidden;">
@@ -17,17 +17,16 @@
       <!-- Content -->
       <tr>
         <td style="padding: 30px;">
-          <h2 style="color: #0e62ae; margin-bottom: 16px;">You're on the Waitlist</h2>
+          <h2 style="color: #0e62ae; margin-bottom: 16px;">Reminder: Your Visit is Coming Up!</h2>
           <p style="margin: 0 0 12px 0;">Hi {{firstName}},</p>
-          <p style="margin: 0 0 16px 0;">All volunteer spots for the visit below are currently filled, but you've been added to the waitlist. We'll reach out if a spot opens up.</p>
+          <p style="margin: 0 0 16px 0;">Just a friendly reminder that you have an upcoming visit. Here are the details:</p>
 
           <!-- Visit Details -->
           <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
             <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #0e62ae;">{{visitTitle}}</p>
             <p style="margin: 0 0 8px 0;"><strong>Date:</strong> {{visitDate}}</p>
             <p style="margin: 0 0 8px 0;"><strong>Time:</strong> {{visitTime}}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Location:</strong> {{#if visitAddressMapLink}}<a href="{{visitAddressMapLink}}" style="color: #0e62ae; text-decoration: none;">{{visitAddress}}</a>{{else}}{{visitAddress}}{{/if}}</p>
-            <p style="margin: 0;"><strong>Your position:</strong> #{{waitlistPosition}} on the waitlist</p>
+            <p style="margin: 0;"><strong>Location:</strong> {{#if visitAddressMapLink}}<a href="{{visitAddressMapLink}}" style="color: #0e62ae; text-decoration: none;">{{visitAddress}}</a>{{else}}{{visitAddress}}{{/if}}</p>
           </div>
 
           {{#if eventDescription}}
@@ -70,7 +69,7 @@
           </div>
           {{/if}}
 
-          <p style="margin: 0 0 16px 0;">You can manage your waitlist registrations from your dashboard.</p>
+          <p style="margin: 0 0 16px 0;">You can view your upcoming visits and full visit details from your dashboard.</p>
 
           <p style="margin: 24px 0;">
             <a href="{{dashboardLink}}" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">View My Visits</a>

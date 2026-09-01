@@ -46,7 +46,7 @@ export async function POST(
     // Load the visit
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, title, guest_org_name, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, special_needs_notes, guest_contact_name, guest_contact_email, guest_contact_phone')
+      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, title, guest_org_name, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, event_description, guest_contact_name, guest_contact_email, guest_contact_phone')
       .eq('id', visitId)
       .single();
 
@@ -227,7 +227,7 @@ export async function POST(
           parkingInstructions: (visit as any).parking_instructions || null,
           arrivalInstructions: (visit as any).arrival_instructions || null,
           accessibilityNotes: (visit as any).accessibility_notes || null,
-          specialNeedsNotes: (visit as any).special_needs_notes || null,
+          eventDescription: (visit as any).event_description || null,
           contactName: (visit as any).guest_contact_name || null,
           contactEmail: (visit as any).guest_contact_email || null,
           contactPhone: (visit as any).guest_contact_phone || null,

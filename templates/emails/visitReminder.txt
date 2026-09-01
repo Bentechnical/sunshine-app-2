@@ -1,13 +1,12 @@
 Hi {{firstName}},
 
-All volunteer spots for the visit below are currently filled, but you've been added to the waitlist. We'll reach out if a spot opens up.
+Just a friendly reminder that you have an upcoming visit. Here are the details:
 
 {{visitTitle}}
 Date: {{visitDate}}
 Time: {{visitTime}}
 Location: {{visitAddress}}{{#if visitAddressMapLink}}
 Map: {{visitAddressMapLink}}{{/if}}
-Your position: #{{waitlistPosition}} on the waitlist
 {{#if eventDescription}}
 
 About This Visit: {{eventDescription}}{{/if}}
@@ -23,7 +22,7 @@ Accessibility: {{accessibilityNotes}}{{/if}}
 
 On-Site Contact: {{contactName}}{{#if contactEmail}} | {{contactEmail}}{{/if}}{{#if contactPhone}} | {{contactPhone}}{{/if}}{{/if}}
 
-You can manage your waitlist registrations from your dashboard:
+You can view your upcoming visits and full visit details from your dashboard:
 {{dashboardLink}}
 
 This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca

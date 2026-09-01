@@ -74,7 +74,7 @@ export async function POST(
     // Fetch visit to check slot count
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, title, guest_org_name, address, visit_date, start_time, end_time, volunteer_slots, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, special_needs_notes, guest_contact_name, guest_contact_email, guest_contact_phone, google_calendar_event_id, status')
+      .select('id, title, guest_org_name, address, visit_date, start_time, end_time, volunteer_slots, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, event_description, guest_contact_name, guest_contact_email, guest_contact_phone, google_calendar_event_id, status')
       .eq('id', visitId)
       .single();
 
@@ -200,7 +200,7 @@ export async function POST(
           parkingInstructions: v.parking_instructions || null,
           arrivalInstructions: v.arrival_instructions || null,
           accessibilityNotes: v.accessibility_notes || null,
-          specialNeedsNotes: v.special_needs_notes || null,
+          eventDescription: v.event_description || null,
           contactName: v.guest_contact_name || null,
           contactEmail: v.guest_contact_email || null,
           contactPhone: v.guest_contact_phone || null,

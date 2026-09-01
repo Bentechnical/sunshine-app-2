@@ -51,9 +51,13 @@ The PD regions system is complete. Admins define geographic regions using Google
 
 ### What's not yet done
 
-**Google Calendar integration**  The code is wired up to call the calendar utility at the right moments (visit approved, volunteer joins, volunteer cancels, visit cancelled), but the integration itself hasn't been built out. 
+**Admin-managed organizations** — Admins can create "virtual" org records without a Clerk account, storing reusable details (name, address, contact, fee tier, logo) and grouping visits. These use synthetic IDs (`managed_<uuid>`) in the `users` table with `is_admin_managed = true`. Managed orgs can be linked to a real Clerk account later (transferring visit history), or a real org can be "detached" to a managed org (ownership transfer). Implementation complete, pending testing. See [ORGANIZATION_VISITS_SCHEMA.md](ORGANIZATION_VISITS_SCHEMA.md) Migration 32.
 
-**Email notifications** Some email templates missing. Affected triggers: visit request received, approved/declined, volunteer signup confirmed/waitlisted, volunteer removed, visit cancelled.
+**Org default fields** — Store org-level defaults (parking, arrival instructions, special needs, space) that prepopulate the visit creation form. Not yet built; will add ~5-7 columns to users table.
+
+**Google Calendar integration** — The code is wired up to call the calendar utility at the right moments (visit approved, volunteer joins, volunteer cancels, visit cancelled), but the integration itself hasn't been built out.
+
+**Email notifications** — Some email templates missing. Affected triggers: visit request received, approved/declined, volunteer signup confirmed/waitlisted, volunteer removed, visit cancelled.
 
 **Minor todos** — the guest visit request form collects a subset of the available fields (audience type, space details, accessibility notes); admins can fill these in after the fact. These are polish items, not blockers.
 

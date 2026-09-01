@@ -15,11 +15,11 @@ interface FormState {
   address: string;
   expected_visitors: string;
   max_volunteers: string;
+  event_description: string;
   requires_vsc: boolean;
-  requires_vaccine: boolean;
   parking_info: string;
-  special_instructions: string;
-  notes_for_volunteer: string;
+  arrival_instructions: string;
+  accessibility_notes: string;
 }
 
 const INITIAL: FormState = {
@@ -33,11 +33,11 @@ const INITIAL: FormState = {
   address: '',
   expected_visitors: '',
   max_volunteers: '2',
+  event_description: '',
   requires_vsc: false,
-  requires_vaccine: false,
   parking_info: '',
-  special_instructions: '',
-  notes_for_volunteer: '',
+  arrival_instructions: '',
+  accessibility_notes: '',
 };
 
 export default function RequestAVisitPage() {
@@ -75,10 +75,10 @@ export default function RequestAVisitPage() {
           visitor_count_expected: form.expected_visitors ? parseInt(form.expected_visitors) : null,
           volunteer_slots: parseInt(form.max_volunteers) || 2,
           requires_vsc: form.requires_vsc,
-          requires_vaccine_record: form.requires_vaccine,
           parking_instructions: form.parking_info || null,
-          arrival_instructions: form.special_instructions || null,
-          special_needs_notes: form.notes_for_volunteer || null,
+          arrival_instructions: form.arrival_instructions || null,
+          event_description: form.event_description || null,
+          accessibility_notes: form.accessibility_notes || null,
         }),
       });
 
@@ -253,6 +253,16 @@ export default function RequestAVisitPage() {
                   required
                 />
               </div>
+              <div>
+                <label className={labelClass}>Event Description</label>
+                <textarea
+                  className={`${inputClass} resize-none`}
+                  rows={3}
+                  value={form.event_description}
+                  onChange={e => set('event_description', e.target.value)}
+                  placeholder="What should volunteers know about this visit? Describe the event, audience, what to expect…"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Volunteer Teams Needed</label>
@@ -282,7 +292,7 @@ export default function RequestAVisitPage() {
 
           {/* Requirements & Instructions */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">Requirements &amp; Instructions</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Requirements &amp; Logistics</h2>
             <div className="space-y-4">
               <div>
                 <p className={labelClass}>Volunteer Requirements</p>
@@ -294,14 +304,6 @@ export default function RequestAVisitPage() {
                       onChange={e => set('requires_vsc', e.target.checked)}
                     />
                     <span>VSC (Vulnerable Sector Check) required</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.requires_vaccine}
-                      onChange={e => set('requires_vaccine', e.target.checked)}
-                    />
-                    <span>Dog vaccine records required</span>
                   </label>
                 </div>
               </div>
@@ -316,23 +318,23 @@ export default function RequestAVisitPage() {
                 />
               </div>
               <div>
-                <label className={labelClass}>Special Instructions</label>
+                <label className={labelClass}>Arrival Instructions</label>
                 <textarea
                   className={`${inputClass} resize-none`}
                   rows={3}
-                  value={form.special_instructions}
-                  onChange={e => set('special_instructions', e.target.value)}
+                  value={form.arrival_instructions}
+                  onChange={e => set('arrival_instructions', e.target.value)}
                   placeholder="Sign-in procedures, access codes, who to ask for at reception, etc."
                 />
               </div>
               <div>
-                <label className={labelClass}>Notes for Volunteers</label>
+                <label className={labelClass}>Accessibility</label>
                 <textarea
                   className={`${inputClass} resize-none`}
-                  rows={3}
-                  value={form.notes_for_volunteer}
-                  onChange={e => set('notes_for_volunteer', e.target.value)}
-                  placeholder="What should volunteers know? Type of residents, what to expect, etc."
+                  rows={2}
+                  value={form.accessibility_notes}
+                  onChange={e => set('accessibility_notes', e.target.value)}
+                  placeholder="Any accessibility requirements or notes (wheelchair access, allergies, etc.)"
                 />
               </div>
             </div>

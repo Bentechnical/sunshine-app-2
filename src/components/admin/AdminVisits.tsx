@@ -106,7 +106,7 @@ interface VisitDetail {
   location_place_id: string | null;
   audience_age_ranges: string[] | null;
   visitor_count_expected: number | null;
-  special_needs_notes: string | null;
+  event_description: string | null;
   approx_space_sqft: number | null;
   fee_tier: string | null;
   fee_amount: number | null;
@@ -260,15 +260,16 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     approx_space_sqft: '',
     fee_tier: '',
     parking_coverage: '',
-    special_needs_notes: '',
+    event_description: '',
     arrival_instructions: '',
     parking_instructions: '',
+    accessibility_notes: '',
     status: 'approved',
   });
 
   const set = (field: string, value: any) => setForm(f => ({ ...f, [field]: value }));
 
-  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string; assigned_region_id: number | null; fee_tier: string | null };
+  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string; assigned_region_id: number | null; fee_tier: string | null; is_admin_managed: boolean; default_parking_coverage: string | null; default_parking_instructions: string | null; default_arrival_instructions: string | null; default_event_description: string | null; default_accessibility_notes: string | null; default_space_sqft: number | null; default_dogs_needed: number | null; default_requires_vsc: boolean | null };
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [pdOptions, setPdOptions] = useState<PdUser[]>([]);
   const [regionOwnerMap, setRegionOwnerMap] = useState<Map<number, string>>(new Map());
@@ -321,6 +322,15 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       // Inherit org's PD from their assigned region's owner, and fee tier
       assigned_pd_id: (org.assigned_region_id ? (regionOwnerMap.get(org.assigned_region_id) ?? f.assigned_pd_id) : f.assigned_pd_id),
       fee_tier: org.fee_tier ?? f.fee_tier,
+      // Prepopulate visit defaults from org profile
+      parking_coverage: org.default_parking_coverage || f.parking_coverage,
+      parking_instructions: org.default_parking_instructions || f.parking_instructions,
+      arrival_instructions: org.default_arrival_instructions || f.arrival_instructions,
+      event_description: org.default_event_description || f.event_description,
+      accessibility_notes: org.default_accessibility_notes || f.accessibility_notes,
+      approx_space_sqft: org.default_space_sqft != null ? String(org.default_space_sqft) : f.approx_space_sqft,
+      volunteer_slots: org.default_dogs_needed ?? f.volunteer_slots,
+      requires_vsc: org.default_requires_vsc ?? f.requires_vsc,
     }));
   };
 
@@ -422,6 +432,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
                       <button key={org.id} type="button" onMouseDown={() => selectOrg(org)}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0">
                         <span className="font-medium text-gray-900">{org.org_name}</span>
+                        {org.is_admin_managed && <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-1 py-0.5 rounded ml-1.5">Managed</span>}
                         {org.org_contact_name && <span className="text-gray-500 ml-2">· {org.org_contact_name}</span>}
                       </button>
                     ))}
@@ -433,6 +444,10 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <div className="sm:col-span-2">
             <label className={labelClass}>Visit Title <span className="text-gray-400 font-normal normal-case">(optional)</span></label>
             <input type="text" value={form.title} onChange={e => set('title', e.target.value)} className={inputClass} placeholder="e.g. Spring Visit — Maple Ridge Elementary" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Event Description <span className="text-gray-400 font-normal normal-case">(optional)</span></label>
+            <textarea value={form.event_description} onChange={e => set('event_description', e.target.value)} rows={3} className={inputClass} placeholder="What should volunteers know about this visit? Describe the event, audience, what to expect…" />
           </div>
           <div>
             <label className={labelClass}>Organization Name</label>
@@ -560,16 +575,16 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Instructions & Notes <span className="text-gray-300 font-normal normal-case">(optional)</span></p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className={labelClass}>Special Needs</label>
-            <textarea value={form.special_needs_notes} onChange={e => set('special_needs_notes', e.target.value)} rows={3} className={inputClass} placeholder="Mobility aides, allergies…" />
-          </div>
-          <div>
             <label className={labelClass}>Arrival Instructions</label>
             <textarea value={form.arrival_instructions} onChange={e => set('arrival_instructions', e.target.value)} rows={3} className={inputClass} placeholder="Check-in location, access…" />
           </div>
           <div>
             <label className={labelClass}>Parking Details for Volunteers</label>
             <textarea value={form.parking_instructions} onChange={e => set('parking_instructions', e.target.value)} rows={3} className={inputClass} placeholder="e.g. Free parking in Lot B, enter from Main St." />
+          </div>
+          <div>
+            <label className={labelClass}>Accessibility</label>
+            <textarea value={form.accessibility_notes} onChange={e => set('accessibility_notes', e.target.value)} rows={3} className={inputClass} placeholder="Accessibility concerns, special needs…" />
           </div>
         </div>
       </div>
@@ -629,7 +644,7 @@ function VisitDetailView({
     requires_vsc: boolean;
     fee_tier: string; fee_amount: string;
     parking_coverage: string; parking_instructions: string;
-    arrival_instructions: string; accessibility_notes: string; special_needs_notes: string;
+    arrival_instructions: string; accessibility_notes: string; event_description: string;
   } | null>(null);
   // Volunteer assignment
   type VolunteerOption = { id: string; first_name: string; last_name: string; dogs: Array<{ dog_name: string }> };
@@ -638,6 +653,7 @@ function VisitDetailView({
   const [volunteerSearching, setVolunteerSearching] = useState(false);
   const [showVolunteerDropdown, setShowVolunteerDropdown] = useState(false);
   const [addingVolunteer, setAddingVolunteer] = useState(false);
+  const [sendingDetailsTo, setSendingDetailsTo] = useState<string | null>(null);
   const volunteerSearchRef = useRef<HTMLDivElement>(null);
 
   const handleAssignPd = async (pdId: string | null) => {
@@ -794,7 +810,7 @@ function VisitDetailView({
       parking_instructions: visit.parking_instructions ?? '',
       arrival_instructions: visit.arrival_instructions ?? '',
       accessibility_notes: visit.accessibility_notes ?? '',
-      special_needs_notes: visit.special_needs_notes ?? '',
+      event_description: visit.event_description ?? '',
     });
     setEditMode(true);
   };
@@ -831,7 +847,7 @@ function VisitDetailView({
           parking_instructions: editForm.parking_instructions || null,
           arrival_instructions: editForm.arrival_instructions || null,
           accessibility_notes: editForm.accessibility_notes || null,
-          special_needs_notes: editForm.special_needs_notes || null,
+          event_description: editForm.event_description || null,
         }),
       });
       const json = await res.json();
@@ -892,6 +908,27 @@ function VisitDetailView({
       await load();
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleSendDetails = async (volunteerId: string) => {
+    setSendingDetailsTo(volunteerId);
+    try {
+      const res = await fetch(`/api/admin/visits/${visitId}/send-details`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volunteer_id: volunteerId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || 'Failed to send details');
+      } else {
+        alert('Visit details email sent successfully.');
+      }
+    } catch {
+      setError('Failed to send details');
+    } finally {
+      setSendingDetailsTo(null);
     }
   };
 
@@ -1084,10 +1121,16 @@ function VisitDetailView({
                 <option value="invoice">Volunteers pay — added to invoice</option>
               </select>
             </div>
-            {(['parking_instructions', 'arrival_instructions', 'accessibility_notes', 'special_needs_notes'] as const).map(field => (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Event Description</label>
+              <textarea rows={3} value={editForm.event_description} onChange={e => setEditForm(f => f ? { ...f, event_description: e.target.value } : f)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="What should volunteers know about this visit? Describe the event, audience, what to expect…" />
+            </div>
+            {(['parking_instructions', 'arrival_instructions', 'accessibility_notes'] as const).map(field => (
               <div key={field}>
-                <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
-                  {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {{ parking_instructions: 'Parking Instructions', arrival_instructions: 'Arrival Instructions', accessibility_notes: 'Accessibility' }[field]}
                 </label>
                 <textarea rows={2} value={editForm[field]} onChange={e => setEditForm(f => f ? { ...f, [field]: e.target.value } : f)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
@@ -1271,6 +1314,24 @@ function VisitDetailView({
 
       {error && <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>}
 
+      {/* About this visit */}
+      {!editMode && (visit.event_description || visit.visitor_count_expected || (visit.audience_age_ranges?.length ?? 0) > 0) && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">About This Visit</h3>
+          <div className="space-y-2 text-sm text-gray-700">
+            {visit.event_description && (
+              <p className="whitespace-pre-line">{visit.event_description}</p>
+            )}
+            {visit.visitor_count_expected && (
+              <p><span className="font-medium text-gray-500">Expected visitors:</span> {visit.visitor_count_expected}</p>
+            )}
+            {(visit.audience_age_ranges?.length ?? 0) > 0 && (
+              <p><span className="font-medium text-gray-500">Audience:</span> {visit.audience_age_ranges!.join(', ')}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Volunteers card */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
@@ -1358,10 +1419,16 @@ function VisitDetailView({
                         {reg.users?.email && <p className="text-xs text-gray-400 truncate">{reg.users.email}</p>}
                       </div>
                       {visit.status === 'approved' && (
-                        <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 disabled:opacity-50">
-                          Remove
-                        </button>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
+                            className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50">
+                            Remove
+                          </button>
+                          <button onClick={() => handleSendDetails(reg.volunteer_id)} disabled={sendingDetailsTo === reg.volunteer_id}
+                            className="text-xs text-blue-500 hover:text-blue-700 font-medium disabled:opacity-50 flex items-center gap-1">
+                            <Mail size={10} /> {sendingDetailsTo === reg.volunteer_id ? 'Sending…' : 'Email Details'}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1411,10 +1478,16 @@ function VisitDetailView({
                           <p className="text-xs text-amber-600">Handler: {reg.users?.first_name ?? '—'} {reg.users?.last_name ?? ''}</p>
                         </div>
                         {visit.status === 'approved' && (
-                          <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
-                            className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0 disabled:opacity-50">
-                            Remove
-                          </button>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50">
+                              Remove
+                            </button>
+                            <button onClick={() => handleSendDetails(reg.volunteer_id)} disabled={sendingDetailsTo === reg.volunteer_id}
+                              className="text-xs text-blue-500 hover:text-blue-700 font-medium disabled:opacity-50 flex items-center gap-1">
+                              <Mail size={10} /> {sendingDetailsTo === reg.volunteer_id ? 'Sending…' : 'Email Details'}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1438,24 +1511,19 @@ function VisitDetailView({
             Rabies Vaccine Record Required
           </span>
         </div>
-        {(visit.fee_tier || visit.audience_age_ranges?.length) && (
+        {visit.fee_tier && (
           <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-sm text-gray-700">
-            {visit.fee_tier && (
-              <p><span className="font-medium text-gray-500">Fee:</span> {{
-                tier_500: '$500 — Corporate / for-profit',
-                tier_200: '$200 — Post-secondary / private',
-                tier_0: '$0 — Public / non-profit',
-              }[visit.fee_tier] ?? visit.fee_tier}</p>
-            )}
-            {visit.audience_age_ranges && visit.audience_age_ranges.length > 0 && (
-              <p><span className="font-medium text-gray-500">Audience:</span> {visit.audience_age_ranges.join(', ')}</p>
-            )}
+            <p><span className="font-medium text-gray-500">Fee:</span> {{
+              tier_500: '$500 — Corporate / for-profit',
+              tier_200: '$200 — Post-secondary / private',
+              tier_0: '$0 — Public / non-profit',
+            }[visit.fee_tier] ?? visit.fee_tier}</p>
           </div>
         )}
       </div>
 
       {/* Instructions card */}
-      {(visit.parking_instructions || visit.arrival_instructions || visit.accessibility_notes || visit.special_needs_notes || visit.parking_coverage || visit.approx_space_sqft) && (
+      {(visit.parking_instructions || visit.arrival_instructions || visit.accessibility_notes || visit.parking_coverage || visit.approx_space_sqft) && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Instructions &amp; Notes</h3>
           <div className="space-y-2 text-sm text-gray-700">
@@ -1477,9 +1545,6 @@ function VisitDetailView({
             )}
             {visit.accessibility_notes && (
               <p><span className="font-medium text-gray-500">Accessibility:</span> {visit.accessibility_notes}</p>
-            )}
-            {visit.special_needs_notes && (
-              <p><span className="font-medium text-gray-500">Special needs:</span> {visit.special_needs_notes}</p>
             )}
           </div>
         </div>

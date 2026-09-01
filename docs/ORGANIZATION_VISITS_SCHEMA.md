@@ -34,6 +34,7 @@ Populated when `role = 'organization'`.
 | `org_place_id` | text | YES | Google Places `place_id` for the org address — populated via Places Autocomplete |
 | `org_contact_name` | text | YES | Primary contact person's name (column exists in DB but not currently collected by the profile form) |
 | `org_contact_phone` | text | YES | Primary contact phone number |
+| `is_admin_managed` | boolean | YES (default false) | When `true`, org was created by an admin without a Clerk account; uses synthetic `managed_<uuid>` ID |
 
 #### Volunteer fields
 Populated when `role = 'volunteer'`.
@@ -1128,6 +1129,69 @@ CREATE POLICY "Service role full access to document_verifications"
 
 ---
 
+### Migration 32 — Add `is_admin_managed` to `users` table
+
+Enables admin-created organization records that exist without a Clerk account. These rows use synthetic primary keys (`managed_<uuid>`) to avoid any collision with Clerk user IDs (`user_xxx`). All org profile fields (`org_name`, `org_type`, `org_address`, etc.) already exist on the `users` table, so no additional columns are needed beyond this flag.
+
+Admin-managed orgs are created and modified exclusively through admin API routes using the service role client (bypasses RLS). They can be linked to a real Clerk account later via an admin action that transfers visit ownership and merges profile data.
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin_managed boolean DEFAULT false;
+```
+
+**ID convention:** Admin-managed org IDs follow the pattern `managed_<uuid>` (e.g., `managed_a1b2c3d4-e5f6-7890-abcd-ef1234567890`). These are generated server-side via `crypto.randomUUID()`.
+
+---
+
+### Migration 33 — Add organization default fields to `users` table
+
+Stores org-level defaults for visit logistics fields. When an org is selected during visit creation, these values prepopulate the form (but remain editable per-visit). Admins and PDs can set/update these via the org edit modal.
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_parking_coverage text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_parking_instructions text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_arrival_instructions text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_special_needs_notes text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_space_sqft integer;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_dogs_needed integer;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_requires_vsc boolean;
+```
+
+No CHECK constraint on `default_parking_coverage` — validation is done at the application layer (same enum as `visits.parking_coverage`: `free_on_site`, `reimbursed_on_site`, `invoice`).
+
+These columns are admin/PD-facing only. Organization users do not see or edit these fields in their own profile modal.
+
+---
+
+### Migration 34 — Rename `special_needs_notes` → `event_description`, add `default_accessibility_notes`
+
+Clarifies field semantics: `special_needs_notes` was being used as a general event description by orgs ("Notes for Volunteers"), not for special needs. Renamed to `event_description` to match its actual usage. The `accessibility_notes` column on `visits` is retained and relabeled "Accessibility" (hint text mentions special needs). Dev-only migration — no production data to migrate.
+
+```sql
+-- Rename visits column
+ALTER TABLE visits RENAME COLUMN special_needs_notes TO event_description;
+
+-- Rename org default column on users
+ALTER TABLE users RENAME COLUMN default_special_needs_notes TO default_event_description;
+
+-- Add default accessibility notes for org profiles
+ALTER TABLE users ADD COLUMN IF NOT EXISTS default_accessibility_notes text;
+```
+
+**Form field canonical order (all create/edit forms):**
+1. Visit Title
+2. **Event Description** (`event_description`) — prominent, near top
+3. Primary Contact
+4. Date, Time, Duration
+5. Address
+6. Dogs Needed, Participants, Space (sq ft)
+7. VSC Required
+8. Parking (dropdown) + Parking Instructions (textarea)
+9. Arrival Instructions (textarea)
+10. **Accessibility** (`accessibility_notes`) — hint: "accessibility concerns, special needs, etc."
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -1171,3 +1235,6 @@ CREATE POLICY "Service role full access to document_verifications"
 | Aug 2026 | 29 (no SQL) | Rabies vaccine record made universally required — enforcement change only, no schema migration needed. `visits.requires_vaccine_record` column retained in DB but ignored by all write paths (hard-coded `true` on insert). Registration API (`POST /api/visits/[id]/register`) now always checks: dog must have `vaccine_record_url` AND `vaccine_expiry_date` must be null or in the future. `requires_vaccine_record` toggle removed from all admin and org-facing UIs. Label "Vaccine Record" updated to "Rabies Vaccine Record" throughout. |
 | Aug 2026 | 30 | Added verification status columns to `users` and `dogs` for compliance document review workflow. Existing uploaded documents grandfathered as `'approved'`. |
 | Aug 2026 | 31 | Created `document_verifications` audit table — append-only log of all admin approve/reject actions on compliance documents. |
+| Aug 2026 | 32 | Added `is_admin_managed boolean DEFAULT false` to `users` — enables admin-created organization records without Clerk accounts; synthetic IDs (`managed_<uuid>`) used as PK; linkable to real Clerk accounts later via admin action |
+| Aug 2026 | 33 | Added org default fields to `users`: `default_parking_coverage`, `default_parking_instructions`, `default_arrival_instructions`, `default_event_description`, `default_space_sqft`, `default_dogs_needed`, `default_requires_vsc` — prepopulate visit creation form when org is selected |
+| Sep 2026 | 34 | Renamed `visits.special_needs_notes` → `event_description`; renamed `users.default_special_needs_notes` → `default_event_description`; added `users.default_accessibility_notes` — clarifies field semantics (was misused as event description by org forms) |

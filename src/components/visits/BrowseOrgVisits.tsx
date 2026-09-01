@@ -34,7 +34,7 @@ interface Visit {
   parking_instructions: string | null;
   arrival_instructions: string | null;
   accessibility_notes: string | null;
-  special_needs_notes: string | null;
+  event_description: string | null;
   visitor_count_expected: number | null;
   audience_age_ranges: string[] | null;
   org_name: string | null;
@@ -448,6 +448,24 @@ export default function BrowseOrgVisits({
           </div>
         </div>
 
+        {/* About this visit */}
+        {(selectedVisit.event_description || selectedVisit.visitor_count_expected || (selectedVisit.audience_age_ranges?.length ?? 0) > 0) && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">About This Visit</h3>
+            <div className="space-y-2 text-sm text-gray-700">
+              {selectedVisit.event_description && (
+                <p className="whitespace-pre-line">{selectedVisit.event_description}</p>
+              )}
+              {selectedVisit.visitor_count_expected && (
+                <p><span className="font-medium text-gray-500">Expected visitors:</span> {selectedVisit.visitor_count_expected}</p>
+              )}
+              {(selectedVisit.audience_age_ranges?.length ?? 0) > 0 && (
+                <p><span className="font-medium text-gray-500">Audience:</span> {selectedVisit.audience_age_ranges!.join(', ')}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Sign-up / status card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
@@ -578,31 +596,20 @@ export default function BrowseOrgVisits({
           )}
         </div>
 
-        {/* About this visit */}
-        {(selectedVisit.visitor_count_expected || (selectedVisit.audience_age_ranges?.length ?? 0) > 0 || selectedVisit.special_needs_notes) && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">About This Visit</h3>
-            <div className="space-y-2 text-sm text-gray-700">
-              {selectedVisit.visitor_count_expected && (
-                <p><span className="font-medium text-gray-500">Expected visitors:</span> {selectedVisit.visitor_count_expected}</p>
-              )}
-              {(selectedVisit.audience_age_ranges?.length ?? 0) > 0 && (
-                <p><span className="font-medium text-gray-500">Audience:</span> {selectedVisit.audience_age_ranges!.join(', ')}</p>
-              )}
-              {selectedVisit.special_needs_notes && (
-                <p><span className="font-medium text-gray-500">Special needs:</span> {selectedVisit.special_needs_notes}</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Logistics */}
-        {(selectedVisit.parking_instructions || selectedVisit.arrival_instructions || selectedVisit.accessibility_notes) && (
+        {(selectedVisit.parking_coverage || selectedVisit.parking_instructions || selectedVisit.arrival_instructions || selectedVisit.accessibility_notes) && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Logistics</h3>
             <div className="space-y-2 text-sm text-gray-700">
+              {selectedVisit.parking_coverage && (
+                <p><span className="font-medium text-gray-500">Parking:</span> {{
+                  free_on_site: 'Free parking on-site',
+                  reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
+                  invoice: 'Volunteers pay — added to invoice',
+                }[selectedVisit.parking_coverage] ?? selectedVisit.parking_coverage.replace(/_/g, ' ')}</p>
+              )}
               {selectedVisit.parking_instructions && (
-                <p><span className="font-medium text-gray-500">Parking:</span> {selectedVisit.parking_instructions}</p>
+                <p><span className="font-medium text-gray-500">Parking details:</span> {selectedVisit.parking_instructions}</p>
               )}
               {selectedVisit.arrival_instructions && (
                 <p><span className="font-medium text-gray-500">Arrival:</span> {selectedVisit.arrival_instructions}</p>
@@ -706,7 +713,11 @@ export default function BrowseOrgVisits({
           <p className="text-xs text-gray-600 mb-0.5">
             {formatDateShort(visit.visit_date)} · {formatCardTime(visit.start_time)} – {formatCardTime(visit.end_time)}
           </p>
-          <p className="text-xs text-gray-500 truncate mb-3">{visit.address}</p>
+          <p className="text-xs text-gray-500 truncate mb-1">{visit.address}</p>
+
+          {visit.event_description && (
+            <p className="text-xs text-gray-700 italic line-clamp-2 mb-2">&ldquo;{visit.event_description}&rdquo;</p>
+          )}
 
           {visit.distance_km != null && (
             <p className="text-xs text-gray-400 mb-2">{visit.distance_km} km away</p>

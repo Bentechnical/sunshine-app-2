@@ -28,11 +28,12 @@ interface FormState {
   max_volunteers: string;
   expected_visitors: string;
   requires_vsc: boolean;
+  event_description: string;
   parking_coverage: string;
   parking_info: string;
   approx_space_sqft: string;
-  special_instructions: string;
-  notes_for_volunteer: string;
+  arrival_instructions: string;
+  accessibility_notes: string;
 }
 
 const INITIAL: FormState = {
@@ -41,6 +42,7 @@ const INITIAL: FormState = {
   contact_phone: '',
   contact_email: '',
   title: '',
+  event_description: '',
   visit_date: '',
   start_time: '',
   end_time: '',
@@ -55,8 +57,8 @@ const INITIAL: FormState = {
   parking_coverage: '',
   parking_info: '',
   approx_space_sqft: '',
-  special_instructions: '',
-  notes_for_volunteer: '',
+  arrival_instructions: '',
+  accessibility_notes: '',
 };
 
 export default function OrgRequestVisit({ onSuccess }: Props) {
@@ -138,8 +140,9 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           parking_coverage: form.parking_coverage || null,
           parking_instructions: form.parking_info || null,
           approx_space_sqft: form.approx_space_sqft ? parseInt(form.approx_space_sqft) : null,
-          arrival_instructions: form.special_instructions || null,
-          special_needs_notes: form.notes_for_volunteer || null,
+          arrival_instructions: form.arrival_instructions || null,
+          event_description: form.event_description || null,
+          accessibility_notes: form.accessibility_notes || null,
         }),
       });
 
@@ -192,6 +195,18 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
             onChange={e => set('title', e.target.value)}
             placeholder="e.g. Therapy Dog Visit – Seniors Wing"
             required
+          />
+        </div>
+
+        {/* Event Description */}
+        <div>
+          <label className={labelClass}>Event Description</label>
+          <textarea
+            className={`${inputClass} resize-none`}
+            rows={3}
+            value={form.event_description}
+            onChange={e => set('event_description', e.target.value)}
+            placeholder="What should volunteers know about this visit? Describe the event, audience, what to expect…"
           />
         </div>
 
@@ -297,10 +312,10 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           <p className="text-xs text-gray-400 mt-1">Select from the dropdown to confirm the address.</p>
         </div>
 
-        {/* Slots, Visitors & Space */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Dogs, Participants & Space */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className={labelClass}>Number of dogs requested <span className="text-red-500">*</span></label>
+            <label className={labelClass}>Dogs Requested <span className="text-red-500">*</span></label>
             <input
               type="number"
               min={1}
@@ -322,17 +337,17 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
               placeholder="Optional"
             />
           </div>
-        </div>
-        <div>
-          <label className={labelClass}>Approx. Event Space (sq ft)</label>
-          <input
-            type="number"
-            min={1}
-            className={inputClass}
-            value={form.approx_space_sqft}
-            onChange={e => set('approx_space_sqft', e.target.value)}
-            placeholder="Optional"
-          />
+          <div>
+            <label className={labelClass}>Space (sq ft)</label>
+            <input
+              type="number"
+              min={1}
+              className={inputClass}
+              value={form.approx_space_sqft}
+              onChange={e => set('approx_space_sqft', e.target.value)}
+              placeholder="Optional"
+            />
+          </div>
         </div>
 
         {/* Requirements */}
@@ -377,27 +392,27 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
           </div>
         </div>
 
-        {/* Special Instructions */}
+        {/* Arrival Instructions */}
         <div>
-          <label className={labelClass}>Special Instructions</label>
+          <label className={labelClass}>Arrival Instructions</label>
           <textarea
             className={`${inputClass} resize-none`}
             rows={3}
-            value={form.special_instructions}
-            onChange={e => set('special_instructions', e.target.value)}
+            value={form.arrival_instructions}
+            onChange={e => set('arrival_instructions', e.target.value)}
             placeholder="Any special access instructions, sign-in procedures, etc."
           />
         </div>
 
-        {/* Notes for Volunteer */}
+        {/* Accessibility */}
         <div>
-          <label className={labelClass}>Notes for Volunteers</label>
+          <label className={labelClass}>Accessibility</label>
           <textarea
             className={`${inputClass} resize-none`}
-            rows={3}
-            value={form.notes_for_volunteer}
-            onChange={e => set('notes_for_volunteer', e.target.value)}
-            placeholder="What should volunteers know? Who to ask for, what to expect, etc."
+            rows={2}
+            value={form.accessibility_notes}
+            onChange={e => set('accessibility_notes', e.target.value)}
+            placeholder="Any accessibility requirements or notes (wheelchair access, allergies, etc.)"
           />
         </div>
 

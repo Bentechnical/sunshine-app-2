@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       postal_code,
       audience_age_ranges,
       visitor_count_expected,
-      special_needs_notes,
+      event_description,
       approx_space_sqft,
       fee_tier,
       fee_amount,
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
         location_lng: resolvedLng,
         audience_age_ranges: audience_age_ranges ?? null,
         visitor_count_expected: visitor_count_expected ?? null,
-        special_needs_notes: special_needs_notes ?? null,
+        event_description: event_description ?? null,
         approx_space_sqft: approx_space_sqft ?? null,
         fee_tier: fee_tier ?? null,
         fee_amount: fee_amount ?? null,
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
         .select(`
           id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
           address, start_time, end_time, audience_age_ranges, visitor_count_expected,
-          special_needs_notes, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
+          event_description, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
           arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
           admin_note, assigned_pd_id
         `)

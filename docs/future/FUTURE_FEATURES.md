@@ -75,6 +75,42 @@ The original 1:1 visit flow between volunteers and individual members. Reached a
 
 ---
 
+## Organizations Table Extraction
+
+**Status:** Deferred — revisit when multi-user orgs or 80+ column bloat becomes a real constraint.
+
+**Context (Aug 2026):** Admin-managed organizations were implemented by reusing the `users` table with an `is_admin_managed` flag and synthetic IDs (`managed_<uuid>`). This was evaluated against a clean `organizations` table refactor. The users-table approach was chosen because:
+
+- The org system is still on a prototype branch (no prod data to migrate)
+- Only ~6 org-specific columns exist today — not enough to justify a new table
+- RLS is safe (synthetic IDs never match `auth.uid()`)
+- Visit queries already JOIN on `users` via `organization_id` — no extra complexity
+- The implementation was already built and working
+
+**When to revisit:**
+- **Multi-user orgs** — if multiple people need to log in under one org (e.g., org admin + org coordinator), you'd want an `organizations` table with a separate `org_memberships` join table. This is the strongest trigger.
+- **Column bloat** — if org-specific fields (defaults for parking, arrival instructions, space, event notes, etc.) push the users table past ~80 columns and it becomes hard to reason about.
+- **Org-level features** — if org notes, visit feedback, billing history, or subscription data needs its own relational structure beyond what flat columns on `users` can support.
+
+**Migration path:** The `organization_id` FK on `visits` (and any future tables like `org_notes`, `visit_feedback`) would point to an `organizations` table instead of `users`. Link/unlink logic would simplify (just update the `clerk_user_id` column on the org row instead of merging/deleting rows). Existing visit data migrates cleanly since the FK values just need remapping.
+
+**Org default fields (near-term):** Before the table extraction, expect ~5-7 new columns on `users` for org-level defaults that prepopulate the visit form: `default_parking_coverage`, `default_parking_instructions`, `default_arrival_instructions`, `default_special_needs_notes`, `default_space_sqft`, `default_dogs_needed`, `default_requires_vsc`. These copy onto each visit at creation but remain editable per-visit.
+
+---
+
+## Visit History & Org Tracking
+
+Richer per-org visit history tracking. Compatible with the current `users`-table approach — `visits.organization_id` already groups all visits by org regardless of whether the org is a real Clerk account or admin-managed.
+
+Potential additions:
+- **`org_notes` table** — timestamped admin notes about an org that persist across visits (not per-visit)
+- **`visit_feedback` table** — post-visit reviews/ratings from volunteers, org contacts, or admins
+- **Org visit history view** — admin feature to explore all past visits from a given org, with aggregate stats
+
+All would FK to `users.id` as `organization_id`. The existing link/unlink flow transfers FKs, so history follows automatically when a managed org is linked to a real account. Any new tables with an `organization_id` FK would need the same transfer logic added to the link API.
+
+---
+
 ## Stabilization
 
 - Remove dead code: old `appointment_availability` system, unused columns

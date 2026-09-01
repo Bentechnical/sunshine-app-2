@@ -101,7 +101,7 @@ export async function PATCH(
     const allowedFields = [
       'title', 'visit_date', 'start_time', 'end_time', 'address',
       'location_lat', 'location_lng', 'location_place_id', 'audience_age_ranges',
-      'visitor_count_expected', 'special_needs_notes', 'approx_space_sqft',
+      'visitor_count_expected', 'event_description', 'approx_space_sqft',
       'fee_tier', 'fee_amount', 'volunteer_slots', 'parking_coverage',
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
       'requires_vsc', 'organization_id',
@@ -155,7 +155,7 @@ export async function PATCH(
     const calendarFields = ['title', 'visit_date', 'start_time', 'end_time', 'address',
       'guest_org_name', 'guest_contact_name', 'guest_contact_phone', 'guest_contact_email',
       'arrival_instructions', 'parking_instructions', 'parking_coverage', 'accessibility_notes',
-      'special_needs_notes', 'fee_tier', 'fee_amount',
+      'event_description', 'fee_tier', 'fee_amount',
       'audience_age_ranges', 'visitor_count_expected'];
     const affectsCalendar = calendarFields.some(f => f in updates);
 
@@ -165,7 +165,7 @@ export async function PATCH(
         .select(`
           id, title, guest_org_name, guest_contact_name, guest_contact_email, guest_contact_phone,
           address, start_time, end_time, audience_age_ranges, visitor_count_expected,
-          special_needs_notes, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
+          event_description, accessibility_notes, volunteer_slots, parking_coverage, parking_instructions,
           arrival_instructions, fee_tier, fee_amount, requires_vsc, requires_vaccine_record,
           admin_note, google_calendar_event_id, status
         `)
