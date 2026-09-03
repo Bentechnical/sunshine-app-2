@@ -1,11 +1,5 @@
 # Sunshine App — Pilot Launch Plan
 
-**Date:** September 2026
-**Prepared by:** Ben Taylor
-**Status:** Ready to launch
-
----
-
 ## Overview
 
 The Sunshine App's organization visits system is ready to start handling real visits. This system is designed to replace the manual, spreadsheet-driven process Sunshine currently uses to coordinate therapy dog visits to schools, hospitals, care homes, and other institutions.
@@ -235,5 +229,3 @@ If the pilot goes well, the path to full production use:
 - **Near-term:** Invoicing system, invite more volunteers, potentially onboard real org accounts
 - **Later:** Automated reminders, recurring visits, compliance expiry alerts, statistics
 - **Future:** Online payments, native mobile app, individual visits program revival
-
-The full feature roadmap is in [FUTURE_FEATURES.md](future/FUTURE_FEATURES.md).

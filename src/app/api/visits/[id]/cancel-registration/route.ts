@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
+import { promoteNextWaitlisted } from '@/utils/promoteNextWaitlisted';
 
 export async function POST(
   req: NextRequest,
@@ -86,22 +87,9 @@ export async function POST(
       // TODO: Notify admin/PD of volunteer cancellation
       // TODO: If within 72h of visit_date, flag as URGENT in notification
 
-      // Find next waitlisted volunteer
-      const { data: nextWaitlisted } = await supabase
-        .from('visit_registrations')
-        .select('id, volunteer_id, waitlist_position')
-        .eq('visit_id', visitId)
-        .eq('status', 'waitlisted')
-        .order('waitlist_position', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (nextWaitlisted) {
-        // TODO: Send waitlist promotion email to nextWaitlisted.volunteer_id
-        // (24-hour window to confirm — Phase 2 handles the expiry cron)
-        console.log(`[cancel-registration] Waitlist email needed for volunteer ${nextWaitlisted.volunteer_id} on visit ${visitId}`);
-      } else if (visit) {
-        // No waitlist — notify admin/PD that a slot is now open
+      // Promote next waitlisted volunteer (if any)
+      const { promoted } = await promoteNextWaitlisted(supabase, visitId);
+      if (!promoted) {
         console.log(`[cancel-registration] Visit ${visitId} has an open slot with no waitlist`);
       }
     }

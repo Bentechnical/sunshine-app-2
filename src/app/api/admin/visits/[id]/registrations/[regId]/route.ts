@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
+import { promoteNextWaitlisted } from '@/utils/promoteNextWaitlisted';
 
 export async function DELETE(
   req: NextRequest,
@@ -86,19 +87,7 @@ export async function DELETE(
     }
 
     if (wasConfirmed) {
-      const { data: nextWaitlisted } = await supabase
-        .from('visit_registrations')
-        .select('id, volunteer_id, waitlist_position')
-        .eq('visit_id', visitId)
-        .eq('status', 'waitlisted')
-        .order('waitlist_position', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (nextWaitlisted) {
-        // TODO: Send waitlist promotion email to nextWaitlisted.volunteer_id
-        console.log(`[DELETE registration] Waitlist promotion needed for volunteer ${nextWaitlisted.volunteer_id} on visit ${visitId}`);
-      }
+      await promoteNextWaitlisted(supabase, visitId);
     }
 
     return NextResponse.json({ success: true });

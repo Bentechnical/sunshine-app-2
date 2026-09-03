@@ -1,0 +1,33 @@
+Hi {{firstName}},
+
+Great news — a spot opened up and you've been confirmed for the following visit. We'll see you there!
+
+{{visitTitle}}
+Date: {{visitDate}}
+Time: {{visitTime}}
+Location: {{visitAddress}}{{#if visitAddressMapLink}}
+Map: {{visitAddressMapLink}}{{/if}}
+{{#if eventDescription}}
+
+About This Visit: {{eventDescription}}{{/if}}
+{{#if parkingCoverage}}
+Parking: {{parkingCoverage}}{{/if}}
+{{#if parkingInstructions}}
+Parking Instructions: {{parkingInstructions}}{{/if}}
+{{#if arrivalInstructions}}
+Arrival Instructions: {{arrivalInstructions}}{{/if}}
+{{#if accessibilityNotes}}
+Accessibility: {{accessibilityNotes}}{{/if}}
+{{#if contactName}}
+
+On-Site Contact: {{contactName}}{{#if contactEmail}} | {{contactEmail}}{{/if}}{{#if contactPhone}} | {{contactPhone}}{{/if}}{{/if}}
+
+You can view your upcoming visits and full visit details from your dashboard:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca
