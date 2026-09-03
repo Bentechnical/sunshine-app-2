@@ -10,7 +10,6 @@ import LinkOrgModal from './LinkOrgModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type GroupVisitsSubtab = 'visits' | 'orgs';
 
 interface Region {
   id: number;
@@ -71,13 +70,15 @@ interface Props {
   onBackFromVisit: () => void;
   onCountChange?: () => void;
   role?: 'admin' | 'pd';
+  /** Which view to show. 'visits' = group visits list, 'orgs' = manage organizations. Default: 'visits' */
+  view?: 'visits' | 'orgs';
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, role = 'admin' }: Props) {
+export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, role = 'admin', view = 'visits' }: Props) {
   const { user: clerkUser } = useUser();
-  const [subtab, setSubtab] = useState<GroupVisitsSubtab>('visits');
+  const subtab = view;
 
   // Orgs state
   const [organizations, setOrganizations] = useState<OrganizationUser[]>([]);
@@ -462,36 +463,10 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
     return matchesSearch && matchesRegion;
   });
 
-  // Hide the subtab nav when viewing a visit detail
-  const showSubtabNav = !(subtab === 'visits' && selectedVisitId !== null);
-
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div>
-      {/* Subtab Nav */}
-      {showSubtabNav && (
-        <div className="flex gap-2 px-4 pt-4 pb-2">
-          {(['visits', 'orgs'] as GroupVisitsSubtab[]).map(key => {
-            const labels: Record<GroupVisitsSubtab, string> = {
-              visits: 'All Visits',
-              orgs: 'Manage Organizations',
-            };
-            return (
-              <button
-                key={key}
-                onClick={() => setSubtab(key)}
-                className={`px-4 py-2 rounded text-sm font-semibold transition ${
-                  subtab === key ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                }`}
-              >
-                {labels[key]}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* All Visits */}
       {subtab === 'visits' && (
         <AdminVisits

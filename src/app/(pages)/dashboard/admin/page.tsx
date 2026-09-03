@@ -29,6 +29,7 @@ const PARAM_TO_TAB: Record<string, ActiveTab> = {
   'user-requests':     'user-requests',
   'manage-volunteers': 'manage-volunteers',
   'manage-regions':    'manage-regions',
+  'manage-orgs':       'manage-orgs',
   'manage-individuals':'manage-individuals',
   appointments:        'appointments',
   chats:               'chats',
@@ -42,6 +43,7 @@ const TAB_TO_PARAM: Partial<Record<ActiveTab, string>> = {
   'user-requests':     'user-requests',
   'manage-volunteers': 'manage-volunteers',
   'manage-regions':    'manage-regions',
+  'manage-orgs':       'manage-orgs',
   'manage-individuals':'manage-individuals',
   'appointments':      'appointments',
   'chats':             'chats',
@@ -101,6 +103,16 @@ function AdminDashboardInner() {
             onBackFromVisit={() => router.back()}
             onCountChange={handleAlertCountsChange}
             role="admin"
+          />
+        );
+      case 'manage-orgs':
+        return (
+          <AdminGroupVisits
+            selectedVisitId={null}
+            onSelectVisit={() => {}}
+            onBackFromVisit={() => {}}
+            role="admin"
+            view="orgs"
           />
         );
       case 'manage-volunteers':

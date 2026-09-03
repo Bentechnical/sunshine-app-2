@@ -21,6 +21,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
     { key: 'group-visits', label: 'Group Visits' },
     { key: 'user-requests', label: 'New User Requests' },
     { key: 'manage-volunteers', label: 'Manage Volunteers' },
+    { key: 'manage-orgs', label: 'Manage Organizations' },
   ];
 
   // Admin sees grouped nav
@@ -41,6 +42,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
       items: [
         { key: 'group-visits', label: 'Group Visits' },
         { key: 'manage-regions', label: 'Regions' },
+        { key: 'manage-orgs', label: 'Manage Organizations' },
       ],
     },
     {

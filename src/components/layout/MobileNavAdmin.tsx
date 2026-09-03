@@ -33,6 +33,7 @@ export default function MobileNavAdmin({
     { key: 'group-visits', label: 'Visits', icon: <Building2 size={20} /> },
     { key: 'user-requests', label: 'Requests', icon: <Users size={20} /> },
     { key: 'manage-volunteers', label: 'Volunteers', icon: <Users size={20} /> },
+    { key: 'manage-orgs', label: 'Orgs', icon: <Building2 size={20} /> },
     { key: 'manage-regions', label: 'Regions', icon: <Map size={20} />, adminOnly: true },
     { key: 'manage-individuals', label: 'Individuals', icon: <Users size={20} />, adminOnly: true },
     { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0, adminOnly: true },

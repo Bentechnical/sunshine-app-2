@@ -7,7 +7,8 @@ export type ActiveTab =
   | 'my-therapy-dog'
   | 'connect-with-people' // volunteer: browse individuals (replaces manage-availability)
   | 'dashboard-home'
-  | 'group-visits' // admin + pd: group visits, manage orgs, manage PDs
+  | 'group-visits' // admin + pd: group visits
+  | 'manage-orgs' // admin + pd: manage organizations
   | 'manage-regions' // admin only: region management + manage PDs
   | 'manage-volunteers' // admin + pd: volunteer list with inline compliance
   | 'manage-individuals' // admin: individual user list

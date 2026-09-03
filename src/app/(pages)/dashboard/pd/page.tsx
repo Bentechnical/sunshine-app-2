@@ -19,6 +19,7 @@ const PARAM_TO_TAB: Record<string, ActiveTab> = {
   'group-visits':      'group-visits',
   'user-requests':     'user-requests',
   'manage-volunteers': 'manage-volunteers',
+  'manage-orgs':       'manage-orgs',
 };
 
 const TAB_TO_PARAM: Partial<Record<ActiveTab, string>> = {
@@ -26,6 +27,7 @@ const TAB_TO_PARAM: Partial<Record<ActiveTab, string>> = {
   'group-visits':      'group-visits',
   'user-requests':     'user-requests',
   'manage-volunteers': 'manage-volunteers',
+  'manage-orgs':       'manage-orgs',
 };
 
 function PDDashboardInner() {
@@ -78,6 +80,16 @@ function PDDashboardInner() {
         );
       case 'manage-volunteers':
         return <AdminManageVolunteers role="pd" />;
+      case 'manage-orgs':
+        return (
+          <AdminGroupVisits
+            selectedVisitId={null}
+            onSelectVisit={() => {}}
+            onBackFromVisit={() => {}}
+            role="pd"
+            view="orgs"
+          />
+        );
       case 'user-requests':
         return <AdminUserRequests hideIndividuals onCountChange={handleAlertCountsChange} />;
       default:
