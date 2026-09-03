@@ -96,7 +96,7 @@ export async function promoteNextWaitlisted(
 
     sendTransactionalEmail({
       to: volunteer.email,
-      subject: 'A spot opened up — you\'re confirmed! — Sunshine Therapy Dogs',
+      subject: 'A spot opened up — you\'re now a confirmed attendee — Sunshine Therapy Dogs',
       templateName: 'visitWaitlistPromoted',
       data: {
         firstName: volunteer.first_name || 'there',
