@@ -1,6 +1,6 @@
 # Sunshine App — Project Status Briefing
 
-**Last updated:** July 2026
+**Last updated:** September 2026
 
 
 ---
@@ -43,29 +43,38 @@ Group visits to institutions (schools, hospitals, care homes, etc.). This is whe
 
 ### What's working
 
-The core visit lifecycle is in place. Organizations (or guests without an account) submit visit requests via the app. Admin or PD reviews and approves the request, at which point it becomes visible to volunteers. Volunteers browse upcoming visits filtered by their travel radius, see slot availability, and sign up or join a waitlist. Compliance requirements (VSC/police check, vaccine records) are enforced at signup. When a confirmed volunteer cancels, the system identifies the next person in the waitlist queue. Admins and PDs can manage all of this through dedicated dashboards, including removing volunteers, adding notes, and marking visits complete.
+The core visit lifecycle is fully implemented. Organizations (or guests without an account) submit visit requests via the app. Admin or PD reviews and approves the request, at which point it becomes visible to volunteers. Volunteers browse upcoming visits filtered by their travel radius, see slot availability, and sign up or join a waitlist. Compliance requirements (VSC/police check, vaccine records) are enforced at signup. When a confirmed volunteer cancels, the slot reopens for the next waitlisted person (manual promotion for now). Admins and PDs can manage all of this through dedicated dashboards, including removing volunteers, adding notes, sharing contact info with orgs, and marking visits complete.
 
-The compliance document system is also functional — volunteers upload VSC and dog vaccine records, stored in private storage, accessible to admins via signed URLs.
+**Admin-managed organizations** are complete. Admins can create "virtual" org records without a Clerk account, storing reusable details (name, address, contact, fee tier, logo, default visit settings) and grouping visits under them. These use synthetic IDs (`managed_<uuid>`) in the `users` table with `is_admin_managed = true`. Managed orgs can be linked to a real Clerk account later (transferring visit history), or a real org can be "detached" to a managed org. Org default fields (parking, arrival instructions, accessibility, space, dogs needed, VSC requirement) are included and prepopulate the visit creation form.
 
-The PD regions system is complete. Admins define geographic regions using Google Places boundaries (backed by OSM polygons). Volunteers and organizations are auto-assigned to a region on approval. PDs have scoped dashboard views limited to their region.
+The **compliance document system** is functional — volunteers upload VSC and dog vaccine records, stored in private Supabase storage, accessible to admins and PDs via signed URLs. An admin compliance dashboard shows document status across all volunteers.
+
+The **PD regions system** is complete. Admins define geographic regions using Google Places boundaries (backed by OSM polygons). Volunteers and organizations are auto-assigned to a region on approval based on FSA (postal code area) matching or geographic proximity. PDs have scoped dashboard views limited to their region with My Region / All toggles.
+
+**Google Calendar integration** is wired up — events are created when visits are approved, attendees managed when volunteers join/cancel, and events cancelled when visits are cancelled. Uses a Google service account with a shared calendar.
+
+**Email notifications** cover the core visit lifecycle: visit request received, approved, declined, volunteer signup confirmed, waitlisted, admin-assigned, visit cancelled, and 48h visit reminders. All use Resend with Handlebars templates.
+
+The **organization dashboard** allows registered orgs to view their visits (upcoming, pending, past), request new visits, and edit their profile. Visit detail views show confirmed volunteers with dog information.
+
+**Registration flows** support all five user roles (individual, volunteer, organization, PD, admin) with role-specific profile steps including compliance document uploads for volunteers.
 
 ### What's not yet done
 
-**Admin-managed organizations** — Admins can create "virtual" org records without a Clerk account, storing reusable details (name, address, contact, fee tier, logo) and grouping visits. These use synthetic IDs (`managed_<uuid>`) in the `users` table with `is_admin_managed = true`. Managed orgs can be linked to a real Clerk account later (transferring visit history), or a real org can be "detached" to a managed org (ownership transfer). Implementation complete, pending testing. See [ORGANIZATION_VISITS_SCHEMA.md](ORGANIZATION_VISITS_SCHEMA.md) Migration 32.
+**Invoicing** — auto-created when a visit is marked complete; admin reconciles payment manually. Not yet built. This is the next planned feature (Phase 1.5).
 
-**Org default fields** — Store org-level defaults (parking, arrival instructions, special needs, space) that prepopulate the visit creation form. Not yet built; will add ~5-7 columns to users table.
+**Automated waitlist promotion** — when a confirmed volunteer cancels, the next waitlisted volunteer should be automatically emailed with a 24h confirmation window. Currently this is a manual admin action.
 
-**Google Calendar integration** — The code is wired up to call the calendar utility at the right moments (visit approved, volunteer joins, volunteer cancels, visit cancelled), but the integration itself hasn't been built out.
-
-**Email notifications** — Some email templates missing. Affected triggers: visit request received, approved/declined, volunteer signup confirmed/waitlisted, volunteer removed, visit cancelled.
-
-**Minor todos** — the guest visit request form collects a subset of the available fields (audience type, space details, accessibility notes); admins can fill these in after the fact. These are polish items, not blockers.
+**Some email triggers** — a few notification emails are not yet implemented: volunteer removed from visit by admin, all slots filled notification to org, urgent cancellation alert (<72h).
 
 ### Deferred by design
 
-- **Invoicing** — auto-created when a visit is marked complete; admin reconciles payment manually. Not yet built.
-- **Automated reminders** — 48h visit reminders to confirmed volunteers, cancellation urgency alerts, VSC/vaccine expiry reminders, waitlist promotion with 24h response window
+- **Automated compliance reminders** — 48h visit reminders exist, but VSC/vaccine expiry reminders (60d/30d/7d) are Phase 2
 - **Recurring visits, statistics dashboard, Stripe, volunteer onboarding pipeline** — see [future/FUTURE_FEATURES.md](future/FUTURE_FEATURES.md)
+
+### Current status
+
+The system is entering **beta testing** — see [BETA_TESTING_PLAN.md](BETA_TESTING_PLAN.md) for the full plan. All features on the `org-visits` branch need to be merged to main and deployed to production with database migrations before testing begins.
 
 ---
 
@@ -83,4 +92,4 @@ The PD regions system is complete. Admins define geographic regions using Google
 
 Things that need input, a conversation, or a decision before they can be built or finalised.
 
-- **Visit workflow process review** — Connect with Alanna to walk through the full transaction flow from the org/volunteer side: waitlist promotion steps, what language volunteers see when confirming attendance, when (if ever) visit details become locked for editing after approval. Want to make sure the process matches how Sunshine actually operates before finalising the UX around these touchpoints.
+- **Visit workflow validation with Alanna** — The beta test (Phase 1) will serve as the hands-on walkthrough with Alanna to validate the full transaction flow. Key areas to get feedback on: waitlist promotion steps, volunteer-facing language, whether visit details should lock after approval, and any gaps between the app's workflow and how Sunshine actually operates today.
