@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Sunshine App &mdash; Pilot Launch Plan</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 id="sunshine-app--pilot-launch-plan">Sunshine App — Pilot Launch Plan</h1>
+<h2 id="overview">Overview</h2>
+<p>The Sunshine App's organization visits system is ready to start handling real visits. This system is designed to replace the manual, spreadsheet-driven process Sunshine currently uses to coordinate therapy dog visits to schools, hospitals, care homes, and other institutions.</p>
+<p>Rather than running a test with fake data, we're going to run the app <strong>in parallel with the existing process</strong> using real upcoming visits. The spreadsheet system stays primary, but a small group of volunteers and PDs will also see and interact with those same visits in the app, giving us real-world validation without disruption current operational process.</p>
+<p>This approach gets us to production use faster and produces more meaningful feedback than a simulated test environment would.</p>
+<hr>
+<h2 id="what-the-app-does">What the App Does</h2>
+<p>The full lifecycle of an organization visit:</p>
+<ol>
+<li>Admin creates an organization record and submits a visit on their behalf</li>
+<li>Admin or PD reviews and approves the visit, making it visible to volunteers</li>
+<li>Volunteers browse nearby approved visits and sign up (or join a waitlist if full)</li>
+<li>Admin or PD manages registrations, shares contact info with orgs when needed, adds notes</li>
+<li>Visit occurs, admin marks it complete</li>
+</ol>
+<p>Supporting systems:</p>
+<ul>
+<li><strong>Volunteer compliance</strong> — uploading and tracking VSC certificates and dog vaccine records</li>
+<li><strong>PD regions</strong> — geographic region assignment, scoped dashboards for Program Directors</li>
+<li><strong>Email notifications</strong> — confirmation emails for visit signups, approvals, cancellations</li>
+<li><strong>Google Calendar integration</strong> — automatic calendar events for approved visits</li>
+<li><strong>Mobile experience</strong> — the app works on phones and tablets</li>
+</ul>
+<hr>
+<h2 id="whats-not-included-yet">What's Not Included Yet</h2>
+<p>These features are planned for future phases:</p>
+<ul>
+<li>Invoicing and payment tracking</li>
+<li>Recurring/series visits</li>
+<li>Online payments (Stripe)</li>
+<li>The individual visits program (1:1 volunteer-to-individual matching — separate system, paused)</li>
+<li>Organization self-service accounts (orgs submitting their own visits through the app)</li>
+</ul>
+<hr>
+<h2 id="timeline">Timeline</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Who</th>
+<th>Target Dates</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pre-launch setup</strong></td>
+<td>Ben</td>
+<td>Sept 3-5</td>
+<td>Technical deployment, database migrations, environment verification</td>
+</tr>
+<tr>
+<td><strong>Phase 1: Internal walkthrough</strong></td>
+<td>Alanna + Ben</td>
+<td>Week of Sept 8</td>
+<td>Alanna learns the admin workflows; Ben verifies technical systems and fixes issues</td>
+</tr>
+<tr>
+<td><strong>Phase 2: Shadow period</strong></td>
+<td>Alanna + 5-10 volunteers, 1-2 PDs</td>
+<td>Weeks of Sept 15 &amp; 22</td>
+<td>Real visits mirrored in the app alongside the existing spreadsheet process</td>
+</tr>
+<tr>
+<td><strong>Phase 3: Evaluate</strong></td>
+<td>Alanna + Ben</td>
+<td>Week of Sept 29</td>
+<td>Review feedback, fix issues, decide on next steps</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Target completion: end of September.</strong></p>
+<hr>
+<h2 id="pre-launch-setup-ben">Pre-Launch Setup (Ben)</h2>
+<p>Technical steps required before any testing begins:</p>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Merge the <code>org-visits</code> branch to <code>main</code></li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Run all database migrations on the production Supabase instance
+<ul>
+<li>New tables: <code>visits</code>, <code>visit_registrations</code>, <code>visit_notes</code>, <code>pd_regions</code>, <code>pd_region_fsas</code></li>
+<li>New columns on <code>users</code> table (org profile fields, compliance fields, region assignment)</li>
+<li>New columns on <code>dogs</code> table (vaccine record fields)</li>
+<li>New role values: <code>organization</code>, <code>pd</code></li>
+</ul>
+</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Enable PostGIS extension on production Supabase</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Verify production environment variables (Google Calendar credentials, Resend API key)</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Seed initial PD regions and FSA (postal code area) prefixes</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Verify email sending works from the production domain</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Complete one full smoke test of every major flow</li>
+</ul>
+<hr>
+<h2 id="phase-1-internal-walkthrough">Phase 1: Internal Walkthrough</h2>
+<p><strong>Duration:</strong> ~1 week
+<strong>Participants:</strong> Alanna (admin) + Ben (technical support)</p>
+<p>This phase gets Alanna comfortable with the admin workflows before real volunteers are involved. It also serves as the final technical shakedown on the production environment.</p>
+<h3 id="alannas-tasks-admin-role">Alanna's Tasks (Admin Role)</h3>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Create managed organizations</strong> — Enter a few real Sunshine partner organizations (names, addresses, contacts). These are admin-managed records — no org login needed.</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Create test visits</strong> — Enter a handful of visits with varied configurations to get familiar with the form:
+<ul>
+<li>Different dates, times, and locations</li>
+<li>Different volunteer slot counts</li>
+<li>Some requiring VSC, some not</li>
+</ul>
+</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Walk through the approval flow</strong> — Approve visits, add admin notes</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Set up PD regions</strong> — Create regions, assign postal code areas, assign a PD</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Manage registrations</strong> — After Ben signs up as a test volunteer, practice managing registrations (view, remove, share contact info)</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Review compliance</strong> — View uploaded VSC and vaccine documents</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> <strong>Note feedback</strong> — Anything confusing, unclear, or missing in the admin experience</li>
+</ul>
+<h3 id="bens-tasks-technical-verification">Ben's Tasks (Technical Verification)</h3>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Register test volunteer and PD accounts to verify those flows</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Browse visits, sign up, upload compliance documents</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Verify email notifications arrive correctly</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Verify Google Calendar events are created</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Test on mobile</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Fix any blockers found</li>
+</ul>
+<h3 id="phase-1-exit-criteria">Phase 1 Exit Criteria</h3>
+<ul>
+<li>Alanna can create orgs, create visits, and manage the workflow without assistance</li>
+<li>Email notifications and Google Calendar integration are working</li>
+<li>No critical bugs</li>
+</ul>
+<hr>
+<h2 id="phase-2-shadow-period">Phase 2: Shadow Period</h2>
+<p><strong>Duration:</strong> 2 weeks
+<strong>Participants:</strong> Alanna (admin), 5-10 volunteers, 1-2 PDs</p>
+<p>This is the core of the pilot. Alanna mirrors <strong>real upcoming visits</strong> in the app. Volunteers who are already assigned to those visits through the normal process are invited to also see and interact with them in the app.</p>
+<p>The existing spreadsheet/manual process stays primary throughout. Nothing changes operationally — the app runs alongside it.</p>
+<h3 id="how-it-works">How It Works</h3>
+<p><strong>Alanna's role:</strong></p>
+<ul class="contains-task-list">
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Each week, enter the upcoming week's real visits into the app as managed org visits</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Use real organization names, addresses, dates, times, and slot counts</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Approve visits so they become visible to volunteers</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Manage registrations as volunteers sign up — compare against the spreadsheet to verify accuracy</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"type="checkbox"> Note any gaps: does the app capture everything the spreadsheet does? What's missing?</li>
+</ul>
+<p><strong>Volunteer testers:</strong></p>
+<ul>
+<li>Recruited from volunteers who are already scheduled for upcoming visits</li>
+<li>They register in the app, complete their profile, and upload compliance documents</li>
+<li>They find and sign up for visits they're already committed to through the normal process</li>
+<li>They experience the app flow with real, meaningful context — not a simulation</li>
+</ul>
+<p><strong>PD testers:</strong></p>
+<ul>
+<li>1-2 PDs are invited once volunteers are active in their region</li>
+<li>They view their scoped dashboard with real visits and real volunteers</li>
+<li>Brief walkthrough with Alanna is sufficient — no elaborate pre-staged environment needed</li>
+</ul>
+<h3 id="what-volunteers-are-asked-to-do">What Volunteers Are Asked To Do</h3>
+<p>Testers receive a brief invitation with a link to the app and these instructions:</p>
+<ol>
+<li><strong>Register and set up your profile</strong> — Create an account, add your details and your dog's information</li>
+<li><strong>Upload your compliance documents</strong> — Your VSC certificate and your dog's vaccine records</li>
+<li><strong>Find your upcoming visit</strong> — Browse visits near you and sign up for one you're already attending</li>
+<li><strong>Check your notifications</strong> — Did you receive a confirmation email? A calendar invite?</li>
+<li><strong>Try it on your phone</strong> — Open the app on your mobile device</li>
+<li><strong>Let us know what you think</strong> — Fill out the short feedback form</li>
+</ol>
+<h3 id="what-pds-are-asked-to-do">What PDs Are Asked To Do</h3>
+<ol>
+<li><strong>Register and get approved</strong> — Create a PD account (Alanna approves it)</li>
+<li><strong>Explore your dashboard</strong> — View visits, volunteers, and organizations in your region</li>
+<li><strong>Toggle My Region / All</strong> — See the scoping in action</li>
+<li><strong>Share your impressions</strong> — Is this useful? What's missing compared to your current tools?</li>
+</ol>
+<h3 id="feedback-collection">Feedback Collection</h3>
+<p>A short feedback form (Google Form or similar) covering:</p>
+<ol>
+<li>Was registration and profile setup straightforward?</li>
+<li>Could you find and sign up for visits easily?</li>
+<li>Did you receive email notifications? Were they clear?</li>
+<li>How was the experience on your phone?</li>
+<li>Was anything confusing, broken, or missing?</li>
+<li>How does this compare to the current process?</li>
+<li>Would you use this app regularly?</li>
+<li>Any other comments?</li>
+</ol>
+<hr>
+<h2 id="phase-3-evaluate">Phase 3: Evaluate</h2>
+<p><strong>Duration:</strong> ~1 week</p>
+<p>After the shadow period:</p>
+<ol>
+<li><strong>Compile feedback</strong> from the form, Alanna's notes, and any informal conversations</li>
+<li><strong>Categorize findings:</strong>
+<ul>
+<li>Bugs — broken functionality</li>
+<li>Workflow gaps — things the spreadsheet handles that the app doesn't yet</li>
+<li>UX issues — works but confusing</li>
+<li>Feature requests — nice-to-haves for later</li>
+</ul>
+</li>
+<li><strong>Fix critical issues</strong></li>
+<li><strong>Decide on next steps:</strong>
+<ul>
+<li>If the app captured the visit workflow accurately and feedback is positive: <strong>begin transitioning to the app as primary</strong> for new visits</li>
+<li>If workflow gaps were found: address them and run another shadow period</li>
+<li>If major concerns were raised: revisit the approach with Alanna</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="success-criteria">Success Criteria</h2>
+<p>The pilot is successful if:</p>
+<ul>
+<li><strong>The app mirrors reality</strong> — Visits entered in the app match what's happening in the spreadsheet; no data or workflow gaps that would prevent the app from being primary</li>
+<li><strong>Registration works</strong> — Volunteers and PDs can create accounts and complete profiles without help</li>
+<li><strong>Core visit flow works</strong> — Volunteers can browse, sign up for, and cancel visits reliably</li>
+<li><strong>Compliance works</strong> — Document uploads function correctly; VSC requirements are enforced</li>
+<li><strong>PD scoping works</strong> — Program Directors see a dashboard scoped to their region</li>
+<li><strong>Communications work</strong> — Email notifications and Google Calendar invites arrive consistently</li>
+<li><strong>Admin workflow works</strong> — Alanna can manage the full visit lifecycle through the app</li>
+<li><strong>No critical bugs</strong> — No data loss, crashes, or security issues</li>
+<li><strong>Positive reception</strong> — Testers see the value compared to the current manual process</li>
+</ul>
+<hr>
+<h2 id="risks--mitigations">Risks &amp; Mitigations</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Database migrations fail on production</td>
+<td>Test full migration sequence on dev first; have rollback plan ready</td>
+</tr>
+<tr>
+<td>Email deliverability issues</td>
+<td>Verify Resend domain setup; send test emails before inviting anyone</td>
+</tr>
+<tr>
+<td>Volunteers confused about app vs. real schedule</td>
+<td>Clear communication that the spreadsheet is still primary; the app is a parallel view</td>
+</tr>
+<tr>
+<td>Low tester engagement</td>
+<td>Keep the group small and personally recruited; use volunteers already on upcoming visits so the context is real</td>
+</tr>
+<tr>
+<td>Major bugs discovered during shadow period</td>
+<td>Ben available for quick fixes throughout</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="what-comes-after">What Comes After</h2>
+<p>If the pilot goes well, the path to full production use:</p>
+<ul>
+<li><strong>Immediate:</strong> Fix issues found during the pilot, address workflow gaps</li>
+<li><strong>Short-term:</strong> Stop mirroring — start using the app as the primary system for new visits. Spreadsheet becomes the backup.</li>
+<li><strong>Near-term:</strong> Invoicing system, invite more volunteers, potentially onboard real org accounts</li>
+<li><strong>Later:</strong> Automated reminders, recurring visits, compliance expiry alerts, statistics</li>
+<li><strong>Future:</strong> Online payments, native mobile app, individual visits program revival</li>
+</ul>
+
+            
+            
+        </body>
+        </html>

@@ -269,7 +269,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
 
   const set = (field: string, value: any) => setForm(f => ({ ...f, [field]: value }));
 
-  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; postal_code: string; assigned_region_id: number | null; fee_tier: string | null; is_admin_managed: boolean; default_parking_coverage: string | null; default_parking_instructions: string | null; default_arrival_instructions: string | null; default_event_description: string | null; default_accessibility_notes: string | null; default_space_sqft: number | null; default_dogs_needed: number | null; default_requires_vsc: boolean | null };
+  type OrgOption = { id: string; email: string; org_name: string; org_contact_name: string; org_contact_phone: string; org_address: string; org_place_id: string | null; location_lat: number | null; location_lng: number | null; postal_code: string; assigned_region_id: number | null; fee_tier: string | null; is_admin_managed: boolean; default_parking_coverage: string | null; default_parking_instructions: string | null; default_arrival_instructions: string | null; default_event_description: string | null; default_accessibility_notes: string | null; default_space_sqft: number | null; default_dogs_needed: number | null; default_requires_vsc: boolean | null };
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [pdOptions, setPdOptions] = useState<PdUser[]>([]);
   const [regionOwnerMap, setRegionOwnerMap] = useState<Map<number, string>>(new Map());
@@ -319,6 +319,9 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       guest_contact_email: org.email || f.guest_contact_email,
       guest_contact_phone: org.org_contact_phone || f.guest_contact_phone,
       address: org.org_address || f.address,
+      location_place_id: org.org_place_id || f.location_place_id,
+      location_lat: org.location_lat ?? f.location_lat,
+      location_lng: org.location_lng ?? f.location_lng,
       // Inherit org's PD from their assigned region's owner, and fee tier
       assigned_pd_id: (org.assigned_region_id ? (regionOwnerMap.get(org.assigned_region_id) ?? f.assigned_pd_id) : f.assigned_pd_id),
       fee_tier: org.fee_tier ?? f.fee_tier,

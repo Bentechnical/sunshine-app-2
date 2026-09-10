@@ -69,8 +69,25 @@ interface Props {
   hideTabs?: boolean;
 }
 
+const MIN_DISTANCE = 5;
+const MAX_DISTANCE = 250;
 const DEFAULT_DISTANCE = 15;
-const MAX_DISTANCE = 50;
+
+// Exponential mapping: slider position (0–1) → distance value
+// ~60% of slider covers 5–50 km, remaining 40% stretches to 250 km
+function sliderToDistance(t: number): number {
+  const raw = MIN_DISTANCE * Math.pow(MAX_DISTANCE / MIN_DISTANCE, t);
+  // Round to clean values
+  if (raw <= 10) return Math.round(raw);
+  if (raw <= 50) return Math.round(raw / 5) * 5;
+  if (raw <= 100) return Math.round(raw / 10) * 10;
+  return Math.round(raw / 25) * 25;
+}
+
+// Inverse: distance value → slider position (0–1)
+function distanceToSlider(d: number): number {
+  return Math.log(d / MIN_DISTANCE) / Math.log(MAX_DISTANCE / MIN_DISTANCE);
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -776,15 +793,15 @@ export default function BrowseOrgVisits({
               </div>
               <input
                 type="range"
-                min={5}
-                max={MAX_DISTANCE}
-                step={5}
-                value={filterDistance}
-                onChange={e => setFilterDistance(Number(e.target.value))}
+                min={0}
+                max={1}
+                step={0.005}
+                value={distanceToSlider(filterDistance)}
+                onChange={e => setFilterDistance(sliderToDistance(Number(e.target.value)))}
                 className="w-full accent-[#0e62ae]"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                <span>5 km</span>
+                <span>{MIN_DISTANCE} km</span>
                 <span>{MAX_DISTANCE} km</span>
               </div>
             </div>
