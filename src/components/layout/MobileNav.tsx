@@ -24,7 +24,7 @@ export default function MobileNav({ role }: MobileNavProps) {
           { path: '/dashboard/messages', label: 'Messages', icon: <MessageCircle size={20} />, showAlert: hasUnreadMessages },
         ]
       : [
-          { path: '/dashboard', label: 'Home', icon: <Home size={20} /> },
+          { path: '/dashboard', label: 'Profile', icon: <Home size={20} /> },
           { path: '/dashboard/browse-visits', label: 'Browse Visits', icon: <Building2 size={20} /> },
           { path: '/dashboard/visits', label: 'My Visits', icon: <CalendarCheck size={20} /> },
         ];

@@ -23,7 +23,7 @@ export function DesktopNav({ role }: DesktopNavProps) {
         ]
       : role === 'volunteer'
       ? [
-          { path: '/dashboard', label: 'Home' },
+          { path: '/dashboard', label: 'Profile' },
           { path: '/dashboard/browse-visits', label: 'Browse Group Visits' },
           { path: '/dashboard/visits', label: 'My Visits' },
         ]
