@@ -1,12 +1,12 @@
 // src/app/api/admin/notify-new-user/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '../../../utils/mailer';
-import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { auth } from '@clerk/nextjs/server';
 
 export async function POST(req: NextRequest) {
-  const check = await requireAdminOrPd();
-  if ('error' in check) return check.error;
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     console.log('[notify-new-user] 📥 Received request');

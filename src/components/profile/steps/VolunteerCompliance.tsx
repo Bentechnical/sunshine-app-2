@@ -141,7 +141,7 @@ export default function VolunteerCompliance({
             type="date"
             value={vscDate}
             onChange={(e) => setVscDate(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full min-w-0 px-4 py-2 border rounded-lg"
             disabled={isLoading}
             max={new Date().toISOString().split('T')[0]}
           />
@@ -169,7 +169,7 @@ export default function VolunteerCompliance({
             type="date"
             value={vaccineIssuedDate}
             onChange={(e) => setVaccineIssuedDate(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full min-w-0 px-4 py-2 border rounded-lg"
             disabled={isLoading}
             max={new Date().toISOString().split('T')[0]}
           />
@@ -184,7 +184,7 @@ export default function VolunteerCompliance({
             type="date"
             value={vaccineExpiryDate}
             onChange={(e) => setVaccineExpiryDate(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full min-w-0 px-4 py-2 border rounded-lg"
             disabled={isLoading}
           />
         </div>
