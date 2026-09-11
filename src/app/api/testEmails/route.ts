@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '../../utils/mailer';
 import { formatAppointmentTime } from '@/utils/dateFormat';
 import { requireAdmin } from '@/utils/requireAdmin';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 // Sample data for testing
 const sampleData = {
@@ -13,6 +14,8 @@ const sampleData = {
   appointment: { start_time: new Date('2024-02-15T14:00:00Z') },
   cancellationReason: 'Volunteer is unavailable due to illness',
 };
+
+const dashboardLink = getAppUrl() + '/dashboard';
 
 const emailTemplates = [
   {
@@ -28,7 +31,7 @@ const emailTemplates = [
     data: {
       firstName: sampleData.individual.first_name,
       year: new Date().getFullYear(),
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
     },
   },
   {
@@ -38,7 +41,7 @@ const emailTemplates = [
     data: {
       firstName: sampleData.volunteer.first_name,
       year: new Date().getFullYear(),
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
     },
   },
   {
@@ -63,7 +66,7 @@ const emailTemplates = [
       dogName: sampleData.dog.dog_name,
       firstName: sampleData.volunteer.first_name,
       individualName: sampleData.individual.first_name,
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },
@@ -90,7 +93,7 @@ const emailTemplates = [
       dogName: sampleData.dog.dog_name,
       firstName: sampleData.volunteer.first_name,
       individualName: sampleData.individual.first_name,
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },
@@ -126,7 +129,7 @@ const emailTemplates = [
       firstName: sampleData.volunteer.first_name,
       requesterName: sampleData.individual.first_name,
       dogName: sampleData.dog.dog_name,
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },
@@ -138,7 +141,7 @@ const emailTemplates = [
       firstName: sampleData.individual.first_name,
       recipientName: sampleData.volunteer.first_name,
       dogName: sampleData.dog.dog_name,
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },
@@ -153,7 +156,7 @@ const emailTemplates = [
       locationLabel: "Individual's home — 123 Main St",
       notes: 'Please bring treats!',
       isModification: false,
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },
@@ -166,7 +169,7 @@ const emailTemplates = [
       otherPartyName: sampleData.volunteer.first_name,
       appointmentTime: 'Friday, February 14, 2025 at 2:00 PM',
       locationLabel: "Individual's home — 123 Main St",
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },
@@ -178,7 +181,7 @@ const emailTemplates = [
       firstName: sampleData.individual.first_name,
       otherPartyName: sampleData.volunteer.first_name,
       appointmentTime: 'Friday, February 14, 2025 at 2:00 PM',
-      dashboardLink: 'https://sunshinedogs.app/dashboard',
+      dashboardLink,
       year: new Date().getFullYear(),
     },
   },

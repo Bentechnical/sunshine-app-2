@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(req: NextRequest) {
   const check = await requireAdminOrPd();
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     // Only send notifications on production site
     const host = req.headers.get('host') || '';
-    const isProduction = host === 'sunshinedogs.app' || host === 'www.sunshinedogs.app';
+    const isProduction = host.endsWith('sunshinedogs.app');
 
     if (!isProduction) {
       console.log('[notify-new-user] 🚫 Skipping notification - not production environment (host:', host, ')');
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
         data: {
           userName,
           userType: formattedUserType,
-          dashboardLink: 'https://sunshinedogs.app/dashboard/admin',
+          dashboardLink: `${getAppUrl()}/dashboard/admin`,
           year: new Date().getFullYear(),
         },
       });

@@ -5,7 +5,8 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendTransactionalEmail } from '../../utils/mailer'; // ✅ Add this
+import { sendTransactionalEmail } from '../../utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -129,6 +130,7 @@ export async function POST(req: Request) {
             templateName: 'completeProfile',
             data: {
               firstName: first_name ?? 'there',
+              dashboardLink: getAppUrl() + '/dashboard',
               year: new Date().getFullYear(),
             },
           });

@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { streamChatServer } from '@/utils/stream-chat';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { formatEmailDateTime } from '@/utils/dateUtils';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 /**
  * Cron job to process pending email notifications
@@ -253,7 +254,7 @@ export async function GET(request: NextRequest) {
                   recipientName: user.first_name,
                   conversationCount: conversations.length,
                   conversations,
-                  dashboardLink: 'https://sunshinedogs.app/dashboard/messages',
+                  dashboardLink: `${getAppUrl()}/dashboard/messages`,
                   year: new Date().getFullYear()
                 }
               });

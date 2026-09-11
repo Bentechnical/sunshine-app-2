@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '../../../utils/mailer';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { autoAssignRegion } from '@/utils/autoAssignRegion';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 export async function POST(req: NextRequest) {
   const check = await requireAdminOrPd();
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
           data: {
             firstName: userData.first_name ?? 'there',
             year: new Date().getFullYear(),
-            dashboardLink: 'https://sunshinedogs.app/dashboard',
+            dashboardLink: `${getAppUrl()}/dashboard`,
           },
         });
         console.log(`[Resend] Approval email sent to ${userData.email}`);
