@@ -95,21 +95,7 @@ export default function DashboardLayout({
           )}
 
           <div className="mt-auto pt-6 flex flex-col gap-2">
-            {role !== 'admin' && role !== 'pd' && (
-              <a
-                href={
-                  role === 'volunteer'
-                    ? '/guides/volunteer-guide.pdf'
-                    : '/guides/user-guide.pdf'
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center w-full rounded-md text-sm font-medium bg-white text-gray-800 hover:bg-gray-100 transition-colors px-4 py-2"
-              >
-                User Guide
-              </a>
-            )}
-            <SignOutButton>
+<SignOutButton>
               <button
                 data-slot="button"
                 className="inline-flex items-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] bg-red-600 hover:bg-red-700 text-white w-full px-4 py-2"
