@@ -174,15 +174,15 @@ export default function CustomSignIn() {
           </Button>
         </form>
 
-        <p className="text-sm text-center text-gray-600 mt-6">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/sign-up"
-            className="text-[#0e62ae] font-semibold underline hover:text-[#094f91]"
+        <Link href="/sign-up" className="block mt-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-[#0e62ae] text-[#0e62ae] hover:bg-blue-50"
           >
-            Sign Up
-          </Link>
-        </p>
+            Create Account
+          </Button>
+        </Link>
       </div>
     </div>
   );
