@@ -497,22 +497,6 @@ export default function VolunteerEditModal({ initialProfile, onClose, onSaved }:
                 </label>
               </div>
 
-              {/* Travel Distance — only shown when opted in */}
-              {openToIndividualVisits && (
-                <div>
-                  <label className={lc}>Travel distance for individual visits</label>
-                  <select
-                    value={travelDistance}
-                    onChange={e => setTravelDistance(Number(e.target.value))}
-                    className={ic}
-                  >
-                    <option value={5}>5 km</option>
-                    <option value={10}>10 km</option>
-                    <option value={25}>25 km</option>
-                    <option value={50}>50 km</option>
-                  </select>
-                </div>
-              )}
 
               {/* Bio */}
               <div>

@@ -324,24 +324,6 @@ export default function EditProfileForm({
         />
       </div>
 
-      {role === 'volunteer' && (
-        <div>
-          <label htmlFor="travel_distance" className="block text-sm font-semibold text-gray-700 mb-2">
-            Travel Distance
-          </label>
-          <select
-            id="travel_distance"
-            value={travelDistance}
-            onChange={(e) => setTravelDistance(Number(e.target.value))}
-            className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
-          >
-            <option value={5}>5 km</option>
-            <option value={10}>10 km</option>
-            <option value={25}>25 km</option>
-            <option value={50}>50 km</option>
-          </select>
-        </div>
-      )}
 
       {/* Dependant Information - Only show for individuals selecting "someone else" */}
       {role === 'individual' && visitRecipientType === 'other' && (
