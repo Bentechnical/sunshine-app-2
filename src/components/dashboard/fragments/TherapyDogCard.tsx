@@ -37,7 +37,7 @@ function getComplianceStatus(documentUrl: string | null, expiryDate: string | nu
 }
 
 const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:        { label: 'Vaccine Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
+  missing:        { label: 'Vaccine Needed',         icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
   pending_review: { label: 'Vaccine Needs Review',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-800' },
   approved:       { label: 'Vaccine Valid',         icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
   expiring:       { label: 'Vaccine Expiring Soon', icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
@@ -45,7 +45,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
   rejected:       { label: 'Vaccine Rejected',      icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
 };
 
-export default function TherapyDogCard() {
+export default function TherapyDogCard({ onOpenDocuments }: { onOpenDocuments?: () => void }) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
@@ -141,13 +141,14 @@ export default function TherapyDogCard() {
             )}
 
             {/* Vaccine compliance badge */}
-            <span
-              className={`self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${vaccineConfig.classes}`}
-              title="Manage vaccine records in Edit Profile → Documents"
+            <button
+              onClick={() => onOpenDocuments?.()}
+              className={`self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80 ${vaccineConfig.classes}`}
+              title="Click to manage compliance documents"
             >
               {vaccineConfig.icon}
               {vaccineConfig.label}
-            </span>
+            </button>
           </div>
         </div>
       </div>

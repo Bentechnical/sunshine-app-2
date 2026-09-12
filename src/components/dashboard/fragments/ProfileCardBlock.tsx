@@ -56,7 +56,7 @@ function getComplianceStatus(documentUrl: string | null, expiryDate: string | nu
 }
 
 const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:        { label: 'VSC Missing',       icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
+  missing:        { label: 'VSC Missing',         icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
   pending_review: { label: 'VSC Needs Review',  icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-800' },
   approved:       { label: 'VSC Valid',         icon: <CheckCircle size={12} />, classes: 'bg-green-100 text-green-700' },
   expiring:       { label: 'VSC Expiring Soon', icon: <Clock size={12} />,       classes: 'bg-amber-100 text-amber-700' },
@@ -66,7 +66,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
 
 const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status';
 
-export default function ProfileCardBlock() {
+export default function ProfileCardBlock({ openDocumentsTrigger = 0 }: { openDocumentsTrigger?: number }) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
@@ -75,6 +75,7 @@ export default function ProfileCardBlock() {
   const [dogVaccine, setDogVaccine] = useState<{ vaccine_record_url: string | null; vaccine_date_issued: string | null; vaccine_expiry_date: string | null; vaccine_verification_status: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editModalTab, setEditModalTab] = useState<'profile' | 'compliance'>('profile');
 
   const loadProfile = async () => {
     if (!user?.id) return;
@@ -122,6 +123,13 @@ export default function ProfileCardBlock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  useEffect(() => {
+    if (openDocumentsTrigger > 0) {
+      setEditModalTab('compliance');
+      setShowEditModal(true);
+    }
+  }, [openDocumentsTrigger]);
+
   if (loading || !profile) {
     return (
       <div className="bg-white rounded-xl p-4 flex items-center justify-center min-h-50">
@@ -163,7 +171,7 @@ export default function ProfileCardBlock() {
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-2xl font-bold text-gray-900">{fullName}</h3>
               <button
-                onClick={() => setShowEditModal(true)}
+                onClick={() => { setEditModalTab('profile'); setShowEditModal(true); }}
                 className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-lg px-2.5 py-1.5 transition-colors"
               >
                 <Pencil size={12} />
@@ -188,7 +196,7 @@ export default function ProfileCardBlock() {
             {/* VSC compliance badge */}
             {vscConfig && (
               <button
-                onClick={() => setShowEditModal(true)}
+                onClick={() => { setEditModalTab('compliance'); setShowEditModal(true); }}
                 className={`mt-1 self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80 ${vscConfig.classes}`}
                 title="Click to manage compliance documents"
               >
@@ -285,6 +293,7 @@ export default function ProfileCardBlock() {
       {/* Edit modal — volunteers only */}
       {showEditModal && isVolunteer && (
         <VolunteerEditModal
+          initialTab={editModalTab}
           initialProfile={{
             bio: profile.bio ?? null,
             phone_number: profile.phone_number ?? null,

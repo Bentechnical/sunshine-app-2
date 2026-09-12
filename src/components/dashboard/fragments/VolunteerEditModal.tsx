@@ -30,6 +30,7 @@ interface InitialProfile {
 
 interface Props {
   initialProfile: InitialProfile;
+  initialTab?: Tab;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -72,14 +73,14 @@ function normalizePostalCode(code: string): string {
   return upper.length === 6 ? `${upper.slice(0, 3)} ${upper.slice(3)}` : upper;
 }
 
-export default function VolunteerEditModal({ initialProfile, onClose, onSaved }: Props) {
+export default function VolunteerEditModal({ initialProfile, initialTab = 'profile', onClose, onSaved }: Props) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
   const avatarRef = useRef<AvatarUploadHandle>(null);
   const vscFileRef = useRef<HTMLInputElement>(null);
   const vaccineFileRef = useRef<HTMLInputElement>(null);
 
-  const [tab, setTab] = useState<Tab>('profile');
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   // Profile form state
   const [bio, setBio] = useState(initialProfile.bio ?? '');
