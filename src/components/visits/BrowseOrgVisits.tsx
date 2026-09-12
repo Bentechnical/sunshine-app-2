@@ -574,11 +574,19 @@ export default function BrowseOrgVisits({
           {err && <p className="mb-3 text-sm text-red-600">{err}</p>}
 
           {lockReason ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-2">
-              <Lock size={15} className="text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800">
-                This visit requires a <strong>{lockReason}</strong>. Upload it in your profile settings to sign up.
-              </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <Lock size={15} className="text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-sm text-amber-800">
+                  This visit requires a <strong>{lockReason}</strong>. Upload it in your profile to sign up.
+                </p>
+              </div>
+              <a
+                href="/dashboard"
+                className="mt-3 inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Upload Documents
+              </a>
             </div>
           ) : myStatus === 'confirmed' ? (
             <button
@@ -674,10 +682,10 @@ export default function BrowseOrgVisits({
     return (
       <div
         key={visit.id}
-        onClick={locked ? undefined : () => onSelectVisit?.(visit.id)}
+        onClick={() => onSelectVisit?.(visit.id)}
         className={`bg-white rounded-xl border-2 shadow-sm transition-all relative overflow-hidden ${
           locked
-            ? 'opacity-60 cursor-default border-gray-100'
+            ? 'cursor-pointer hover:shadow-md group border-gray-100'
             : isRegistered
             ? myStatus === 'confirmed'
               ? 'cursor-pointer hover:shadow-md group border-green-200'

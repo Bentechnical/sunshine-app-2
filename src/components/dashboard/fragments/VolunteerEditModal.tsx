@@ -416,19 +416,28 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
 
         {/* Tabs */}
         <div className="flex px-6 pt-3 pb-0 gap-4 shrink-0 border-b border-gray-100">
-          {(['profile', 'compliance'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`pb-3 text-sm font-semibold capitalize border-b-2 transition-colors ${
-                tab === t
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              {t === 'compliance' ? 'Documents' : 'My Profile'}
-            </button>
-          ))}
+          {(['profile', 'compliance'] as Tab[]).map(t => {
+            const needsAttention = t === 'compliance' && (
+              vscStatus === 'missing' || vscStatus === 'expired' || vscStatus === 'rejected' ||
+              vaccineStatus === 'missing' || vaccineStatus === 'expired' || vaccineStatus === 'rejected'
+            );
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`relative pb-3 text-sm font-semibold capitalize border-b-2 transition-colors ${
+                  tab === t
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {t === 'compliance' ? 'Documents' : 'My Profile'}
+                {needsAttention && (
+                  <span className="absolute -top-0.5 -right-2.5 w-2 h-2 bg-red-500 rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Scrollable body */}
