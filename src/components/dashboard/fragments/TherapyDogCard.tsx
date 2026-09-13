@@ -45,7 +45,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
   rejected:       { label: 'Vaccine Rejected',      icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
 };
 
-export default function TherapyDogCard({ onOpenDocuments }: { onOpenDocuments?: () => void }) {
+export default function TherapyDogCard({ onOpenDocuments, refreshTrigger = 0 }: { onOpenDocuments?: () => void; refreshTrigger?: number }) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
@@ -76,6 +76,11 @@ export default function TherapyDogCard({ onOpenDocuments }: { onOpenDocuments?: 
     fetchDog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    if (refreshTrigger > 0) fetchDog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   if (loading) {
     return (

@@ -66,7 +66,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
 
 const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status';
 
-export default function ProfileCardBlock({ openDocumentsTrigger = 0 }: { openDocumentsTrigger?: number }) {
+export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClose }: { openDocumentsTrigger?: number; onModalClose?: () => void }) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
@@ -314,10 +314,12 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0 }: { openDoc
           onClose={() => {
             setShowEditModal(false);
             loadProfile();
+            onModalClose?.();
           }}
           onSaved={() => {
             setShowEditModal(false);
             loadProfile();
+            onModalClose?.();
           }}
         />
       )}

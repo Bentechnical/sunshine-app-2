@@ -7,6 +7,7 @@ import { AlertCircle } from 'lucide-react';
 
 interface Props {
   onUploadClick: () => void;
+  refreshTrigger?: number;
 }
 
 type DocStatus = 'ok' | 'needed';
@@ -21,7 +22,7 @@ function getDocStatus(url: string | null, verificationStatus: string | null, exp
   return 'ok';
 }
 
-export default function ComplianceBanner({ onUploadClick }: Props) {
+export default function ComplianceBanner({ onUploadClick, refreshTrigger = 0 }: Props) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
   const [vscStatus, setVscStatus] = useState<DocStatus>('ok');
@@ -59,7 +60,7 @@ export default function ComplianceBanner({ onUploadClick }: Props) {
     };
 
     fetch();
-  }, [user?.id, supabase]);
+  }, [user?.id, supabase, refreshTrigger]);
 
   if (loading) return null;
   if (vscStatus === 'ok' && vaccineStatus === 'ok') return null;

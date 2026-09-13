@@ -13,22 +13,25 @@ interface Props {
 
 export default function DashboardHomeVolunteer({}: Props) {
   const [openDocsTrigger, setOpenDocsTrigger] = useState(0);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleProfileSaved = () => setRefreshTrigger(c => c + 1);
 
   return (
     <div className="flex flex-col gap-2 px-2 md:px-4 h-auto lg:h-[90vh] pb-4">
       <div className="shrink-0">
-        <ComplianceBanner onUploadClick={() => setOpenDocsTrigger(c => c + 1)} />
+        <ComplianceBanner onUploadClick={() => setOpenDocsTrigger(c => c + 1)} refreshTrigger={refreshTrigger} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-y-2 lg:gap-2 flex-1">
         <div className="col-span-2 flex flex-col gap-2 lg:max-h-[90vh] lg:overflow-y-auto">
           <div className="rounded-2xl bg-white shadow p-2">
-            <ProfileCardBlock openDocumentsTrigger={openDocsTrigger} />
+            <ProfileCardBlock openDocumentsTrigger={openDocsTrigger} onModalClose={handleProfileSaved} />
           </div>
         </div>
 
         <div className="col-span-1 rounded-2xl bg-white shadow p-2 lg:max-h-[90vh] lg:overflow-y-auto">
-          <TherapyDogCard onOpenDocuments={() => setOpenDocsTrigger(c => c + 1)} />
+          <TherapyDogCard onOpenDocuments={() => setOpenDocsTrigger(c => c + 1)} refreshTrigger={refreshTrigger} />
         </div>
       </div>
     </div>

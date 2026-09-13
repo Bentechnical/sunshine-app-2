@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { X } from 'lucide-react';
+import { useDashboardUI } from '@/contexts/DashboardUIContext';
 import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpload';
 
 interface InitialDog {
@@ -23,7 +24,14 @@ interface Props {
 export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
+  const { setHideMobileNav } = useDashboardUI();
   const dogAvatarRef = useRef<AvatarUploadHandle>(null);
+
+  // Hide mobile nav while modal is open
+  useEffect(() => {
+    setHideMobileNav(true);
+    return () => setHideMobileNav(false);
+  }, [setHideMobileNav]);
 
   // Dog info form state
   const [dogName, setDogName] = useState(initialDog.dog_name);
@@ -71,7 +79,7 @@ export default function DogEditModal({ initialDog, onClose, onSaved }: Props) {
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90dvh] flex flex-col">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90dvh] flex flex-col pb-[env(safe-area-inset-bottom)]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
