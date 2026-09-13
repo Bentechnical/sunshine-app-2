@@ -560,7 +560,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
               <div className="rounded-xl border border-gray-200 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-gray-800">Rabies Vaccine Record</h3>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${vaccineClasses}`}>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${vaccineClasses}`}>
                     {vaccineIcon}
                     {vaccineLabel}
                   </span>
@@ -669,7 +669,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
               <div className="rounded-xl border border-gray-200 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-gray-800">Vulnerable Sector Check (VSC)</h3>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${vscClasses}`}>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${vscClasses}`}>
                     {vscIcon}
                     {vscLabel}
                   </span>
