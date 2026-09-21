@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import {
   Calendar, Clock, MapPin, AlertCircle, ArrowLeft,
   ChevronRight, Lock, CheckCircle, Building2, PawPrint, ExternalLink,
@@ -207,6 +208,7 @@ export default function BrowseOrgVisits({
   onTabChange,
   hideTabs = false,
 }: Props) {
+  const { isLoaded: authLoaded } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [meta, setMeta] = useState<VolunteerMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -219,6 +221,7 @@ export default function BrowseOrgVisits({
   const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
+    if (!authLoaded) return;
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -239,7 +242,7 @@ export default function BrowseOrgVisits({
       }
     };
     load();
-  }, []);
+  }, [authLoaded]);
 
   // Fetch registration detail (dog/volunteer info) when a visit is selected
   useEffect(() => {
@@ -264,8 +267,14 @@ export default function BrowseOrgVisits({
     setActionLoading(visitId);
     setActionError(prev => { const n = { ...prev }; delete n[visitId]; return n; });
     try {
-      const res = await fetch(`/api/visits/${visitId}/register`, { method: 'POST' });
-      const json = await res.json();
+      let res = await fetch(`/api/visits/${visitId}/register`, { method: 'POST' });
+      let json = await res.json();
+      // Retry once on 404 (new user — Supabase record may not be synced yet)
+      if (res.status === 404) {
+        await new Promise(r => setTimeout(r, 2000));
+        res = await fetch(`/api/visits/${visitId}/register`, { method: 'POST' });
+        json = await res.json();
+      }
       if (!res.ok) {
         setActionError(prev => ({ ...prev, [visitId]: json.error || 'Failed to register' }));
         return;

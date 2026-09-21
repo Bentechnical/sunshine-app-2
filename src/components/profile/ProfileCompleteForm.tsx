@@ -224,12 +224,26 @@ export default function ProfileCompleteForm() {
   // Fetch audience categories whenever role becomes volunteer (covers both manual selection and prefill)
   useEffect(() => {
     if (selectedRole !== 'volunteer' || availableCategories.length > 0) return;
-    fetch('/api/audience-categories')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.categories) setAvailableCategories(data.categories.map((cat: any) => cat.name));
-      })
-      .catch(() => {});
+    let cancelled = false;
+    const fetchCategories = async (retries = 2) => {
+      try {
+        const r = await fetch('/api/audience-categories');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (!cancelled && data?.categories) {
+          setAvailableCategories(data.categories.map((cat: any) => cat.name));
+        }
+      } catch (err) {
+        if (!cancelled && retries > 0) {
+          await new Promise(res => setTimeout(res, 1500));
+          await fetchCategories(retries - 1);
+        } else {
+          console.error('[ProfileCompleteForm] Failed to load audience categories:', err);
+        }
+      }
+    };
+    fetchCategories();
+    return () => { cancelled = true; };
   }, [selectedRole, availableCategories.length]);
 
   const handleOrgPlaceSelect = (result: PlaceResult) => {
