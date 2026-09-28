@@ -1,0 +1,35 @@
+Hi {{contactName}},
+
+Great news — all {{volunteerCount}} volunteer spot{{#unless singleSlot}}s{{/unless}} for your upcoming visit {{#unless singleSlot}}have{{else}}has{{/unless}} been filled! Our volunteer handlers and their therapy dogs are looking forward to visiting.
+
+Here's how your visit details will appear to our volunteers:
+
+{{visitTitle}}
+Date: {{visitDate}}
+Time: {{visitTime}}
+Location: {{visitAddress}}{{#if visitAddressMapLink}}
+Map: {{visitAddressMapLink}}{{/if}}
+{{#if eventDescription}}
+
+About This Visit: {{eventDescription}}{{/if}}
+{{#if parkingCoverage}}
+Parking: {{parkingCoverage}}{{/if}}
+{{#if parkingInstructions}}
+Parking Instructions: {{parkingInstructions}}{{/if}}
+{{#if arrivalInstructions}}
+Arrival Instructions: {{arrivalInstructions}}{{/if}}
+{{#if accessibilityNotes}}
+Accessibility: {{accessibilityNotes}}{{/if}}
+
+PLEASE REVIEW YOUR VISIT DETAILS
+{{#if isAccountHolder}}If anything looks incorrect, you can update your visit details from your dashboard:
+{{dashboardLink}}{{else}}If anything looks incorrect, please let us know so we can update the details before the visit.{{#if pdName}} Contact {{pdName}}{{#if pdEmail}} at {{pdEmail}}{{/if}}.{{else}} Contact us at info@sunshinetherapydogs.ca.{{/if}}{{/if}}
+
+If you have any questions before the visit, please don't hesitate to reach out.
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

@@ -45,6 +45,14 @@ Populated when `role = 'volunteer'`.
 | `vsc_renewal_due` | date | YES | — | Date VSC renewal is due (issued + 3 years) |
 | `vsc_document_url` | text | YES | — | Storage path to uploaded VSC document (private bucket) |
 | `open_to_individual_visits` | boolean | YES | `true` | Whether the volunteer is discoverable for individual visit requests (UC1). When `false`, the volunteer does not appear in individual member searches and is not matched against audience categories. Defaults to `true` for backward compatibility with existing volunteers. New volunteers set this explicitly during profile completion; if not opted in, travel distance and audience categories are silently defaulted (25 km and all categories) so search remains functional. |
+| `vsc_upload_comment` | text | YES | — | Optional volunteer comment when uploading VSC document (e.g., password for protected PDFs) |
+
+#### General user fields
+Populated for all roles.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `date_of_birth` | date | YES | — | User's date of birth. Collected at profile creation. Visible to admin/PD only — not displayed publicly. |
 
 #### New role values
 The `role` column now accepts two additional values:
@@ -60,6 +68,7 @@ The `role` column now accepts two additional values:
 | `vaccine_record_url` | text | YES | Storage path to uploaded vaccine record (private bucket) |
 | `vaccine_expiry_date` | date | YES | Date the vaccine record expires |
 | `vaccine_cycle_years` | integer | YES | Renewal cycle: 1 or 3 (volunteer-reported) |
+| `vaccine_upload_comment` | text | YES | Optional volunteer comment when uploading vaccine record |
 
 ---
 
@@ -1192,6 +1201,33 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS default_accessibility_notes text;
 
 ---
 
+### Migration 35 — Replace `birthday` with `date_of_birth`, add compliance upload comment fields
+
+Replaces the legacy `birthday` integer column (birth year only, used by individuals) with a proper `date_of_birth` date column. Collected at profile creation for volunteers and individuals. Visible to admin/PD only — not displayed publicly or to other users. Existing individual users who had a birth year will be prompted to re-enter their full date of birth on next login.
+
+Also adds optional comment fields for compliance document uploads, allowing volunteers to include notes when uploading (e.g., "file is password-protected, password is X").
+
+```sql
+-- Replace birth year integer with proper date
+ALTER TABLE users DROP COLUMN IF EXISTS birthday;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth date;
+
+-- Volunteer compliance upload comments (one per document type)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vsc_upload_comment text;
+ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_upload_comment text;
+```
+
+### Migration 36 — Add rejection reason columns for compliance documents
+
+Adds rejection reason fields so admins/PDs can explain why a compliance document was rejected. Displayed to the volunteer on their compliance card. Cleared automatically when the volunteer re-uploads a document.
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vsc_rejection_reason text;
+ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_rejection_reason text;
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -1238,3 +1274,5 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS default_accessibility_notes text;
 | Aug 2026 | 32 | Added `is_admin_managed boolean DEFAULT false` to `users` — enables admin-created organization records without Clerk accounts; synthetic IDs (`managed_<uuid>`) used as PK; linkable to real Clerk accounts later via admin action |
 | Aug 2026 | 33 | Added org default fields to `users`: `default_parking_coverage`, `default_parking_instructions`, `default_arrival_instructions`, `default_event_description`, `default_space_sqft`, `default_dogs_needed`, `default_requires_vsc` — prepopulate visit creation form when org is selected |
 | Sep 2026 | 34 | Renamed `visits.special_needs_notes` → `event_description`; renamed `users.default_special_needs_notes` → `default_event_description`; added `users.default_accessibility_notes` — clarifies field semantics (was misused as event description by org forms) |
+| Sep 2026 | 35 | Dropped `birthday` integer column (legacy birth year); added `date_of_birth date` to `users` — full DOB collected at profile creation for volunteers and individuals, visible to admin/PD only. Added `vsc_upload_comment text` to `users` and `vaccine_upload_comment text` to `dogs` — optional volunteer comments when uploading compliance documents |
+| Sep 2026 | 36 | Added `vsc_rejection_reason text` to `users` and `vaccine_rejection_reason text` to `dogs` — admin/PD rejection reasons displayed to volunteers; cleared on re-upload |

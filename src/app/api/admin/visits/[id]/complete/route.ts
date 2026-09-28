@@ -23,7 +23,7 @@ export async function POST(
 
     const { data: visit, error: fetchError } = await supabase
       .from('visits')
-      .select('id, status')
+      .select('id, status, end_time')
       .eq('id', visitId)
       .single();
 
@@ -32,6 +32,9 @@ export async function POST(
     }
     if (visit.status !== 'approved') {
       return NextResponse.json({ error: 'Only approved visits can be marked complete' }, { status: 400 });
+    }
+    if (new Date((visit as any).end_time) > new Date()) {
+      return NextResponse.json({ error: 'Cannot mark a visit as complete before it has ended' }, { status: 400 });
     }
 
     const { error } = await supabase

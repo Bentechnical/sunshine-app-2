@@ -37,28 +37,14 @@
           </div>
           {{/if}}
 
-          {{#if parkingInstructions}}
+          {{#if hasLogistics}}
           <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
             <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">Parking & Arrival Details</p>
             {{#if parkingCoverage}}<p style="margin: 0 0 6px 0;"><strong>Parking:</strong> {{parkingCoverage}}</p>{{/if}}
-            <p style="margin: 0 0 6px 0;"><strong>Parking Instructions:</strong> {{parkingInstructions}}</p>
+            {{#if parkingInstructions}}<p style="margin: 0 0 6px 0;"><strong>Parking Instructions:</strong> {{parkingInstructions}}</p>{{/if}}
             {{#if arrivalInstructions}}<p style="margin: 0 0 6px 0;"><strong>Arrival Instructions:</strong> {{arrivalInstructions}}</p>{{/if}}
             {{#if accessibilityNotes}}<p style="margin: 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>{{/if}}
           </div>
-          {{else}}
-          {{#if arrivalInstructions}}
-          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            <p style="margin: 0 0 8px 0; font-weight: bold; color: #0e62ae;">Arrival Details</p>
-            <p style="margin: 0 0 {{#if accessibilityNotes}}6px{{else}}0{{/if}} 0;"><strong>Arrival Instructions:</strong> {{arrivalInstructions}}</p>
-            {{#if accessibilityNotes}}<p style="margin: 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>{{/if}}
-          </div>
-          {{else}}
-          {{#if accessibilityNotes}}
-          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
-            <p style="margin: 0;"><strong>Accessibility:</strong> {{accessibilityNotes}}</p>
-          </div>
-          {{/if}}
-          {{/if}}
           {{/if}}
 
           {{#if contactName}}

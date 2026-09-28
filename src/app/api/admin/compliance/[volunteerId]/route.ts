@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { sendTransactionalEmail } from '@/app/utils/mailer';
+import { getAppUrl } from '@/app/utils/getAppUrl';
 
 type VerificationAction = 'approve_vsc' | 'reject_vsc' | 'approve_vaccine' | 'reject_vaccine';
 
@@ -45,7 +47,7 @@ export async function PATCH(
       .maybeSingle();
 
     // ── Mode 1: Verification action ──────────────────────────────────────────
-    const { action } = body as { action?: VerificationAction };
+    const { action, rejection_reason } = body as { action?: VerificationAction; rejection_reason?: string };
 
     if (action) {
       const isVsc = action === 'approve_vsc' || action === 'reject_vsc';
@@ -60,6 +62,7 @@ export async function PATCH(
             vsc_verification_status: newStatus,
             vsc_verified_at: now,
             vsc_verified_by: adminId,
+            vsc_rejection_reason: isApprove ? null : (rejection_reason || null),
           })
           .eq('id', volunteerId);
 
@@ -78,6 +81,7 @@ export async function PATCH(
             vaccine_verification_status: newStatus,
             vaccine_verified_at: now,
             vaccine_verified_by: adminId,
+            vaccine_rejection_reason: isApprove ? null : (rejection_reason || null),
           })
           .eq('id', dogRow.id);
 
@@ -87,24 +91,59 @@ export async function PATCH(
         }
       }
 
-      // Write to audit log
-      const { error: auditError } = await supabase
-        .from('document_verifications')
-        .insert({
-          volunteer_id: volunteerId,
-          document_type: isVsc ? 'vsc' : 'vaccine',
-          action: newStatus,
-          performed_by: adminId,
-          performed_at: now,
-        });
+      console.log(`[PATCH compliance] ${action} performed on ${volunteerId} by ${adminId}`);
 
-      if (auditError) {
-        // Non-fatal — log but don't fail the request
-        console.error('[PATCH compliance] Audit log insert failed:', auditError);
+      // Send email notification if volunteer is already approved (Case 3)
+      const { data: volUser } = await supabase
+        .from('users')
+        .select('status, email, first_name, vsc_verification_status')
+        .eq('id', volunteerId)
+        .single();
+
+      if (volUser?.status === 'approved' && volUser?.email) {
+        if (isApprove) {
+          // Check if any docs are still pending_review — only email when all are resolved
+          const currentVscStatus = isVsc ? newStatus : volUser.vsc_verification_status;
+          const { data: currentDog } = await supabase
+            .from('dogs')
+            .select('vaccine_verification_status')
+            .eq('volunteer_id', volunteerId)
+            .maybeSingle();
+          const currentVaccineStatus = !isVsc ? newStatus : currentDog?.vaccine_verification_status;
+
+          const stillPending = currentVscStatus === 'pending_review' || currentVaccineStatus === 'pending_review';
+
+          if (!stillPending) {
+            await sendTransactionalEmail({
+              to: volUser.email,
+              subject: 'Your compliance documents have been approved',
+              templateName: 'complianceDocsApproved',
+              data: {
+                firstName: volUser.first_name ?? 'there',
+                year: new Date().getFullYear(),
+                dashboardLink: `${getAppUrl()}/dashboard`,
+              },
+            });
+            console.log(`[Resend] Compliance docs approved email sent to ${volUser.email}`);
+          }
+        } else {
+          // Rejection — send immediately so volunteer can take action
+          const documentName = isVsc ? 'Volunteer Screening Check (VSC)' : 'Vaccination Record';
+          await sendTransactionalEmail({
+            to: volUser.email,
+            subject: `Your ${documentName} needs attention`,
+            templateName: 'complianceDocRejected',
+            data: {
+              firstName: volUser.first_name ?? 'there',
+              documentName,
+              rejectionReason: rejection_reason || null,
+              year: new Date().getFullYear(),
+              dashboardLink: `${getAppUrl()}/dashboard`,
+            },
+          });
+          console.log(`[Resend] Compliance doc rejected email sent to ${volUser.email}`);
+        }
       }
-
-      // TODO: If action is 'reject_vsc' or 'reject_vaccine', send notification email to volunteer.
-      // Deferred pending business stakeholder decision on rejection messaging flow.
 
       return NextResponse.json({ success: true, action, new_status: newStatus });
     }

@@ -59,7 +59,7 @@ export async function GET() {
         location_lng: v.location_lng ?? null,
         location_place_id: (v as any).location_place_id ?? null,
         status: v.status,
-        admin_note: v.admin_note,
+        admin_note: ['approved', 'declined', 'cancelled'].includes(v.status as string) ? (v.admin_note ?? null) : null,
         created_at: v.created_at,
         max_volunteers: v.volunteer_slots,
         expected_visitors: v.visitor_count_expected ?? null,

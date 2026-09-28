@@ -2,14 +2,17 @@
 
 ## Bugs
 
-### 1. Audience categories fail to load on profile creation
+### 1. ~~Audience categories fail to load on profile creation~~ FIXED
 Preferred populations list shows "Loading categories" and never resolves. (Amanda)
+**Fix:** Added retry logic (2 retries, 1.5s apart) and error logging to replace silent `.catch(() => {})`. (`ProfileCompleteForm.tsx`)
 
-### 2. Intermittent "Failed to fetch requests" error
+### 2. ~~Intermittent "Failed to fetch requests" error~~ FIXED
 Occurs when navigating to Browse Group Visits. Works on retry — likely a race condition. (Amanda)
+**Fix:** Gated fetch behind Clerk `isLoaded` check so API calls don't fire before auth is ready. (`BrowseOrgVisits.tsx`)
 
-### 3. Intermittent "User not found" on first visit signup
+### 3. ~~Intermittent "User not found" on first visit signup~~ FIXED
 First attempt fails, second succeeds. Another probable race condition. (Amanda)
+**Fix:** Added single retry with 2s delay on 404 responses during visit registration, covering Clerk→Supabase sync lag for new users. (`BrowseOrgVisits.tsx`)
 
 ### 4. ~~Travel distance preference not carried to browse~~ RESOLVED
 Profile set to 10km, but Browse Group Visits defaults to 15km regardless of saved preference. (Desktop tester)
@@ -22,17 +25,25 @@ Even at 250km radius, no visits displayed. Could be an approval/compliance gatin
 
 ## Compliance Document Flow (Process Redesign)
 
-### 6. Profile approval and doc approval are disconnected
+### 6. ~~Profile approval and doc approval are disconnected~~ DONE
 Admin approves profile but doesn't simultaneously review uploaded compliance docs. When docs are submitted at signup, the approval flow should surface them together so they aren't missed.
+**Fix:** Redesigned New User Request cards with inline compliance dot indicators, Review Documents button, and soft gate that warns admin before approving with unreviewed docs. Redesigned Manage Volunteers expanded section with matching design. Added deny confirmation dialog and recovery path (Incomplete/Denied tab with Restore to Pending).
 
-### 7. No notification when compliance docs are uploaded later
+### 7. ~~No notification when compliance docs are uploaded later~~ DONE
 Admins/PDs have no alert or flag when a volunteer uploads docs after initial profile creation. Relies entirely on proactive checking — won't scale.
+**Fix:** Badge count on Manage Volunteers nav shows number of volunteers with docs in `pending_review`. Powered by `/api/admin/pending-doc-reviews-count` endpoint and `useAdminAlertCounts` hook. Badge refreshes after admin approves/rejects docs.
 
-### 8. No transactional email when compliance docs are approved
+### 8. ~~No transactional email when compliance docs are approved~~ DONE
 Volunteer gets "you're approved!" (profile) but is still blocked waiting on doc approval. Then when docs are approved, no notification is sent. Creates confusion about actual status. Needs a clearer email sequence that distinguishes profile approval from full compliance approval.
+**Fix:** Three-case email system based on DB state at time of action:
+- *Case 1 (new volunteer, docs reviewed at signup):* `userApprovedVolunteer` template now has conditional content based on doc status (all approved / rejected / pending review / missing).
+- *Case 2 (new volunteer, no docs):* Same template with guidance to upload vaccine records and explanation of VSC process.
+- *Case 3 (existing volunteer uploads docs later):* New `complianceDocsApproved` email sent when all docs are approved (batched — only fires when no docs remain in `pending_review`). New `complianceDocRejected` email sent immediately on rejection with reason and re-upload prompt.
+Also fixed: volunteer-facing visit registration now gives specific error messages for rejected/pending/expired docs, and Browse Visits correctly locks visits when docs are rejected.
 
-### 9. Password-protected PDF uploads
-A tester uploaded a real VSC as a password-protected PDF. This is likely common given the sensitive nature of the document. Need a workaround — detect and flag protected PDFs at upload time, prompt for unprotected version or image/scan alternative.
+### 9. ~~Password-protected PDF uploads~~ DONE
+A tester uploaded a real VSC as a password-protected PDF. This is likely common given the sensitive nature of the document.
+**Fix:** Added client-side PDF encryption detection (scans first 4KB for `/Encrypt` marker). Protected PDFs trigger a warning and auto-populate the comment field with "Password: " for the volunteer to fill in. Admin/PD sees the comment in the review modal.
 
 ---
 
@@ -68,11 +79,13 @@ The approval email already includes a "Go to Dashboard" button with a link to th
 New users may miss the signup option. Increase visibility. (Desktop tester — quick win)
 **Status:** Already addressed.
 
-### 17. Default mobile landing to My Visits instead of Profile
-Profile is a one-time setup; My Visits is the daily-use view. Consider conditional logic: default to Profile if incomplete, My Visits otherwise. (Desktop tester)
+### 17. ~~Default mobile landing to My Visits instead of Profile~~ DONE
+Profile is a one-time setup; My Visits is the daily-use view. (Desktop tester)
+**Resolution:** Tested redirect to /dashboard/visits for all volunteers but reverted — profile tab is the better default on desktop. Volunteer profile now has its own route (/dashboard/profile) with nav links updated. Default landing remains profile tab.
 
-### 18. Compliance enforcement messaging for volunteers
+### 18. ~~Compliance enforcement messaging for volunteers~~ MOSTLY DONE
 Clear messaging that volunteers must keep docs current or they'll lose access to visits. Ties into compliance flow redesign (#6–8). (Desktop tester)
+**Status:** Addressed as part of #6–8 work. Visit registration gives specific errors for rejected/pending/expired/missing docs. Browse Visits locks visits when docs are rejected. Approval email (Case 2) explains requirements. ComplianceBanner, TherapyDogCard, ProfileCardBlock all handle rejected status with appropriate badges. Remaining: no proactive "your doc is expiring soon" email — would need a cron job to check approaching expiry dates.
 
 ### 19. Auto-logout after inactivity
 Security suggestion — automatic session timeout after idle period. Low priority; Clerk already handles session management with configurable token expiry. (Desktop tester)
@@ -83,8 +96,7 @@ Security suggestion — automatic session timeout after idle period. Low priorit
 
 | Priority | Items |
 |----------|-------|
-| Quick wins (now) | #15, ~~#16 (done)~~, bug fixes #1–3, ~~#4 (resolved)~~ |
+| Done | #1–4 (bugs), #6–9 (compliance flow), #15, #16, #17, #18 (mostly) |
 | Investigate | #5 (may not be a bug) |
-| Design then build soon | #6–8 (compliance flow), #9 (PDF detection) |
-| Design for later | #10–11 (visit lifecycle), #17 (conditional landing page) |
-| Backlog | #12, #13, #14, #18, #19 |
+| Design for later | #10–11 (visit lifecycle) |
+| Backlog | #12, #13, #14, #19 |

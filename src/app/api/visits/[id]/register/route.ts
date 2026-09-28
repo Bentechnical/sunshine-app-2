@@ -46,7 +46,7 @@ export async function POST(
     // Load the visit
     const { data: visit, error: visitError } = await supabase
       .from('visits')
-      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, title, guest_org_name, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, event_description, guest_contact_name, guest_contact_email, guest_contact_phone')
+      .select('id, status, volunteer_slots, requires_vsc, requires_vaccine_record, google_calendar_event_id, visit_date, start_time, end_time, address, location_place_id, title, guest_org_name, organization_id, assigned_pd_id, parking_coverage, parking_instructions, arrival_instructions, accessibility_notes, event_description, guest_contact_name, guest_contact_email, guest_contact_phone')
       .eq('id', visitId)
       .single();
 
@@ -65,9 +65,15 @@ export async function POST(
           { status: 403 }
         );
       }
+      if (volunteer.vsc_verification_status === 'rejected') {
+        return NextResponse.json(
+          { error: 'Your VSC document was not approved. Please upload a new copy from your dashboard and allow time for review.' },
+          { status: 403 }
+        );
+      }
       if (volunteer.vsc_verification_status !== 'approved') {
         return NextResponse.json(
-          { error: 'This visit requires a verified VSC document. Your VSC is awaiting review by Sunshine staff (allow up to 48 hours).' },
+          { error: 'This visit requires a verified VSC document. Your VSC is awaiting review by Sunshine staff — please allow up to 48 hours for approval.' },
           { status: 403 }
         );
       }
@@ -88,9 +94,16 @@ export async function POST(
       );
     }
 
+    if (dog.vaccine_verification_status === 'rejected') {
+      return NextResponse.json(
+        { error: "Your dog's vaccine record was not approved. Please upload a new copy from your dashboard and allow time for review." },
+        { status: 403 }
+      );
+    }
+
     if (dog.vaccine_verification_status !== 'approved') {
       return NextResponse.json(
-        { error: "Your rabies vaccine record is awaiting review by Sunshine staff. Please allow up to 48 hours for approval." },
+        { error: "Your dog's vaccine record is awaiting review by Sunshine staff — please allow up to 48 hours for approval." },
         { status: 403 }
       );
     }
@@ -228,6 +241,7 @@ export async function POST(
           arrivalInstructions: (visit as any).arrival_instructions || null,
           accessibilityNotes: (visit as any).accessibility_notes || null,
           eventDescription: (visit as any).event_description || null,
+          hasLogistics: !!(rawCoverage || (visit as any).parking_instructions || (visit as any).arrival_instructions || (visit as any).accessibility_notes),
           contactName: (visit as any).guest_contact_name || null,
           contactEmail: (visit as any).guest_contact_email || null,
           contactPhone: (visit as any).guest_contact_phone || null,
@@ -236,6 +250,93 @@ export async function POST(
           year: new Date().getFullYear(),
         },
       }).catch(err => console.error('[register] Failed to send volunteer email:', err));
+    }
+
+    // Notify org when visit reaches full capacity
+    if (newStatus === 'confirmed' && ((confirmedCount ?? 0) + 1) >= (visit.volunteer_slots as number)) {
+      let orgEmail: string | null = null;
+      let orgContactName: string | null = (visit as any).guest_contact_name;
+      let isAccountHolder = false;
+
+      if ((visit as any).organization_id) {
+        const { data: orgUser } = await supabase
+          .from('users')
+          .select('email, org_name, org_contact_name, is_admin_managed')
+          .eq('id', (visit as any).organization_id)
+          .single();
+        if (orgUser?.email) {
+          orgEmail = orgUser.email;
+          orgContactName = orgContactName || orgUser.org_contact_name || orgUser.org_name;
+          isAccountHolder = !orgUser.is_admin_managed;
+        }
+      }
+      if (!orgEmail && (visit as any).guest_contact_email) {
+        orgEmail = (visit as any).guest_contact_email;
+      }
+
+      // Fetch assigned PD contact for non-account-holder orgs
+      let pdName: string | null = null;
+      let pdEmail: string | null = null;
+      if (!isAccountHolder && (visit as any).assigned_pd_id) {
+        const { data: pdUser } = await supabase
+          .from('users')
+          .select('first_name, last_name, email')
+          .eq('id', (visit as any).assigned_pd_id)
+          .single();
+        if (pdUser) {
+          pdName = [pdUser.first_name, pdUser.last_name].filter(Boolean).join(' ') || null;
+          pdEmail = pdUser.email ?? null;
+        }
+      }
+
+      if (orgEmail) {
+        const visitTitle = (visit as any).title || (visit as any).guest_org_name || 'Therapy Dog Visit';
+        const formattedDate = new Date((visit as any).visit_date).toLocaleDateString('en-CA', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        });
+        const formattedTime = [
+          new Date((visit as any).start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          new Date((visit as any).end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        ].join(' – ');
+
+        const visitAddressMapLink = (visit as any).address
+          ? `https://maps.google.com/?q=${encodeURIComponent((visit as any).address)}${(visit as any).location_place_id ? `&query_place_id=${(visit as any).location_place_id}` : ''}`
+          : null;
+
+        const parkingCoverageLabels: Record<string, string> = {
+          free_on_site: 'Free parking on-site',
+          reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
+          invoice: 'Volunteers pay — added to invoice',
+        };
+        const rawCoverage = (visit as any).parking_coverage as string | null;
+
+        sendTransactionalEmail({
+          to: orgEmail,
+          subject: `Your visit is fully staffed — ${visitTitle}`,
+          templateName: 'visitFullyStaffed',
+          data: {
+            contactName: orgContactName || 'there',
+            visitTitle,
+            visitDate: formattedDate,
+            visitTime: formattedTime,
+            visitAddress: (visit as any).address,
+            visitAddressMapLink,
+            volunteerCount: visit.volunteer_slots,
+            singleSlot: visit.volunteer_slots === 1,
+            parkingCoverage: rawCoverage ? (parkingCoverageLabels[rawCoverage] ?? rawCoverage) : null,
+            parkingInstructions: (visit as any).parking_instructions || null,
+            arrivalInstructions: (visit as any).arrival_instructions || null,
+            accessibilityNotes: (visit as any).accessibility_notes || null,
+            eventDescription: (visit as any).event_description || null,
+            hasLogistics: !!(rawCoverage || (visit as any).parking_instructions || (visit as any).arrival_instructions || (visit as any).accessibility_notes),
+            isAccountHolder,
+            dashboardLink: isAccountHolder ? `${getAppUrl()}/dashboard/organization` : null,
+            pdName,
+            pdEmail,
+            year: new Date().getFullYear(),
+          },
+        }).catch(err => console.error('[register] Failed to send capacity email:', err));
+      }
     }
 
     return NextResponse.json({

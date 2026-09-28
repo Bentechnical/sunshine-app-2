@@ -31,7 +31,7 @@ export async function GET() {
         status,
         is_browsable,
         pronouns,
-        birthday,
+        date_of_birth,
         physical_address,
         other_pets_on_site,
         other_pets_description,
@@ -121,7 +121,7 @@ export async function GET() {
         is_browsable: user.is_browsable ?? true,
         // New individual user fields
         pronouns: user.pronouns,
-        birthday: user.birthday,
+        date_of_birth: user.date_of_birth,
         physical_address: user.physical_address,
         other_pets_on_site: user.other_pets_on_site,
         other_pets_description: user.other_pets_description,

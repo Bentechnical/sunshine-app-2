@@ -116,7 +116,7 @@ function AdminDashboardInner() {
           />
         );
       case 'manage-volunteers':
-        return <AdminManageVolunteers />;
+        return <AdminManageVolunteers onDocReviewChange={handleAlertCountsChange} />;
       case 'manage-regions':
         return <AdminManageRegions />;
       case 'manage-individuals':

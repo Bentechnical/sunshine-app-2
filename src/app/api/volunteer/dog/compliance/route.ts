@@ -11,7 +11,7 @@ export async function PATCH(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { vaccine_record_url, vaccine_expiry_date, vaccine_date_issued } = body;
+  const { vaccine_record_url, vaccine_expiry_date, vaccine_date_issued, vaccine_upload_comment } = body;
 
   const supabase = createSupabaseAdminClient();
 
@@ -21,10 +21,12 @@ export async function PATCH(req: NextRequest) {
       vaccine_record_url,
       vaccine_expiry_date,
       vaccine_date_issued,
+      vaccine_upload_comment: vaccine_upload_comment ?? null,
       // Reset verification on every upload/update — requires re-review by admin/PD
       vaccine_verification_status: 'pending_review',
       vaccine_verified_at: null,
       vaccine_verified_by: null,
+      vaccine_rejection_reason: null,
     })
     .eq('volunteer_id', userId)
     .select('id');
@@ -73,6 +75,7 @@ export async function DELETE() {
       vaccine_verification_status: null,
       vaccine_verified_at: null,
       vaccine_verified_by: null,
+      vaccine_rejection_reason: null,
     })
     .eq('volunteer_id', userId);
 

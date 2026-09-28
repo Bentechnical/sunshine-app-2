@@ -1,7 +1,7 @@
 // src/app/(pages)/dashboard/layout.tsx
 'use client';
 
-import { useEffect, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useRouter } from 'next/navigation';
 import { SignOutButton } from '@clerk/nextjs';
@@ -10,6 +10,61 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { DashboardUIProvider, useDashboardUI } from '@/contexts/DashboardUIContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useSupabaseClient } from '@/utils/supabase/client';
+
+// Prompts user to enter DOB if missing (one-time for existing accounts)
+function DateOfBirthPrompt() {
+  const { user } = useUser();
+  const supabase = useSupabaseClient();
+  const { role } = useUserProfile();
+  const [show, setShow] = useState(false);
+  const [dob, setDob] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || (role !== 'volunteer' && role !== 'individual')) return;
+    supabase.from('users').select('date_of_birth').eq('id', user.id).single()
+      .then(({ data }) => {
+        if (data && !data.date_of_birth) setShow(true);
+      });
+  }, [user?.id, role, supabase]);
+
+  if (!show) return null;
+
+  const handleSave = async () => {
+    if (!dob || !user?.id) return;
+    setSaving(true);
+    await supabase.from('users').update({ date_of_birth: dob }).eq('id', user.id);
+    setSaving(false);
+    setShow(false);
+    window.dispatchEvent(new Event('profile-updated'));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Date of Birth</h3>
+          <button onClick={() => setShow(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <p className="text-sm text-gray-600">We've added date of birth to volunteer profiles. Please take a moment to fill this in.</p>
+        <input
+          type="date"
+          max={new Date().toISOString().split('T')[0]}
+          value={dob}
+          onChange={e => setDob(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg"
+        />
+        <button
+          onClick={handleSave}
+          disabled={!dob || saving}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Reads UI state from context and passes it as props to DashboardLayout.
 // Must be rendered inside DashboardUIProvider.
@@ -121,6 +176,7 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
 
   return (
     <DashboardUIProvider>
+      <DateOfBirthPrompt />
       <DashboardInner profileImage={profileImage} role={role as 'individual' | 'volunteer' | 'admin'}>
         {children}
       </DashboardInner>

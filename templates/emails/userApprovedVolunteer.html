@@ -20,7 +20,18 @@
           <h2 style="color: #0e62ae; margin-bottom: 16px;">You're In! 🎉</h2>
           <p style="margin: 0 0 12px 0;">Hi {{firstName}},</p>
           <p style="margin: 0 0 12px 0;">Great news — your profile has been approved by our team!</p>
-          <p style="margin: 0 0 12px 0;">You can now log in to your dashboard, manage your availability, and connect with individuals seeking therapy dog visits.</p>
+
+          {{#if docsAllApproved}}
+          <p style="margin: 0 0 12px 0;">Your compliance documents have also been reviewed and approved. You're all set to log in, browse visits, and start signing up!</p>
+          {{else if docsNeedUpload}}
+          <p style="margin: 0 0 12px 0;">You can now log in to your dashboard and explore the platform.</p>
+          <p style="margin: 0 0 12px 0;">You'll need to upload your dog's vaccination records before you can sign up for any visits. You can do this from your dashboard at any time.</p>
+          <p style="margin: 0 0 12px 0;">Please also note that some visits will require a <strong>Vulnerable Sector Check (VSC)</strong> — a police background check for individuals working with vulnerable populations. You can request one through your local police department, and processing times vary. If you have questions about this process, please contact <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a>.</p>
+          {{else if docsRejected}}
+          <p style="margin: 0 0 12px 0;">You can now log in to your dashboard. However, one or more of your compliance documents needs attention — please check your dashboard for details and re-upload as needed.</p>
+          {{else}}
+          <p style="margin: 0 0 12px 0;">Your compliance documents are currently being reviewed. We'll let you know once they've been processed. In the meantime, you can log in and explore your dashboard.</p>
+          {{/if}}
 
           <p style="margin: 24px 0;">
             <a href="{{dashboardLink}}" style="background-color: #f09f1a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">

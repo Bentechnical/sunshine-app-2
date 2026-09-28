@@ -93,7 +93,7 @@ export default function ProfileCompleteForm() {
   const [relationshipToRecipient, setRelationshipToRecipient] = useState('');
   const [bio, setBio] = useState('');
   const [pronouns, setPronouns] = useState('');
-  const [birthday, setBirthday] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [physicalAddress, setPhysicalAddress] = useState('');
   const [otherPetsOnSite, setOtherPetsOnSite] = useState(false);
   const [otherPetsDescription, setOtherPetsDescription] = useState('');
@@ -163,7 +163,7 @@ export default function ProfileCompleteForm() {
         setRelationshipToRecipient(userData.relationship_to_recipient || '');
         setDependantName(userData.dependant_name || '');
         setPronouns(userData.pronouns || '');
-        setBirthday(userData.birthday ? userData.birthday.toString() : '');
+        setDateOfBirth(userData.date_of_birth || '');
         setPhysicalAddress(userData.physical_address || '');
         setOtherPetsOnSite(userData.other_pets_on_site || false);
         setOtherPetsDescription(userData.other_pets_description || '');
@@ -295,11 +295,7 @@ export default function ProfileCompleteForm() {
       }
       if (currentStep === 3) {
         if (!bio.trim()) { setSubmitError("Please tell us why you're interested in meeting with a therapy dog."); return false; }
-        if (!birthday.trim()) { setSubmitError('Please enter a birth year.'); return false; }
-        const parsedBirthday = parseInt(birthday, 10);
-        if (isNaN(parsedBirthday) || parsedBirthday < 1900 || parsedBirthday > new Date().getFullYear()) {
-          setSubmitError('Please enter a valid birth year (e.g., 1990).'); return false;
-        }
+        if (!dateOfBirth.trim()) { setSubmitError('Please enter a date of birth.'); return false; }
         if (!physicalAddress.trim()) { setSubmitError("Please enter where you'd like to meet."); return false; }
       }
       if (currentStep === 4) {
@@ -310,6 +306,7 @@ export default function ProfileCompleteForm() {
     if (selectedRole === 'volunteer') {
       if (currentStep === 2) {
         if (!phone.trim()) { setSubmitError('Please enter your phone number.'); return false; }
+        if (!dateOfBirth.trim()) { setSubmitError('Please enter your date of birth.'); return false; }
         if (!validatePostalCode(postalCode)) { setSubmitError('Postal code must be in the format A1A 1A1.'); return false; }
         if (!bio.trim()) { setSubmitError('Please tell us about yourself.'); return false; }
       }
@@ -384,7 +381,7 @@ export default function ProfileCompleteForm() {
           postal_code: normalizePostalCode(postalCode),
           profile_image: profilePictureUrl,
           pronouns,
-          birthday: parseInt(birthday, 10),
+          date_of_birth: dateOfBirth || null,
           physical_address: physicalAddress,
           other_pets_on_site: otherPetsOnSite,
           other_pets_description: otherPetsDescription,
@@ -406,6 +403,7 @@ export default function ProfileCompleteForm() {
           postal_code: normalizePostalCode(postalCode),
           profile_image: profilePictureUrl,
           pronouns,
+          date_of_birth: dateOfBirth || null,
           open_to_individual_visits: openToIndividualVisits,
           travel_distance_km: openToIndividualVisits ? Number(travelDistance) : 25,
           vsc_document_url: vscDocumentUrl || null,
@@ -583,7 +581,7 @@ export default function ProfileCompleteForm() {
           visitRecipientType={visitRecipientType}
           bio={bio} setBio={setBio}
           pronouns={pronouns} setPronouns={setPronouns}
-          birthday={birthday} setBirthday={setBirthday}
+          dateOfBirth={dateOfBirth} setDateOfBirth={setDateOfBirth}
           physicalAddress={physicalAddress} setPhysicalAddress={setPhysicalAddress}
           otherPetsOnSite={otherPetsOnSite} setOtherPetsOnSite={setOtherPetsOnSite}
           otherPetsDescription={otherPetsDescription} setOtherPetsDescription={setOtherPetsDescription}
@@ -610,6 +608,7 @@ export default function ProfileCompleteForm() {
           postalCode={postalCode} setPostalCode={setPostalCode}
           bio={bio} setBio={setBio}
           pronouns={pronouns} setPronouns={setPronouns}
+          dateOfBirth={dateOfBirth} setDateOfBirth={setDateOfBirth}
           profilePictureUrl={profilePictureUrl} setProfilePictureUrl={setProfilePictureUrl}
           user={user!}
           isLoading={isLoading}

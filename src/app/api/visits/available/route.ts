@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     // Verify caller is an approved volunteer
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('role, status, location_lat, location_lng, vsc_document_url')
+      .select('role, status, location_lat, location_lng, vsc_document_url, vsc_verification_status')
       .eq('id', userId)
       .single();
 
@@ -39,11 +39,11 @@ export async function GET(req: NextRequest) {
     // Check if volunteer's dog has a vaccine record
     const { data: dog } = await supabase
       .from('dogs')
-      .select('vaccine_record_url')
+      .select('vaccine_record_url, vaccine_verification_status')
       .eq('volunteer_id', userId)
       .neq('status', 'archived')
       .maybeSingle();
-    const volunteerHasVaccine = !!(dog?.vaccine_record_url);
+    const volunteerHasVaccine = !!(dog?.vaccine_record_url) && dog?.vaccine_verification_status !== 'rejected';
 
     const { searchParams } = new URL(req.url);
     const audienceFilter = searchParams.get('audience');
@@ -156,7 +156,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       visits: annotated,
-      volunteer_has_vsc: !!(volunteer.vsc_document_url),
+      volunteer_has_vsc: !!(volunteer.vsc_document_url) && volunteer.vsc_verification_status !== 'rejected',
       volunteer_has_vaccine: volunteerHasVaccine,
       volunteer_location_set: volunteerLat !== null && volunteerLng !== null,
     });

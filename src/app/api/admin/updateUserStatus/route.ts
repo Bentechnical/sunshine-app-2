@@ -101,28 +101,57 @@ export async function POST(req: NextRequest) {
     if (resolvedStatus === 'approved') {
       const { data: userData, error: fetchError } = await supabase
         .from('users')
-        .select('email, first_name, role')
+        .select('email, first_name, role, vsc_verification_status, vsc_document_url')
         .eq('id', user_id)
         .single();
 
       if (fetchError) {
         console.error('[updateUserStatus] Failed to fetch user email:', fetchError.message);
       } else if (userData?.email) {
-        // Use role-specific template
-        const templateName = userData.role === 'individual'
-          ? 'userApprovedIndividual'
-          : 'userApprovedVolunteer';
+        if (userData.role === 'individual') {
+          await sendTransactionalEmail({
+            to: userData.email,
+            subject: 'Your profile has been approved!',
+            templateName: 'userApprovedIndividual',
+            data: {
+              firstName: userData.first_name ?? 'there',
+              year: new Date().getFullYear(),
+              dashboardLink: `${getAppUrl()}/dashboard`,
+            },
+          });
+        } else {
+          // Volunteer: determine doc status for conditional email content
+          const { data: dogData } = await supabase
+            .from('dogs')
+            .select('vaccine_verification_status, vaccine_record_url')
+            .eq('volunteer_id', user_id)
+            .maybeSingle();
 
-        await sendTransactionalEmail({
-          to: userData.email,
-          subject: 'Your profile has been approved!',
-          templateName,
-          data: {
-            firstName: userData.first_name ?? 'there',
-            year: new Date().getFullYear(),
-            dashboardLink: `${getAppUrl()}/dashboard`,
-          },
-        });
+          const vscStatus = userData.vsc_verification_status;
+          const vaccineStatus = dogData?.vaccine_verification_status;
+          const hasAnyDoc = !!(userData.vsc_document_url || dogData?.vaccine_record_url);
+
+          const docsAllApproved = vscStatus === 'approved' && vaccineStatus === 'approved';
+          const docsRejected = vscStatus === 'rejected' || vaccineStatus === 'rejected';
+          const docsNeedUpload = !hasAnyDoc;
+          // Default (else): docs are pending_review or partially uploaded
+
+          await sendTransactionalEmail({
+            to: userData.email,
+            subject: docsAllApproved
+              ? 'Your profile and documents have been approved!'
+              : 'Your profile has been approved!',
+            templateName: 'userApprovedVolunteer',
+            data: {
+              firstName: userData.first_name ?? 'there',
+              year: new Date().getFullYear(),
+              dashboardLink: `${getAppUrl()}/dashboard`,
+              docsAllApproved,
+              docsRejected,
+              docsNeedUpload,
+            },
+          });
+        }
         console.log(`[Resend] Approval email sent to ${userData.email}`);
       }
     }

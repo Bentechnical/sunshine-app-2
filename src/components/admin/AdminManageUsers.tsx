@@ -42,7 +42,7 @@ interface IndividualUser {
   is_browsable: boolean;
   // New individual user fields
   pronouns?: string;
-  birthday?: number;
+  date_of_birth?: string;
   physical_address?: string;
   other_pets_on_site?: boolean;
   other_pets_description?: string;
@@ -254,7 +254,7 @@ export default function ManageUsersTab({ hideIndividuals = false }: { hideIndivi
             is_browsable: u.is_browsable ?? true,
             // New individual user fields
             pronouns: u.pronouns,
-            birthday: u.birthday,
+            date_of_birth: u.date_of_birth,
             physical_address: u.physical_address,
             other_pets_on_site: u.other_pets_on_site,
             other_pets_description: u.other_pets_description,
@@ -863,8 +863,8 @@ export default function ManageUsersTab({ hideIndividuals = false }: { hideIndivi
                                       <p><span className="font-semibold text-gray-700">Phone:</span> <span className="text-gray-900">{user.phone || 'User left this field blank'}</span></p>
                                       <p><span className="font-semibold text-gray-700">Postal Code:</span> <span className="text-gray-900">{user.postal_code}, {user.city}</span></p>
                                       {user.pronouns && user.visit_recipient_type !== 'other' && <p><span className="font-semibold text-gray-700">Pronouns:</span> <span className="text-gray-900">{user.pronouns}</span></p>}
-                                      {user.birthday && user.visit_recipient_type !== 'other' && (
-                                        <p><span className="font-semibold text-gray-700">Birth Year:</span> <span className="text-gray-900">{user.birthday} ({new Date().getFullYear() - user.birthday} years old)</span></p>
+                                      {user.date_of_birth && user.visit_recipient_type !== 'other' && (
+                                        <p><span className="font-semibold text-gray-700">Date of Birth:</span> <span className="text-gray-900">{user.date_of_birth}</span></p>
                                       )}
                                       {user.physical_address && <p><span className="font-semibold text-gray-700">Physical Address:</span> <span className="text-gray-900">{user.physical_address}</span></p>}
                                     </div>
@@ -878,8 +878,8 @@ export default function ManageUsersTab({ hideIndividuals = false }: { hideIndivi
                                         <p><span className="font-semibold text-gray-700">Name:</span> <span className="text-gray-900">{user.dependant_name || 'User left this field blank'}</span></p>
                                         <p><span className="font-semibold text-gray-700">Relationship:</span> <span className="text-gray-900">{user.relationship_to_recipient || 'User left this field blank'}</span></p>
                                         {user.pronouns && <p><span className="font-semibold text-gray-700">Pronouns:</span> <span className="text-gray-900">{user.pronouns}</span></p>}
-                                        {user.birthday && (
-                                          <p><span className="font-semibold text-gray-700">Birth Year:</span> <span className="text-gray-900">{user.birthday} ({new Date().getFullYear() - user.birthday} years old)</span></p>
+                                        {user.date_of_birth && (
+                                          <p><span className="font-semibold text-gray-700">Date of Birth:</span> <span className="text-gray-900">{user.date_of_birth}</span></p>
                                         )}
                                       </div>
                                     </div>

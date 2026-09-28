@@ -201,6 +201,7 @@ export async function POST(
           arrivalInstructions: v.arrival_instructions || null,
           accessibilityNotes: v.accessibility_notes || null,
           eventDescription: v.event_description || null,
+          hasLogistics: !!(rawCoverage || v.parking_instructions || v.arrival_instructions || v.accessibility_notes),
           contactName: v.guest_contact_name || null,
           contactEmail: v.guest_contact_email || null,
           contactPhone: v.guest_contact_phone || null,

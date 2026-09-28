@@ -110,6 +110,7 @@ export async function promoteNextWaitlisted(
         arrivalInstructions: visit.arrival_instructions || null,
         accessibilityNotes: visit.accessibility_notes || null,
         eventDescription: visit.event_description || null,
+        hasLogistics: !!(rawCoverage || visit.parking_instructions || visit.arrival_instructions || visit.accessibility_notes),
         contactName: visit.guest_contact_name || null,
         contactEmail: visit.guest_contact_email || null,
         contactPhone: visit.guest_contact_phone || null,

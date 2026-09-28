@@ -198,6 +198,11 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<VisitTab>('upcoming');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     const fetchVisits = async () => {
@@ -250,7 +255,55 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
     setDetailRegs(null);
     setEditForm(null);
     setSaveError(null);
+    setShowCancelModal(false);
+    setCancelError(null);
+    setShowDeleteConfirm(false);
     onBackFromVisit?.();
+  };
+
+  const handleCancelVisit = async () => {
+    if (!selectedVisit) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/visits/${selectedVisit.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', cancel_reason: cancelReason.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setCancelError(json.error || 'Failed to cancel visit'); return; }
+      setShowCancelModal(false);
+      // Refresh visits list and update local state
+      const refreshRes = await fetch('/api/visits/my');
+      const refreshJson = await refreshRes.json();
+      if (refreshRes.ok) setVisits(refreshJson.visits || []);
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+
+  const handleDeleteVisit = async () => {
+    if (!selectedVisit) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/visits/${selectedVisit.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete' }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setCancelError(json.error || 'Failed to delete visit'); return; }
+      setShowCancelModal(false);
+      // Refresh and go back to list
+      const refreshRes = await fetch('/api/visits/my');
+      const refreshJson = await refreshRes.json();
+      if (refreshRes.ok) setVisits(refreshJson.visits || []);
+      handleBack();
+    } finally {
+      setCancelBusy(false);
+    }
   };
 
   const handleSave = async () => {
@@ -377,9 +430,14 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
                 </button>
               </>
             ) : canEdit ? (
-              <button onClick={handleStartEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
-                <Edit2 size={14} /> Edit
-              </button>
+              <>
+                <button onClick={handleStartEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                  <Edit2 size={14} /> Edit
+                </button>
+                <button onClick={() => setShowCancelModal(true)} className="px-3 py-1.5 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                  Cancel Visit
+                </button>
+              </>
             ) : null}
           </div>
         </div>
@@ -395,6 +453,16 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
             <OrgLogo url={orgProfileImage} size={56} />
             <StatusBadge status={selectedVisit.status} />
           </div>
+
+          {/* Note from Sunshine (approved/declined/cancelled) */}
+          {selectedVisit.admin_note && ['approved', 'declined', 'cancelled'].includes(selectedVisit.status) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+              <p className="text-xs font-semibold text-amber-800 mb-1">
+                {selectedVisit.status === 'cancelled' ? 'Reason for Cancellation' : 'Note from Sunshine'}
+              </p>
+              <p className="text-sm text-amber-900">{selectedVisit.admin_note}</p>
+            </div>
+          )}
 
           {/* Title below logo */}
           {isEditing ? (
@@ -496,13 +564,6 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
           )}
         </div>
 
-        {/* Admin note / pending message */}
-        {selectedVisit.admin_note && (
-          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-            <p className="text-xs font-semibold text-yellow-700 mb-1">Note from Sunshine</p>
-            <p className="text-sm text-yellow-900">{selectedVisit.admin_note}</p>
-          </div>
-        )}
         {selectedVisit.status === 'pending_review' && !isEditing && (
           <div className="mb-4 bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-500 italic">
             Our team is reviewing your request and will be in touch soon.
@@ -721,6 +782,79 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
           />
         )}
 
+        {/* Cancel/Delete modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { setShowCancelModal(false); setCancelError(null); setShowDeleteConfirm(false); setCancelReason(''); }}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-5" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-gray-900">Cancel or Delete Visit</h3>
+
+              {cancelError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{cancelError}</div>
+              )}
+
+              {/* Cancel option */}
+              <div className="border border-gray-200 rounded-lg p-5 space-y-3">
+                <p className="text-base font-semibold text-gray-900">Cancel Visit</p>
+                <p className="text-sm text-gray-600">This visit won&apos;t be taking place. Sunshine and any registered volunteers will be notified.</p>
+
+                {/* Volunteer warning */}
+                {(confirmed > 0 || waitlisted > 0) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">This visit has {confirmed} confirmed volunteer{confirmed !== 1 ? 's' : ''}</span>
+                      {waitlisted > 0 && <span> and {waitlisted} on the waitlist</span>}.
+                      {' '}They will be notified that this visit has been cancelled.
+                    </p>
+                  </div>
+                )}
+
+                <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={2}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Reason for cancellation (required)" />
+
+                {!showDeleteConfirm && (
+                  <button onClick={handleCancelVisit} disabled={cancelBusy || !cancelReason.trim()}
+                    className="px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-amber-700">
+                    {cancelBusy ? 'Cancelling…' : 'Cancel Visit'}
+                  </button>
+                )}
+              </div>
+
+              {/* Delete option */}
+              {(confirmed > 0 || waitlisted > 0) ? (
+                <p className="text-sm text-gray-400">To permanently delete this visit, remove registered volunteers first.</p>
+              ) : (
+                <div className="border border-gray-200 rounded-lg p-5 space-y-3">
+                  <p className="text-base font-semibold text-gray-900">Delete Visit</p>
+                  <p className="text-sm text-gray-600">Permanently remove this visit. Use this for duplicates or accidental entries only.</p>
+                  {!showDeleteConfirm ? (
+                    <button onClick={() => setShowDeleteConfirm(true)}
+                      className="px-5 py-2.5 border border-red-300 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50">
+                      Delete Permanently
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleDeleteVisit} disabled={cancelBusy}
+                        className="px-5 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-700">
+                        {cancelBusy ? 'Deleting…' : 'Yes, Delete Forever'}
+                      </button>
+                      <button onClick={() => setShowDeleteConfirm(false)} disabled={cancelBusy}
+                        className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-800">
+                        Back
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button onClick={() => { setShowCancelModal(false); setCancelError(null); setShowDeleteConfirm(false); setCancelReason(''); }}
+                className="w-full text-center text-sm text-gray-600 hover:text-gray-800 pt-1">
+                Never mind
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     );
   }
@@ -771,13 +905,12 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
         <p className="text-sm text-gray-500 truncate mb-3">{visit.address}</p>
         <SlotBar confirmed={confirmed} total={visit.max_volunteers} />
         {waitlisted > 0 && <p className="text-xs text-amber-600 mt-1">{waitlisted} on waitlist</p>}
-        {visit.guest_contact_name && <p className="text-xs text-gray-400 mt-1.5">Contact: {visit.guest_contact_name}</p>}
-        {visit.admin_note && (
-          <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
-            <p className="text-xs font-semibold text-yellow-700">Note from Sunshine</p>
-            <p className="text-xs text-yellow-900 line-clamp-2">{visit.admin_note}</p>
+        {visit.admin_note && ['approved', 'declined', 'cancelled'].includes(visit.status) && (
+          <div className="bg-amber-50 border border-amber-100 rounded px-2 py-1.5 mt-2">
+            <p className="text-xs text-amber-800 line-clamp-2"><span className="font-semibold">{visit.status === 'cancelled' ? 'Cancellation:' : 'Note from Sunshine:'}</span> {visit.admin_note}</p>
           </div>
         )}
+        {visit.guest_contact_name && <p className="text-xs text-gray-400 mt-1.5">Contact: {visit.guest_contact_name}</p>}
       </div>
     );
   };

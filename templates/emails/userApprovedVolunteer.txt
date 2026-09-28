@@ -1,8 +1,20 @@
 Hi {{firstName}},
 
-Yur Sunshine Therapy Dogs profile has been approved!
+Your Sunshine Therapy Dogs profile has been approved!
 
-You can now log into your dashboard, manage your availability, and connect with individuals seeking therapy dog visits.
+{{#if docsAllApproved}}
+Your compliance documents have also been reviewed and approved. You're all set to log in, browse visits, and start signing up!
+{{else if docsNeedUpload}}
+You can now log in to your dashboard and explore the platform.
+
+You'll need to upload your dog's vaccination records before you can sign up for any visits. You can do this from your dashboard at any time.
+
+Please also note that some visits will require a Vulnerable Sector Check (VSC) — a police background check for individuals working with vulnerable populations. You can request one through your local police department, and processing times vary. If you have questions about this process, please contact info@sunshinetherapydogs.ca.
+{{else if docsRejected}}
+You can now log in to your dashboard. However, one or more of your compliance documents needs attention — please check your dashboard for details and re-upload as needed.
+{{else}}
+Your compliance documents are currently being reviewed. We'll let you know once they've been processed. In the meantime, you can log in and explore your dashboard.
+{{/if}}
 
 {{dashboardLink}}
 

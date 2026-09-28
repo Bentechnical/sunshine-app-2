@@ -23,7 +23,7 @@ interface ProfileData {
   location_lng?: number | null;
   role?: 'individual' | 'volunteer' | 'admin';
   pronouns?: string | null;
-  birthday?: number | null;
+  date_of_birth?: string | null;
   physical_address?: string | null;
   other_pets_on_site?: boolean | null;
   other_pets_description?: string | null;
@@ -40,6 +40,8 @@ interface ProfileData {
   vsc_date_issued?: string | null;
   vsc_renewal_due?: string | null;
   vsc_verification_status?: string | null;
+  vsc_upload_comment?: string | null;
+  vsc_rejection_reason?: string | null;
 }
 
 function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
@@ -64,7 +66,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
   rejected:       { label: 'VSC Rejected',      icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
 };
 
-const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, birthday, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status';
+const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, date_of_birth, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_upload_comment, vsc_rejection_reason';
 
 export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClose }: { openDocumentsTrigger?: number; onModalClose?: () => void }) {
   const { user } = useUser();
@@ -72,7 +74,7 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [regionInfo, setRegionInfo] = useState<{ name: string; pd_first_name: string | null } | null>(null);
-  const [dogVaccine, setDogVaccine] = useState<{ vaccine_record_url: string | null; vaccine_date_issued: string | null; vaccine_expiry_date: string | null; vaccine_verification_status: string | null } | null>(null);
+  const [dogVaccine, setDogVaccine] = useState<{ vaccine_record_url: string | null; vaccine_date_issued: string | null; vaccine_expiry_date: string | null; vaccine_verification_status: string | null; vaccine_upload_comment: string | null; vaccine_rejection_reason: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editModalTab, setEditModalTab] = useState<'profile' | 'compliance'>('profile');
@@ -111,7 +113,7 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
     if (data?.role === 'volunteer') {
       const { data: dog } = await supabase
         .from('dogs')
-        .select('vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status')
+        .select('vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status, vaccine_upload_comment, vaccine_rejection_reason')
         .eq('volunteer_id', user.id)
         .single();
       setDogVaccine(dog ?? null);
@@ -120,6 +122,13 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
 
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handler = () => loadProfile();
+    window.addEventListener('profile-updated', handler);
+    return () => window.removeEventListener('profile-updated', handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -188,8 +197,8 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
               {profile.pronouns && (
                 <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>
               )}
-              {profile.birthday && profile.visit_recipient_type !== 'other' && (
-                <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>
+              {profile.date_of_birth && profile.visit_recipient_type !== 'other' && (
+                <p><span className="text-gray-500">Date of Birth:</span> <span className="text-gray-800">{profile.date_of_birth}</span></p>
               )}
             </div>
 
@@ -218,7 +227,7 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
                   <p><span className="text-gray-500">Name:</span> <span className="text-gray-800">{profile.dependant_name}</span></p>
                   <p><span className="text-gray-500">Relationship:</span> <span className="text-gray-800">{profile.relationship_to_recipient}</span></p>
                   {profile.pronouns && <p><span className="text-gray-500">Pronouns:</span> <span className="text-gray-800">{profile.pronouns}</span></p>}
-                  {profile.birthday && <p><span className="text-gray-500">Birth Year:</span> <span className="text-gray-800">{profile.birthday}</span></p>}
+                  {profile.date_of_birth && <p><span className="text-gray-500">Date of Birth:</span> <span className="text-gray-800">{profile.date_of_birth}</span></p>}
                 </div>
               </div>
             )}
@@ -302,14 +311,19 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
             travel_distance_km: profile.travel_distance_km ?? null,
             open_to_individual_visits: profile.open_to_individual_visits ?? true,
             pronouns: profile.pronouns ?? null,
+            date_of_birth: profile.date_of_birth ?? null,
             vsc_document_url: profile.vsc_document_url ?? null,
             vsc_date_issued: profile.vsc_date_issued ?? null,
             vsc_renewal_due: profile.vsc_renewal_due ?? null,
             vsc_verification_status: profile.vsc_verification_status ?? null,
+            vsc_upload_comment: profile.vsc_upload_comment ?? null,
+            vsc_rejection_reason: profile.vsc_rejection_reason ?? null,
             vaccine_record_url: dogVaccine?.vaccine_record_url ?? null,
             vaccine_date_issued: dogVaccine?.vaccine_date_issued ?? null,
             vaccine_expiry_date: dogVaccine?.vaccine_expiry_date ?? null,
             vaccine_verification_status: dogVaccine?.vaccine_verification_status ?? null,
+            vaccine_upload_comment: dogVaccine?.vaccine_upload_comment ?? null,
+            vaccine_rejection_reason: dogVaccine?.vaccine_rejection_reason ?? null,
           }}
           onClose={() => {
             setShowEditModal(false);

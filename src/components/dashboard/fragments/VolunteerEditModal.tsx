@@ -18,15 +18,20 @@ interface InitialProfile {
   postal_code: string | null;
   travel_distance_km: number | null;
   pronouns: string | null;
+  date_of_birth: string | null;
   open_to_individual_visits: boolean | null;
   vsc_document_url: string | null;
   vsc_date_issued: string | null;
   vsc_renewal_due: string | null;
   vsc_verification_status: string | null;
+  vsc_upload_comment: string | null;
+  vsc_rejection_reason: string | null;
   vaccine_record_url: string | null;
   vaccine_date_issued: string | null;
   vaccine_expiry_date: string | null;
   vaccine_verification_status: string | null;
+  vaccine_upload_comment: string | null;
+  vaccine_rejection_reason: string | null;
 }
 
 interface Props {
@@ -74,6 +79,17 @@ function normalizePostalCode(code: string): string {
   return upper.length === 6 ? `${upper.slice(0, 3)} ${upper.slice(3)}` : upper;
 }
 
+async function isPdfPasswordProtected(file: File): Promise<boolean> {
+  if (file.type !== 'application/pdf') return false;
+  try {
+    const buffer = await file.slice(0, Math.min(file.size, 4096)).arrayBuffer();
+    const text = new TextDecoder('latin1').decode(buffer);
+    return text.includes('/Encrypt');
+  } catch {
+    return false;
+  }
+}
+
 export default function VolunteerEditModal({ initialProfile, initialTab = 'profile', onClose, onSaved }: Props) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
@@ -97,6 +113,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
   const [openToIndividualVisits, setOpenToIndividualVisits] = useState(initialProfile.open_to_individual_visits ?? true);
   const [travelDistance, setTravelDistance] = useState(initialProfile.travel_distance_km ?? 25);
   const [pronouns, setPronouns] = useState(initialProfile.pronouns ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState(initialProfile.date_of_birth ?? '');
   const avatarUrlRef = useRef(initialProfile.profile_image ?? '');
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -106,6 +123,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
   const [vscDateIssued, setVscDateIssued] = useState(initialProfile.vsc_date_issued ?? '');
   const [vscRenewalDue] = useState(initialProfile.vsc_renewal_due ?? '');
   const [vscVerificationStatus, setVscVerificationStatus] = useState<string | null>(initialProfile.vsc_verification_status ?? null);
+  const [vscUploadComment, setVscUploadComment] = useState(initialProfile.vsc_upload_comment ?? '');
   const [vscUploading, setVscUploading] = useState(false);
   const [vscRemoving, setVscRemoving] = useState(false);
   const [vscUploadError, setVscUploadError] = useState<string | null>(null);
@@ -117,6 +135,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
   const [vaccineIssued, setVaccineIssued] = useState(initialProfile.vaccine_date_issued ?? '');
   const [vaccineExpiry, setVaccineExpiry] = useState(initialProfile.vaccine_expiry_date ?? '');
   const [vaccineVerificationStatus, setVaccineVerificationStatus] = useState<string | null>(initialProfile.vaccine_verification_status ?? null);
+  const [vaccineUploadComment, setVaccineUploadComment] = useState(initialProfile.vaccine_upload_comment ?? '');
   const [vaccineUploading, setVaccineUploading] = useState(false);
   const [vaccineRemoving, setVaccineRemoving] = useState(false);
   const [vaccineUploadError, setVaccineUploadError] = useState<string | null>(null);
@@ -148,6 +167,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
       open_to_individual_visits: openToIndividualVisits,
       travel_distance_km: openToIndividualVisits ? travelDistance : 25,
       pronouns,
+      date_of_birth: dateOfBirth || null,
     };
 
     try {
@@ -180,7 +200,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
       const res = await fetch('/api/volunteer/compliance', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vsc_document_url: docUrl || null, vsc_date_issued: dateIssued || null }),
+        body: JSON.stringify({ vsc_document_url: docUrl || null, vsc_date_issued: dateIssued || null, vsc_upload_comment: vscUploadComment || null }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -200,7 +220,12 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setVscUploadError(null);
+    if (await isPdfPasswordProtected(file)) {
+      setVscUploadError('This file appears to be password-protected. It will still be uploaded, but please share the password in the comment field below so our team can review it.');
+      if (!vscUploadComment) setVscUploadComment('Password: ');
+    } else {
+      setVscUploadError(null);
+    }
     setVscUploading(true);
 
     try {
@@ -314,7 +339,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
       const res = await fetch('/api/volunteer/dog/compliance', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaccine_record_url: docUrl || null, vaccine_date_issued: issued || null, vaccine_expiry_date: expiry || null }),
+        body: JSON.stringify({ vaccine_record_url: docUrl || null, vaccine_date_issued: issued || null, vaccine_expiry_date: expiry || null, vaccine_upload_comment: vaccineUploadComment || null }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -334,7 +359,12 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setVaccineUploadError(null);
+    if (await isPdfPasswordProtected(file)) {
+      setVaccineUploadError('This file appears to be password-protected. It will still be uploaded, but please share the password in the comment field below so our team can review it.');
+      if (!vaccineUploadComment) setVaccineUploadComment('Password: ');
+    } else {
+      setVaccineUploadError(null);
+    }
     setVaccineUploading(true);
 
     try {
@@ -546,6 +576,18 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                 </select>
               </div>
 
+              {/* Date of Birth */}
+              <div>
+                <label className={lc}>Date of Birth</label>
+                <input
+                  type="date"
+                  max={new Date().toISOString().split('T')[0]}
+                  value={dateOfBirth}
+                  onChange={e => setDateOfBirth(e.target.value)}
+                  className={ic}
+                />
+              </div>
+
               {profileError && <p className="text-sm text-red-600">{profileError}</p>}
             </div>
           )}
@@ -617,6 +659,18 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                   {vaccineUploadError && <p className="text-xs text-red-500 mt-1">{vaccineUploadError}</p>}
                 </div>
 
+                {/* Upload comment */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Comment (optional)</label>
+                  <textarea
+                    value={vaccineUploadComment}
+                    onChange={e => setVaccineUploadComment(e.target.value)}
+                    placeholder="Add a note about your document if needed"
+                    rows={2}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 {/* Issue date */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date of Issue</label>
@@ -648,9 +702,12 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                   </p>
                 )}
                 {vaccineVerificationStatus === 'rejected' && (
-                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                    Your document was not accepted. Please upload a new document.
-                  </p>
+                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 space-y-1">
+                    <p className="font-semibold">Your document was not accepted. Please upload a new document.</p>
+                    {initialProfile.vaccine_rejection_reason && (
+                      <p>Admin comment: {initialProfile.vaccine_rejection_reason}</p>
+                    )}
+                  </div>
                 )}
 
                 {vaccineError && <p className="text-xs text-red-600">{vaccineError}</p>}
@@ -726,6 +783,18 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                   {vscUploadError && <p className="text-xs text-red-500 mt-1">{vscUploadError}</p>}
                 </div>
 
+                {/* Upload comment */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Comment (optional)</label>
+                  <textarea
+                    value={vscUploadComment}
+                    onChange={e => setVscUploadComment(e.target.value)}
+                    placeholder="Add a note about your document if needed"
+                    rows={2}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 {/* Date issued */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date Issued</label>
@@ -751,9 +820,12 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                   </p>
                 )}
                 {vscVerificationStatus === 'rejected' && (
-                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                    Your document was not accepted. Please upload a new document.
-                  </p>
+                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 space-y-1">
+                    <p className="font-semibold">Your document was not accepted. Please upload a new document.</p>
+                    {initialProfile.vsc_rejection_reason && (
+                      <p>Admin comment: {initialProfile.vsc_rejection_reason}</p>
+                    )}
+                  </div>
                 )}
 
                 {complianceError && <p className="text-xs text-red-600">{complianceError}</p>}

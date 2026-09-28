@@ -25,6 +25,8 @@ interface VolunteerBasicInfoProps {
   setBio: (v: string) => void;
   pronouns: string;
   setPronouns: (v: string) => void;
+  dateOfBirth: string;
+  setDateOfBirth: (v: string) => void;
   profilePictureUrl: string;
   setProfilePictureUrl: (v: string) => void;
   user: UserResource;
@@ -40,6 +42,8 @@ export default function VolunteerBasicInfo({
   setBio,
   pronouns,
   setPronouns,
+  dateOfBirth,
+  setDateOfBirth,
   profilePictureUrl,
   setProfilePictureUrl,
   user,
@@ -89,6 +93,21 @@ export default function VolunteerBasicInfo({
           <option value="she/her">She/Her</option>
           <option value="they/them">They/Them</option>
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-700 mb-2">
+          Date of Birth <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="dateOfBirth"
+          type="date"
+          max={new Date().toISOString().split('T')[0]}
+          value={dateOfBirth}
+          onChange={(e) => setDateOfBirth(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg"
+          disabled={isLoading}
+        />
       </div>
 
       <div>

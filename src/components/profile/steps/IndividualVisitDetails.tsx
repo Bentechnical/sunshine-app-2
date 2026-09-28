@@ -9,8 +9,8 @@ interface IndividualVisitDetailsProps {
   setBio: (v: string) => void;
   pronouns: string;
   setPronouns: (v: string) => void;
-  birthday: string;
-  setBirthday: (v: string) => void;
+  dateOfBirth: string;
+  setDateOfBirth: (v: string) => void;
   physicalAddress: string;
   setPhysicalAddress: (v: string) => void;
   otherPetsOnSite: boolean;
@@ -33,8 +33,8 @@ export default function IndividualVisitDetails({
   setBio,
   pronouns,
   setPronouns,
-  birthday,
-  setBirthday,
+  dateOfBirth,
+  setDateOfBirth,
   physicalAddress,
   setPhysicalAddress,
   otherPetsOnSite,
@@ -88,19 +88,17 @@ export default function IndividualVisitDetails({
       </div>
 
       <div>
-        <label htmlFor="birthday" className="block text-sm font-semibold text-gray-700 mb-2">
-          {isForOther ? 'Birth year of person receiving visits' : 'Birth year'} <span className="text-red-500">*</span>
+        <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-700 mb-2">
+          {isForOther ? 'Date of birth of person receiving visits' : 'Date of Birth'} <span className="text-red-500">*</span>
         </label>
         <input
-          id="birthday"
-          type="number"
-          min="1900"
-          max={new Date().getFullYear()}
-          value={birthday}
-          onChange={(e) => setBirthday(e.target.value)}
+          id="dateOfBirth"
+          type="date"
+          max={new Date().toISOString().split('T')[0]}
+          value={dateOfBirth}
+          onChange={(e) => setDateOfBirth(e.target.value)}
           className="w-full px-4 py-2 border rounded-lg"
           disabled={isLoading}
-          placeholder="e.g., 1990"
         />
       </div>
 

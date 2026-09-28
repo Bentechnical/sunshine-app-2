@@ -11,7 +11,7 @@ export async function PATCH(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { vsc_document_url, vsc_date_issued } = body;
+  const { vsc_document_url, vsc_date_issued, vsc_upload_comment } = body;
 
   // Compute renewal due date as 3 years from issue date
   let vsc_renewal_due: string | null = null;
@@ -29,10 +29,12 @@ export async function PATCH(req: NextRequest) {
       vsc_document_url,
       vsc_date_issued,
       vsc_renewal_due,
+      vsc_upload_comment: vsc_upload_comment ?? null,
       // Reset verification on every upload/update — requires re-review by admin/PD
       vsc_verification_status: 'pending_review',
       vsc_verified_at: null,
       vsc_verified_by: null,
+      vsc_rejection_reason: null,
     })
     .eq('id', userId)
     .eq('role', 'volunteer');
@@ -76,6 +78,7 @@ export async function DELETE() {
       vsc_verification_status: null,
       vsc_verified_at: null,
       vsc_verified_by: null,
+      vsc_rejection_reason: null,
     })
     .eq('id', userId);
 

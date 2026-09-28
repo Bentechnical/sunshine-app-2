@@ -30,24 +30,23 @@ interface Volunteer {
   phone: string;
   city: string;
   postal_code: string;
-  travel_distance_km: number;
+  date_of_birth: string | null;
   bio: string;
   profile_picture_url: string;
   dog?: DogProfile | null;
-  audience_categories: string[];
   is_browsable: boolean;
   assigned_region_id: number | null;
   region_assignment_method: string | null;
 }
 
-type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
+export type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
-interface ComplianceRecord {
-  vsc: { status: ComplianceStatus; date_issued: string | null; renewal_due: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null };
-  vaccine: { status: ComplianceStatus; date_issued: string | null; expiry_date: string | null; dog_name: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null };
+export interface ComplianceRecord {
+  vsc: { status: ComplianceStatus; date_issued: string | null; renewal_due: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null };
+  vaccine: { status: ComplianceStatus; date_issued: string | null; expiry_date: string | null; dog_name: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null };
 }
 
-type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; dog_name: string | null };
+export type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; dog_name: string | null };
 
 interface ArchivedVolunteer {
   id: string;
@@ -69,9 +68,7 @@ interface ActiveAppointment {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const allCategories = ['Young Kids', 'Teens/Young Adults', 'Adults', 'Seniors'];
-
-const statusConfig: Record<ComplianceStatus, { label: string; classes: string }> = {
+export const statusConfig: Record<ComplianceStatus, { label: string; classes: string }> = {
   missing:        { label: 'Missing',       classes: 'bg-red-100 text-red-700' },
   pending_review: { label: 'Needs Review',  classes: 'bg-amber-100 text-amber-800' },
   approved:       { label: 'Compliant',     classes: 'bg-green-100 text-green-700' },
@@ -80,7 +77,7 @@ const statusConfig: Record<ComplianceStatus, { label: string; classes: string }>
   rejected:       { label: 'Rejected',      classes: 'bg-red-100 text-red-700' },
 };
 
-function ComplianceBadge({ status }: { status: ComplianceStatus | undefined }) {
+export function ComplianceBadge({ status }: { status: ComplianceStatus | undefined }) {
   if (!status) return <span className="text-xs text-gray-400">—</span>;
   const { label, classes } = statusConfig[status];
   return (
@@ -90,7 +87,7 @@ function ComplianceBadge({ status }: { status: ComplianceStatus | undefined }) {
   );
 }
 
-function formatDate(dateStr: string | null) {
+export function formatDate(dateStr: string | null) {
   if (!dateStr) return '—';
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-CA', {
     year: 'numeric', month: 'short', day: 'numeric',
@@ -104,11 +101,9 @@ function formatDateTime(dateStr: string | null) {
   return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-function VerificationActions({
+export function VerificationActions({
   volunteerId,
   documentType,
-  currentStatus,
-  verifiedAt,
   onVerified,
 }: {
   volunteerId: string;
@@ -119,13 +114,13 @@ function VerificationActions({
 }) {
   const [acting, setActing] = useState<'approve' | 'reject' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showRejectReason, setShowRejectReason] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  const handleAction = async (action: 'approve' | 'reject') => {
-    setActing(action);
+  const handleApprove = async () => {
+    setActing('approve');
     setActionError(null);
-    const apiAction = action === 'approve'
-      ? (documentType === 'vsc' ? 'approve_vsc' : 'approve_vaccine')
-      : (documentType === 'vsc' ? 'reject_vsc' : 'reject_vaccine');
+    const apiAction = documentType === 'vsc' ? 'approve_vsc' : 'approve_vaccine';
     try {
       const res = await fetch(`/api/admin/compliance/${volunteerId}`, {
         method: 'PATCH',
@@ -134,7 +129,7 @@ function VerificationActions({
       });
       const json = await res.json();
       if (!res.ok) { setActionError(json.error || 'Action failed'); return; }
-      onVerified(action === 'approve' ? 'approved' : 'rejected');
+      onVerified('approved');
     } catch {
       setActionError('Action failed. Please try again.');
     } finally {
@@ -142,25 +137,66 @@ function VerificationActions({
     }
   };
 
-  const statusLabel = currentStatus === 'approved' ? 'Approved' : currentStatus === 'rejected' ? 'Rejected' : 'Pending Review';
-  const statusClasses = currentStatus === 'approved' ? 'bg-green-100 text-green-700' : currentStatus === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800';
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) return;
+    setActing('reject');
+    setActionError(null);
+    const apiAction = documentType === 'vsc' ? 'reject_vsc' : 'reject_vaccine';
+    try {
+      const res = await fetch(`/api/admin/compliance/${volunteerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: apiAction, rejection_reason: rejectionReason.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setActionError(json.error || 'Action failed'); return; }
+      onVerified('rejected');
+      setShowRejectReason(false);
+      setRejectionReason('');
+    } catch {
+      setActionError('Action failed. Please try again.');
+    } finally {
+      setActing(null);
+    }
+  };
+
+  if (showRejectReason) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-gray-700">Reason for rejection</p>
+        <textarea
+          value={rejectionReason}
+          onChange={e => setRejectionReason(e.target.value)}
+          placeholder="e.g. Document is expired, wrong document type…"
+          rows={3}
+          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button onClick={handleReject} disabled={!rejectionReason.trim() || !!acting}
+            className="flex-1 px-3 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition">
+            {acting === 'reject' ? 'Rejecting…' : 'Confirm Reject'}
+          </button>
+          <button onClick={() => { setShowRejectReason(false); setRejectionReason(''); }}
+            className="px-3 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            Cancel
+          </button>
+        </div>
+        {actionError && <p className="text-xs text-red-600">{actionError}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusClasses}`}>{statusLabel}</span>
-        {currentStatus === 'approved' && verifiedAt && (
-          <span className="text-xs text-gray-400">Verified {formatDateTime(verifiedAt)}</span>
-        )}
-      </div>
       <div className="flex gap-2">
-        <button onClick={() => handleAction('approve')} disabled={!!acting}
-          className="flex-1 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
+        <button onClick={handleApprove} disabled={!!acting}
+          className="flex-1 px-3 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
           {acting === 'approve' ? 'Approving…' : 'Approve'}
         </button>
-        <button onClick={() => handleAction('reject')} disabled={!!acting}
-          className="flex-1 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition">
-          {acting === 'reject' ? 'Rejecting…' : 'Reject'}
+        <button onClick={() => setShowRejectReason(true)} disabled={!!acting}
+          className="flex-1 px-3 py-2 text-sm font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition">
+          Reject
         </button>
       </div>
       {actionError && <p className="text-xs text-red-600">{actionError}</p>}
@@ -168,11 +204,12 @@ function VerificationActions({
   );
 }
 
-function DocumentModal({
+export function DocumentModal({
   volunteerId,
   volunteerName,
   record,
   prefetchedDocs,
+  dog,
   onClose,
   onVerified,
 }: {
@@ -180,6 +217,7 @@ function DocumentModal({
   volunteerName: string;
   record: ComplianceRecord;
   prefetchedDocs?: SignedDocs | null;
+  dog?: DogProfile | null;
   onClose: () => void;
   onVerified: (updated: ComplianceRecord) => void;
 }) {
@@ -212,13 +250,15 @@ function DocumentModal({
   }, [volunteerId, prefetchedDocs]);
 
   const handleVscVerified = (newStatus: 'approved' | 'rejected') => {
-    const updated = { ...localRecord, vsc: { ...localRecord.vsc, verification_status: newStatus, verified_at: new Date().toISOString() } };
+    const derivedStatus: ComplianceStatus = newStatus === 'rejected' ? 'rejected' : 'approved';
+    const updated = { ...localRecord, vsc: { ...localRecord.vsc, status: derivedStatus, verification_status: newStatus, verified_at: new Date().toISOString() } };
     setLocalRecord(updated);
     onVerified(updated);
   };
 
   const handleVaccineVerified = (newStatus: 'approved' | 'rejected') => {
-    const updated = { ...localRecord, vaccine: { ...localRecord.vaccine, verification_status: newStatus, verified_at: new Date().toISOString() } };
+    const derivedStatus: ComplianceStatus = newStatus === 'rejected' ? 'rejected' : 'approved';
+    const updated = { ...localRecord, vaccine: { ...localRecord.vaccine, status: derivedStatus, verification_status: newStatus, verified_at: new Date().toISOString() } };
     setLocalRecord(updated);
     onVerified(updated);
   };
@@ -281,13 +321,36 @@ function DocumentModal({
 
             {/* Metadata + actions */}
             <div className="w-72 shrink-0 border-l border-gray-100 flex flex-col p-5 overflow-y-auto">
+              {/* Document type heading (when no tabs) */}
               {!showTabs && (
                 <p className="text-sm font-bold text-gray-800 mb-4">
                   {activeTab === 'vsc' ? 'Volunteer Screening Check' : `Rabies Vaccine Record${docs.dog_name ? ` — ${docs.dog_name}` : ''}`}
                 </p>
               )}
+
+              {/* Prominent verification status */}
+              {(() => {
+                const activeDoc = activeTab === 'vsc' ? localRecord.vsc : localRecord.vaccine;
+                const status = activeDoc.verification_status;
+                const bgClass = status === 'approved' ? 'bg-green-50 border-green-200' : status === 'rejected' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200';
+                const textClass = status === 'approved' ? 'text-green-800' : status === 'rejected' ? 'text-red-800' : 'text-amber-800';
+                const label = status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Pending Review';
+                return (
+                  <div className={`rounded-lg border px-3 py-2.5 mb-5 ${bgClass}`}>
+                    <p className={`text-sm font-bold ${textClass}`}>{label}</p>
+                    {(status === 'approved' || status === 'rejected') && activeDoc.verified_at && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {status === 'approved' ? 'Approved' : 'Rejected'} {formatDateTime(activeDoc.verified_at)}
+                        {activeDoc.verified_by_name && <> by {activeDoc.verified_by_name}</>}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* VSC metadata */}
               {activeTab === 'vsc' && (
-                <div className="space-y-4 mb-6">
+                <div className="space-y-3 mb-5">
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date Issued</p>
                     <p className="text-sm text-gray-900">{formatDate(localRecord.vsc.date_issued)}</p>
@@ -298,10 +361,18 @@ function DocumentModal({
                       <p className="text-sm text-gray-900">{formatDate(localRecord.vsc.renewal_due)}</p>
                     </div>
                   )}
+                  {localRecord.vsc.upload_comment && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Volunteer Comment</p>
+                      <p className="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vsc.upload_comment}&rdquo;</p>
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* Vaccine metadata + dog info */}
               {activeTab === 'vaccine' && (
-                <div className="space-y-4 mb-6">
+                <div className="space-y-3 mb-5">
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date Issued</p>
                     <p className="text-sm text-gray-900">{formatDate(localRecord.vaccine.date_issued)}</p>
@@ -310,9 +381,48 @@ function DocumentModal({
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Expiry Date</p>
                     <p className="text-sm text-gray-900">{formatDate(localRecord.vaccine.expiry_date)}</p>
                   </div>
+                  {localRecord.vaccine.upload_comment && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Volunteer Comment</p>
+                      <p className="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vaccine.upload_comment}&rdquo;</p>
+                    </div>
+                  )}
+                  {dog && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Dog</p>
+                      <p className="text-sm text-gray-900">{dog.dog_name} <span className="text-gray-500">· {dog.dog_breed}{dog.dog_age ? ` · ${dog.dog_age} yr${dog.dog_age !== 1 ? 's' : ''} old` : ''}</span></p>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="mt-auto space-y-3">
+
+              {/* Download button */}
+              {rawUrl && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(rawUrl);
+                      const blob = await res.blob();
+                      const ext = blob.type === 'application/pdf' ? 'pdf' : 'doc';
+                      const filename = `${volunteerName.replace(/\s+/g, '_')}_${activeTab === 'vsc' ? 'VSC' : 'Vaccine'}.${ext}`;
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      window.open(rawUrl, '_blank');
+                    }
+                  }}
+                  className="w-full text-center text-sm font-semibold text-[#0e62ae] bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-100 transition mb-5"
+                >
+                  Download Document
+                </button>
+              )}
+
+              {/* Approve / Reject actions */}
+              <div className="mt-auto space-y-3 pt-4 border-t border-gray-100">
                 {activeTab === 'vsc' && docs.vsc_signed_url && (
                   <VerificationActions volunteerId={volunteerId} documentType="vsc"
                     currentStatus={localRecord.vsc.verification_status} verifiedAt={localRecord.vsc.verified_at}
@@ -323,7 +433,7 @@ function DocumentModal({
                     currentStatus={localRecord.vaccine.verification_status} verifiedAt={localRecord.vaccine.verified_at}
                     onVerified={handleVaccineVerified} />
                 )}
-                <p className="text-xs text-gray-400">Document links expire after 1 hour.</p>
+                <p className="text-xs text-gray-400 text-center">Document links expire after 1 hour.</p>
               </div>
             </div>
           </div>
@@ -337,9 +447,10 @@ function DocumentModal({
 
 interface Props {
   role?: 'admin' | 'pd';
+  onDocReviewChange?: () => void;
 }
 
-export default function AdminManageVolunteers({ role = 'admin' }: Props) {
+export default function AdminManageVolunteers({ role = 'admin', onDocReviewChange }: Props) {
   const { user: clerkUser } = useUser();
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [complianceMap, setComplianceMap] = useState<Map<string, ComplianceRecord>>(new Map());
@@ -354,7 +465,7 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [regionFilter, setRegionFilter] = useState<string>('all'); // 'all' | 'unassigned' | region id
   const [complianceFilter, setComplianceFilter] = useState<'none' | 'review' | 'issues'>('none');
-  const [selectedDocVolunteer, setSelectedDocVolunteer] = useState<{ id: string; name: string; record: ComplianceRecord } | null>(null);
+  const [selectedDocVolunteer, setSelectedDocVolunteer] = useState<{ id: string; name: string; record: ComplianceRecord; dog?: DogProfile | null } | null>(null);
   const [signedUrlCache, setSignedUrlCache] = useState<Map<string, SignedDocs>>(new Map());
   const [reassigningId, setReassigningId] = useState<string | null>(null);
 
@@ -397,7 +508,7 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
             phone: u.phone_number,
             city: u.city,
             postal_code: u.postal_code,
-            travel_distance_km: u.travel_distance_km,
+            date_of_birth: u.date_of_birth ?? null,
             bio: u.bio,
             profile_picture_url: u.profile_image,
             dog: u.dogs ? {
@@ -407,7 +518,6 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
               dog_picture_url: u.dogs.dog_picture_url,
               dog_age: u.dogs.dog_age,
             } : null,
-            audience_categories: u.audience_categories || [],
             is_browsable: u.is_browsable ?? true,
             assigned_region_id: u.assigned_region_id ?? null,
             region_assignment_method: u.region_assignment_method ?? null,
@@ -567,23 +677,6 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
     );
   };
 
-  const updateAudience = async (userId: string, newCategories: string[]) => {
-    const res = await fetch('/api/admin/update-audience-preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, role: 'volunteer', category_labels: newCategories }),
-    });
-    if (!res.ok) console.error('Failed to update audience prefs');
-  };
-
-  const handleCheckboxChange = (userId: string, label: string, current: string[]) => {
-    const newCategories = current.includes(label)
-      ? current.filter(c => c !== label)
-      : [...current, label];
-    updateAudience(userId, newCategories);
-    setVolunteers(prev => prev.map(u => u.id === userId ? { ...u, audience_categories: newCategories } : u));
-  };
-
   const handleToggleBrowsable = async (userId: string, current: boolean) => {
     setVolunteers(prev => prev.map(u => u.id === userId ? { ...u, is_browsable: !current } : u));
     const res = await fetch('/api/admin/set-browsable', {
@@ -662,19 +755,6 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
     `${v.first_name} ${v.last_name} ${v.email} ${v.city}`
       .toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const renderCategoryBubbles = (categories: string[]) => {
-    const sorted = [...categories].sort((a, b) => allCategories.indexOf(a) - allCategories.indexOf(b));
-    return (
-      <div className="flex flex-wrap gap-1">
-        {sorted.map(label => (
-          <span key={label} className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-            {label}
-          </span>
-        ))}
-      </div>
-    );
-  };
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -796,14 +876,13 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
                 <th className="px-4 py-2">Region</th>
                 <th className="px-4 py-2">VSC</th>
                 <th className="px-4 py-2">Vaccine</th>
-                <th className="px-4 py-2">Audience</th>
                 <th className="px-2 py-2 w-6" />
               </tr>
             </thead>
             <tbody>
               {filteredVolunteers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     {complianceFilter !== 'none' ? 'No volunteers match this filter.' : 'No volunteers found.'}
                   </td>
                 </tr>
@@ -828,135 +907,128 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
                       </td>
                       <td className="px-4 py-2"><ComplianceBadge status={compliance?.vsc.status} /></td>
                       <td className="px-4 py-2"><ComplianceBadge status={compliance?.vaccine.status} /></td>
-                      <td className="px-4 py-2">{renderCategoryBubbles(user.audience_categories)}</td>
                       <td className="px-2 py-2">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-gray-50 border-t">
-                        <td colSpan={8} className="px-6 py-4">
+                        <td colSpan={7} className="px-6 py-4">
+                          {/* Name heading */}
+                          <h3 className="text-lg font-semibold text-gray-900 mb-4">{user.first_name} {user.last_name}</h3>
+
+                          {/* Two-column profiles */}
                           <div className="flex flex-col lg:flex-row gap-6">
-                            {/* Volunteer info */}
+                            {/* Volunteer profile */}
                             <div className="flex gap-4 items-start w-full lg:w-1/2">
                               <img
                                 src={user.profile_picture_url}
                                 alt={`${user.first_name} ${user.last_name}`}
-                                className="w-28 h-28 object-cover rounded-lg"
+                                className="w-24 h-24 object-cover rounded-xl"
                               />
-                              <div className="space-y-3">
-                                <h3 className="text-lg font-semibold text-gray-900">Volunteer Information</h3>
-                                <div className="space-y-2 text-sm">
-                                  <p><span className="font-semibold text-gray-700">Phone:</span> <span className="text-gray-900">{user.phone}</span></p>
-                                  <p><span className="font-semibold text-gray-700">Postal Code:</span> <span className="text-gray-900">{user.postal_code}</span></p>
-                                  <p><span className="font-semibold text-gray-700">Travel Distance:</span> <span className="text-gray-900">{user.travel_distance_km} km</span></p>
-                                  <p><span className="font-semibold text-gray-700">Bio:</span></p>
-                                  <p className="text-gray-900 italic">&ldquo;{user.bio}&rdquo;</p>
-                                </div>
+                              <div className="space-y-1 text-sm">
+                                <p><span className="font-semibold text-gray-700">Phone:</span> <span className="text-gray-900">{user.phone}</span></p>
+                                <p><span className="font-semibold text-gray-700">Postal Code:</span> <span className="text-gray-900">{user.postal_code}</span></p>
+                                {user.date_of_birth && (
+                                  <p><span className="font-semibold text-gray-700">Date of Birth:</span> <span className="text-gray-900">{formatDate(user.date_of_birth)}</span></p>
+                                )}
+                                <p><span className="font-semibold text-gray-700">Bio:</span></p>
+                                <p className="text-gray-900 italic">&ldquo;{user.bio}&rdquo;</p>
                               </div>
                             </div>
-                            {/* Dog info */}
+
+                            {/* Dog profile */}
                             {user.dog && (
                               <div className="flex gap-4 items-start w-full lg:w-1/2">
                                 <img
                                   src={user.dog.dog_picture_url}
                                   alt={user.dog.dog_name}
-                                  className="w-28 h-28 object-cover rounded-lg"
+                                  className="w-24 h-24 object-cover rounded-xl"
                                 />
-                                <div className="space-y-3">
-                                  <h3 className="text-lg font-semibold text-gray-900">Dog Information</h3>
-                                  <div className="space-y-2 text-sm">
-                                    <p><span className="font-semibold text-gray-700">Name:</span> <span className="text-gray-900">{user.dog.dog_name}</span></p>
-                                    <p><span className="font-semibold text-gray-700">Breed:</span> <span className="text-gray-900">{user.dog.dog_breed}</span></p>
-                                    {user.dog.dog_age && <p><span className="font-semibold text-gray-700">Age:</span> <span className="text-gray-900">{user.dog.dog_age} years</span></p>}
-                                    <p><span className="font-semibold text-gray-700">Bio:</span></p>
-                                    <p className="text-gray-900 italic">&ldquo;{user.dog.dog_bio}&rdquo;</p>
-                                  </div>
+                                <div className="space-y-1 text-sm">
+                                  <p className="font-bold text-base text-gray-900">{user.dog.dog_name}</p>
+                                  <p><span className="font-semibold text-gray-700">Breed:</span> <span className="text-gray-900">{user.dog.dog_breed}</span></p>
+                                  {user.dog.dog_age && <p><span className="font-semibold text-gray-700">Age:</span> <span className="text-gray-900">{user.dog.dog_age} years</span></p>}
+                                  <p><span className="font-semibold text-gray-700">Bio:</span></p>
+                                  <p className="text-gray-900 italic">&ldquo;{user.dog.dog_bio}&rdquo;</p>
                                 </div>
                               </div>
                             )}
                           </div>
 
-                          {/* Compliance detail */}
-                          {compliance && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Compliance Documents</h4>
+                          {/* Compliance + Region + Controls */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                              {/* VSC dot indicator */}
+                              {(() => {
+                                const s = compliance?.vsc.status;
+                                const dotColor = s === 'approved' ? 'bg-green-500' : s === 'missing' ? 'bg-red-400' : s === 'pending_review' ? 'bg-amber-500' : s === 'rejected' ? 'bg-red-500' : s === 'expired' ? 'bg-red-500' : s === 'expiring' ? 'bg-amber-400' : 'bg-gray-300';
+                                const label = s === 'approved' ? 'Approved' : s === 'missing' ? 'Missing' : s === 'pending_review' ? 'Needs Review' : s === 'rejected' ? 'Rejected' : s === 'expired' ? 'Expired' : s === 'expiring' ? 'Expiring Soon' : '—';
+                                const textColor = s === 'approved' ? 'text-green-700' : s === 'missing' || s === 'expired' || s === 'rejected' ? 'text-red-700' : s === 'pending_review' || s === 'expiring' ? 'text-amber-700' : 'text-gray-500';
+                                return (
+                                  <span className="inline-flex items-center gap-2 text-sm">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+                                    <span className="font-semibold text-gray-700">VSC</span>
+                                    <span className={`font-medium ${textColor}`}>{label}</span>
+                                  </span>
+                                );
+                              })()}
+
+                              {/* Vaccine dot indicator */}
+                              {(() => {
+                                const s = compliance?.vaccine.status;
+                                const dotColor = s === 'approved' ? 'bg-green-500' : s === 'missing' ? 'bg-red-400' : s === 'pending_review' ? 'bg-amber-500' : s === 'rejected' ? 'bg-red-500' : s === 'expired' ? 'bg-red-500' : s === 'expiring' ? 'bg-amber-400' : 'bg-gray-300';
+                                const label = s === 'approved' ? 'Approved' : s === 'missing' ? 'Missing' : s === 'pending_review' ? 'Needs Review' : s === 'rejected' ? 'Rejected' : s === 'expired' ? 'Expired' : s === 'expiring' ? 'Expiring Soon' : '—';
+                                const textColor = s === 'approved' ? 'text-green-700' : s === 'missing' || s === 'expired' || s === 'rejected' ? 'text-red-700' : s === 'pending_review' || s === 'expiring' ? 'text-amber-700' : 'text-gray-500';
+                                return (
+                                  <span className="inline-flex items-center gap-2 text-sm">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+                                    <span className="font-semibold text-gray-700">Vaccine</span>
+                                    <span className={`font-medium ${textColor}`}>{label}</span>
+                                  </span>
+                                );
+                              })()}
+
+                              {/* View/Review Documents button */}
+                              {compliance && (compliance.vsc.status !== 'missing' || compliance.vaccine.status !== 'missing') && (
                                 <button
-                                  onClick={e => { e.stopPropagation(); setSelectedDocVolunteer({ id: user.id, name: `${user.first_name} ${user.last_name}`, record: compliance }); }}
-                                  className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition ${
+                                  onClick={e => { e.stopPropagation(); setSelectedDocVolunteer({ id: user.id, name: `${user.first_name} ${user.last_name}`, record: compliance, dog: user.dog }); }}
+                                  className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition ${
                                     compliance.vsc.verification_status === 'pending_review' || compliance.vaccine.verification_status === 'pending_review'
-                                      ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                                      : 'text-blue-600 hover:underline'
+                                      ? 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100'
+                                      : 'bg-blue-50 text-[#0e62ae] border border-blue-200 hover:bg-blue-100'
                                   }`}
                                 >
-                                  {compliance.vsc.verification_status === 'pending_review' || compliance.vaccine.verification_status === 'pending_review' ? 'Review' : 'View Docs'}
+                                  {compliance.vsc.verification_status === 'pending_review' || compliance.vaccine.verification_status === 'pending_review' ? 'Review Documents' : 'View Documents'}
                                 </button>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <p className="font-medium text-gray-600 mb-1">VSC</p>
-                                  <ComplianceBadge status={compliance.vsc.status} />
-                                  {compliance.vsc.date_issued && (
-                                    <p className="text-xs text-gray-500 mt-1">Issued: {formatDate(compliance.vsc.date_issued)}</p>
-                                  )}
-                                  {compliance.vsc.renewal_due && (
-                                    <p className="text-xs text-gray-500">Renewal due: {formatDate(compliance.vsc.renewal_due)}</p>
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="font-medium text-gray-600 mb-1">
-                                    Vaccine Record{compliance.vaccine.dog_name ? ` — ${compliance.vaccine.dog_name}` : ''}
-                                  </p>
-                                  <ComplianceBadge status={compliance.vaccine.status} />
-                                  {compliance.vaccine.expiry_date && (
-                                    <p className="text-xs text-gray-500 mt-1">Expires: {formatDate(compliance.vaccine.expiry_date)}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Audience Preferences */}
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Audience Preferences</h4>
-                            <div className="flex flex-wrap items-center gap-4">
-                              {allCategories.map(label => (
-                                <label key={label} className="flex items-center gap-1 text-sm">
-                                  <input
-                                    type="checkbox"
-                                    checked={user.audience_categories.includes(label)}
-                                    onChange={() => handleCheckboxChange(user.id, label, user.audience_categories)}
-                                  />
-                                  {label}
-                                </label>
-                              ))}
+                              )}
                             </div>
                           </div>
 
                           {/* Admin Controls */}
-                          <div className="mt-6 pt-4 border-t border-gray-200 space-y-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-gray-700 shrink-0">Region:</span>
-                              <select
-                                value={user.assigned_region_id ?? ''}
-                                onChange={e => handleReassignRegion(user.id, e.target.value ? parseInt(e.target.value, 10) : null)}
-                                onClick={e => e.stopPropagation()}
-                                disabled={reassigningId === user.id}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                              >
-                                <option value="">— Unassigned —</option>
-                                {regions.filter(r => r.is_active).map(r => (
-                                  <option key={r.id} value={r.id}>{r.name}</option>
-                                ))}
-                              </select>
-                              {user.region_assignment_method && (
-                                <span className="text-xs text-gray-400">
-                                  {user.region_assignment_method === 'fsa_auto' ? 'Auto (FSA)' :
-                                   user.region_assignment_method === 'boundary_auto' ? 'Auto (boundary)' :
-                                   user.region_assignment_method === 'distance_auto' ? 'Auto (distance)' : 'Manual'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-6">
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                              {/* Region */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700 shrink-0">Region:</span>
+                                <select
+                                  value={user.assigned_region_id ?? ''}
+                                  onChange={e => handleReassignRegion(user.id, e.target.value ? parseInt(e.target.value, 10) : null)}
+                                  onClick={e => e.stopPropagation()}
+                                  disabled={reassigningId === user.id}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                                >
+                                  <option value="">— Unassigned —</option>
+                                  {regions.filter(r => r.is_active).map(r => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                  ))}
+                                </select>
+                                {user.region_assignment_method && (
+                                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
+                                    {user.region_assignment_method === 'manual' ? 'Manual' : 'Auto-assigned'}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Visible to individual search */}
                               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                                 <input
                                   type="checkbox"
@@ -964,11 +1036,13 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
                                   onChange={() => handleToggleBrowsable(user.id, user.is_browsable)}
                                   onClick={e => e.stopPropagation()}
                                 />
-                                <span className="font-medium text-gray-700">Visible in search</span>
+                                <span className="font-medium text-gray-700">Visible to individual search</span>
                               </label>
+
+                              {/* Archive — pushed right */}
                               <button
                                 onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
+                                className="ml-auto px-4 py-1.5 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium rounded-lg transition"
                               >
                                 Archive Volunteer
                               </button>
@@ -1113,10 +1187,13 @@ export default function AdminManageVolunteers({ role = 'admin' }: Props) {
           volunteerName={selectedDocVolunteer.name}
           record={selectedDocVolunteer.record}
           prefetchedDocs={signedUrlCache.get(selectedDocVolunteer.id) ?? null}
+          dog={selectedDocVolunteer.dog}
           onClose={() => setSelectedDocVolunteer(null)}
           onVerified={(updated) => {
             setSignedUrlCache(prev => { const m = new Map(prev); m.delete(selectedDocVolunteer.id); return m; });
             setSelectedDocVolunteer(prev => prev ? { ...prev, record: updated } : null);
+            setComplianceMap(prev => { const m = new Map(prev); m.set(selectedDocVolunteer.id, updated); return m; });
+            onDocReviewChange?.();
           }}
         />
       )}

@@ -15,6 +15,7 @@ import { useAdminAlertCounts } from '@/hooks/useAdminAlertCounts';
 
 // Maps URL pathnames to ActiveTab keys (used by admin nav and layout styling)
 export function pathnameToActiveTab(pathname: string): ActiveTab {
+  if (pathname.startsWith('/dashboard/profile')) return 'dashboard-home';
   if (pathname.startsWith('/dashboard/messages')) return 'messaging';
   if (pathname.startsWith('/dashboard/visits')) return 'my-visits';
   if (pathname.startsWith('/dashboard/meet')) return 'meet-with-dog';
@@ -64,7 +65,8 @@ export default function DashboardLayout({
   const alertCounts = useAdminAlertCounts(role === 'admin' || role === 'pd', role === 'pd', alertCountsRefreshTrigger);
   const tabAlertCounts: Record<string, number> = {
     'user-requests': alertCounts.userRequests,
-    'group-visits': alertCounts.groupVisits,
+    'group-visits': alertCounts.groupVisits + alertCounts.pendingCompletion,
+    'manage-volunteers': alertCounts.pendingDocReviews,
   };
 
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();

@@ -28,7 +28,7 @@ const formatPhoneNumber = (value: string) => {
 
 type VisitStatus = 'pending_review' | 'approved' | 'declined' | 'cancelled' | 'completed';
 type ViewMode = 'list' | 'create';
-type StatusFilter = 'pending_review' | 'approved' | 'past' | 'all';
+type StatusFilter = 'approved' | 'pending_completion' | 'completed' | 'pending_review' | 'all';
 
 interface PdUser {
   id: string;
@@ -628,7 +628,10 @@ function VisitDetailView({
   const [showDeclineForm, setShowDeclineForm] = useState(false);
   const [showApproveForm, setShowApproveForm] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
-  // Shared note (admin_note — visible to the org)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [notifyOrg, setNotifyOrg] = useState(false);
+  // Shared note (admin_note — internal only)
   const [editingSharedNote, setEditingSharedNote] = useState(false);
   const [sharedNoteText, setSharedNoteText] = useState('');
   const [savingSharedNote, setSavingSharedNote] = useState(false);
@@ -758,6 +761,20 @@ function VisitDetailView({
       setShowCancelForm(false);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/visits/${visitId}/delete`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || 'Failed to delete visit'); return; }
+      onUpdated();
+      onBack();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -950,6 +967,8 @@ function VisitDetailView({
   const orgName = visit.guest_org_name || visit.org?.org_name || '—';
   const confirmedRegs = visit.visit_registrations.filter(r => r.status === 'confirmed');
   const waitlistedRegs = visit.visit_registrations.filter(r => r.status === 'waitlisted');
+  const hasActiveRegs = visit.visit_registrations.some(r => r.status !== 'cancelled');
+  const canDelete = !hasActiveRegs;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -961,7 +980,7 @@ function VisitDetailView({
         </button>
         <div className="flex items-center gap-2">
           <CountdownBadge dateStr={visit.visit_date} />
-          {!editMode && (
+          {!editMode && !['cancelled', 'completed', 'declined'].includes(visit.status) && (
             <button onClick={openEditMode}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
               <Pencil size={12} /> Edit
@@ -1184,17 +1203,25 @@ function VisitDetailView({
               )}
               {visit.status === 'approved' && (
                 <>
-                  <button onClick={() => doAction('complete')} disabled={busy}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition">
-                    {busy ? '…' : 'Complete'}
-                  </button>
+                  {new Date(visit.end_time) <= new Date() && (
+                    <button onClick={() => doAction('complete')} disabled={busy}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition">
+                      {busy ? '…' : 'Mark as Complete'}
+                    </button>
+                  )}
                   <button
-                    onClick={() => { setShowCancelForm(v => !v); setShowApproveForm(false); setShowDeclineForm(false); }}
+                    onClick={() => { setShowCancelForm(true); setShowApproveForm(false); setShowDeclineForm(false); }}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${showCancelForm ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                   >
-                    Cancel
+                    Cancel Visit
                   </button>
                 </>
+              )}
+              {visit.status === 'cancelled' && (
+                <button onClick={() => doAction('restore')} disabled={busy}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition">
+                  {busy ? 'Restoring…' : 'Restore Visit'}
+                </button>
               )}
             </div>
           </div>
@@ -1296,24 +1323,101 @@ function VisitDetailView({
             </div>
           </div>
         )}
+        {/* Cancel/Delete modal */}
         {showCancelForm && (
-          <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
-            <p className="text-sm font-semibold text-amber-800">Cancel visit</p>
-            <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
-              className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              placeholder="Reason for cancellation (shared with organization)…" />
-            <div className="flex gap-2">
-              <button onClick={() => doAction('cancel', { admin_note: actionNote })} disabled={busy}
-                className="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-amber-700">
-                {busy ? 'Cancelling…' : 'Confirm Cancellation'}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { setShowCancelForm(false); setActionNote(''); setShowDeleteConfirm(false); setNotifyOrg(false); }}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-5" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-gray-900">Cancel or Delete Visit</h3>
+
+              {/* Cancel option */}
+              <div className="border border-gray-200 rounded-lg p-5 space-y-3">
+                <p className="text-base font-semibold text-gray-900">Cancel Visit</p>
+                <p className="text-sm text-gray-600">This visit won&apos;t be taking place. It will remain in Visit History for record-keeping.</p>
+
+                {/* Volunteer warning */}
+                {(confirmedRegs.length > 0 || waitlistedRegs.length > 0) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">This visit has {confirmedRegs.length} confirmed volunteer{confirmedRegs.length !== 1 ? 's' : ''}</span>
+                      {waitlistedRegs.length > 0 && <span> and {waitlistedRegs.length} on the waitlist</span>}.
+                      {' '}They will be notified that this visit has been cancelled.
+                    </p>
+                  </div>
+                )}
+
+                {/* Notify org checkbox */}
+                {(visit.organization_id || visit.guest_contact_email) && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={notifyOrg}
+                      onChange={e => setNotifyOrg(e.target.checked)}
+                      className="rounded accent-[#0e62ae]"
+                    />
+                    <span className="text-sm text-gray-700">Notify the organization of this cancellation</span>
+                  </label>
+                )}
+
+                <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Reason for cancellation — shared with organization (required)" />
+
+                {!showDeleteConfirm && (
+                  <button onClick={() => doAction('cancel', { admin_note: actionNote, notify_org: notifyOrg })} disabled={busy || deleting || !actionNote.trim()}
+                    className="px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-amber-700">
+                    {busy ? 'Cancelling…' : 'Cancel Visit'}
+                  </button>
+                )}
+              </div>
+
+              {/* Delete option — only shown when no active registrations */}
+              {!canDelete && (
+                <p className="text-sm text-gray-400">To permanently delete this visit, remove registered volunteers first.</p>
+              )}
+              {canDelete && (
+                <div className="border border-gray-200 rounded-lg p-5 space-y-3">
+                  <p className="text-base font-semibold text-gray-900">Delete Visit</p>
+                  <p className="text-sm text-gray-600">Permanently remove this visit. Use this for duplicates or accidental entries only.</p>
+                  {!showDeleteConfirm ? (
+                    <button onClick={() => setShowDeleteConfirm(true)}
+                      className="px-5 py-2.5 border border-red-300 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50">
+                      Delete Permanently
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleDelete} disabled={deleting || busy}
+                        className="px-5 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-700">
+                        {deleting ? 'Deleting…' : 'Yes, Delete Forever'}
+                      </button>
+                      <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                        className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-800">
+                        Back
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button onClick={() => { setShowCancelForm(false); setActionNote(''); setShowDeleteConfirm(false); setNotifyOrg(false); }}
+                className="w-full text-center text-sm text-gray-600 hover:text-gray-800 pt-1">
+                Never mind
               </button>
-              <button onClick={() => { setShowCancelForm(false); setActionNote(''); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
             </div>
           </div>
         )}
       </div>
       </>)}
+
+      {/* Cancellation/decline reason — shown at top for cancelled/declined visits */}
+      {['cancelled', 'declined'].includes(visit.status) && visit.admin_note && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-sm font-semibold text-gray-700">{visit.status === 'cancelled' ? 'Cancellation Reason' : 'Decline Reason'}</h3>
+            <span className="text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">Visible to org</span>
+          </div>
+          <p className="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">{visit.admin_note}</p>
+        </div>
+      )}
 
       {error && <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>}
 
@@ -1566,10 +1670,11 @@ function VisitDetailView({
       )}
       </>)}
 
-      {/* Notes shared with organization (admin_note) */}
+      {/* Notes shared with organization (admin_note) — hidden for cancelled/declined (shown at top instead) */}
+      {!['cancelled', 'declined'].includes(visit.status) && (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-700">Notes for Organization</h3>
+          <h3 className="text-sm font-semibold text-gray-700">Note for Organization</h3>
           <span className="text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">Visible to org</span>
         </div>
         {editingSharedNote ? (
@@ -1607,6 +1712,7 @@ function VisitDetailView({
           </div>
         )}
       </div>
+      )}
 
       {/* Internal Notes */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
@@ -1636,6 +1742,7 @@ function VisitDetailView({
         </div>
       </div>
 
+
     </div>
   );
 }
@@ -1646,7 +1753,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const { user } = useUser();
   const currentUserId = user?.id ?? null;
   const [view, setView] = useState<ViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending_review');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('approved');
   const [filterUnassigned, setFilterUnassigned] = useState(false);
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const regionFilterInitialized = useRef(false);
@@ -1654,6 +1761,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const [visits, setVisits] = useState<VisitSummary[]>([]);
   const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
   const [activeVisitsCount, setActiveVisitsCount] = useState<number | null>(null);
+  const [pendingCompletionCount, setPendingCompletionCount] = useState<number | null>(null);
   const [pdUsers, setPdUsers] = useState<PdUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1684,30 +1792,34 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
     regionFilterInitialized.current = true;
   }, [regions, currentUserId, pdMode]);
 
-  // Fetch active visits count once (independent of which filter tab is selected)
-  useEffect(() => {
+  // Fetch tab counts once (independent of which filter tab is selected)
+  const fetchTabCounts = useCallback(() => {
     if (pdMode && !currentUserId) return;
-    fetch('/api/admin/visits?scope=active')
-      .then(r => r.json())
-      .then(json => {
-        const loaded = json.visits ?? [];
-        setActiveVisitsCount(
-          pdMode
-            ? loaded.filter((v: { assigned_pd_id: string | null }) => v.assigned_pd_id === currentUserId).length
-            : loaded.length
-        );
-      })
-      .catch(() => {});
-  }, [currentUserId]);
+    const pdFilter = (list: { assigned_pd_id: string | null }[]) =>
+      pdMode ? list.filter(v => v.assigned_pd_id === currentUserId) : list;
+
+    Promise.all([
+      fetch('/api/admin/visits?scope=active').then(r => r.json()),
+      fetch('/api/admin/visits?scope=pending_completion').then(r => r.json()),
+      fetch('/api/admin/visits?status=pending_review').then(r => r.json()),
+    ]).then(([activeJson, pendingJson, reviewJson]) => {
+      setActiveVisitsCount(pdFilter(activeJson.visits ?? []).length);
+      setPendingCompletionCount(pdFilter(pendingJson.visits ?? []).length);
+      setPendingReviewCount(pdFilter(reviewJson.visits ?? []).length);
+    }).catch(() => {});
+  }, [currentUserId, pdMode]);
+
+  useEffect(() => { fetchTabCounts(); }, [fetchTabCounts]);
 
   const fetchVisits = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params =
-        statusFilter === 'approved' ? '?scope=active' :
-        statusFilter === 'past'     ? '?scope=past' :
-        statusFilter !== 'all'      ? `?status=${statusFilter}` : '';
+        statusFilter === 'approved'           ? '?scope=active' :
+        statusFilter === 'pending_completion' ? '?scope=pending_completion' :
+        statusFilter === 'completed'          ? '?scope=completed' :
+        statusFilter !== 'all'                ? `?status=${statusFilter}` : '';
       const res = await fetch(`/api/admin/visits${params}`);
       const json = await res.json();
       if (!res.ok) { setError(json.error || 'Failed to load visits'); return; }
@@ -1735,9 +1847,10 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const selectedVisitSummary = visits.find(v => v.id === selectedVisitId) ?? null;
 
   const filterTabs: { key: StatusFilter; label: string }[] = [
+    { key: 'approved', label: 'Upcoming Visits' },
+    { key: 'pending_completion', label: 'Pending Completion' },
+    { key: 'completed', label: 'Visit History' },
     { key: 'pending_review', label: 'Visit Requests' },
-    { key: 'approved', label: 'Active Visits' },
-    { key: 'past', label: 'Past Visits' },
     { key: 'all', label: 'All Visits' },
   ];
 
@@ -1762,7 +1875,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
           orgImage={selectedVisitSummary?.org_profile_image ?? null}
           pdUsers={pdUsers}
           onBack={() => onBackFromVisit?.()}
-          onUpdated={fetchVisits}
+          onUpdated={() => { fetchVisits(); fetchTabCounts(); }}
         />
       </div>
     );
@@ -1812,6 +1925,11 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
                 {activeVisitsCount}
               </span>
             )}
+            {key === 'pending_completion' && pendingCompletionCount !== null && pendingCompletionCount > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                {pendingCompletionCount}
+              </span>
+            )}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-3 flex-wrap">
@@ -1852,12 +1970,27 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>
       )}
 
+      {/* Tab description for Pending Completion */}
+      {!loading && statusFilter === 'pending_completion' && displayedVisits.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">These visits have passed and need to be marked as complete.</span>
+            {' '}Click into a visit to confirm it took place, or cancel if it didn't.
+          </p>
+        </div>
+      )}
+
       {!loading && !error && displayedVisits.length === 0 && (
         <div className="text-center py-16 text-gray-500">
           <Calendar className="mx-auto mb-4 text-gray-300" size={48} />
-          <p className="font-medium">No visits found</p>
+          <p className="font-medium">
+            {statusFilter === 'pending_completion' ? 'All caught up!' : 'No visits found'}
+          </p>
           <p className="text-sm mt-1">
-            {statusFilter === 'pending_review' ? 'No pending visit requests.' : 'No visits matching this filter.'}
+            {statusFilter === 'pending_review' ? 'No pending visit requests.' :
+             statusFilter === 'pending_completion' ? 'No visits are waiting for completion.' :
+             statusFilter === 'completed' ? 'No visit history yet.' :
+             'No visits matching this filter.'}
           </p>
         </div>
       )}
@@ -1870,23 +2003,18 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
             const isUrgent = visit.status === 'approved' && visit.slots_remaining > 0 && isWithinDays(visit.visit_date, 14);
             const assignedPd = pdUsers.find(p => p.id === visit.assigned_pd_id);
 
-            const isPast = statusFilter === 'past';
+            const isHistorical = statusFilter === 'pending_completion' || statusFilter === 'completed';
 
             return (
               <div
                 key={visit.id}
                 onClick={() => onSelectVisit?.(visit.id)}
                 className={`bg-white rounded-xl border-2 p-4 shadow-sm cursor-pointer transition-all group ${
-                  isPast
+                  isHistorical
                     ? 'border-gray-200 hover:border-gray-300 hover:shadow-md opacity-90'
                     : 'border-gray-100 hover:border-blue-200 hover:shadow-md'
                 }`}
               >
-                {isPast && (
-                  <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-gray-100">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Visit Passed</span>
-                  </div>
-                )}
                 {/* Status row */}
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-wrap">

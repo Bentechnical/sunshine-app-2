@@ -90,7 +90,7 @@ export async function POST(req: Request) {
           phone_number: phone_number ?? null,
           // New individual user fields will be null initially
           pronouns: null,
-          birthday: null,
+          date_of_birth: null,
           physical_address: null,
           other_pets_on_site: null,
           other_pets_description: null,

@@ -136,7 +136,7 @@ export type Database = {
           archived_at: string | null
           // New individual user fields
           pronouns: string | null
-          birthday: number | null
+          date_of_birth: string | null
           physical_address: string | null
           other_pets_on_site: boolean | null
           other_pets_description: string | null
@@ -170,7 +170,7 @@ export type Database = {
           archived_at?: string | null
           // New individual user fields
           pronouns?: string | null
-          birthday?: number | null
+          date_of_birth?: string | null
           physical_address?: string | null
           other_pets_on_site?: boolean | null
           other_pets_description?: string | null
@@ -204,7 +204,7 @@ export type Database = {
           archived_at?: string | null
           // New individual user fields
           pronouns?: string | null
-          birthday?: number | null
+          date_of_birth?: string | null
           physical_address?: string | null
           other_pets_on_site?: boolean | null
           other_pets_description?: string | null

@@ -1,0 +1,20 @@
+Hi {{firstName}},
+
+We're sorry to let you know that the following visit has been cancelled. We apologize for the inconvenience.
+
+{{visitTitle}}
+Date: {{visitDate}}
+Time: {{visitTime}}
+Location: {{visitAddress}}
+
+Your registration has been automatically cancelled. No action is needed on your part.
+
+You can browse other available visits from your dashboard:
+{{dashboardLink}}
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

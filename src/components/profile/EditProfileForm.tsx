@@ -13,7 +13,7 @@ interface EditProfileFormProps {
   initialTravelDistance?: number | null;
   // New individual user fields
   initialPronouns?: string | null;
-  initialBirthday?: string | null;
+  initialDateOfBirth?: string | null;
   initialPhysicalAddress?: string | null;
   initialOtherPetsOnSite?: boolean | null;
   initialOtherPetsDescription?: string | null;
@@ -33,7 +33,7 @@ interface EditProfileFormProps {
     travelDistanceKm?: number,
     // New individual user fields
     pronouns?: string,
-    birthday?: string,
+    dateOfBirth?: string,
     physicalAddress?: string,
     otherPetsOnSite?: boolean,
     otherPetsDescription?: string,
@@ -54,7 +54,7 @@ export default function EditProfileForm({
   initialPostalCode = '',
   initialTravelDistance = 10,
   initialPronouns = '',
-  initialBirthday = '',
+  initialDateOfBirth = '',
   initialPhysicalAddress = '',
   initialOtherPetsOnSite = false,
   initialOtherPetsDescription = '',
@@ -78,7 +78,7 @@ export default function EditProfileForm({
   
   // New individual user fields
   const [pronouns, setPronouns] = useState(initialPronouns ?? '');
-  const [birthday, setBirthday] = useState(initialBirthday ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState(initialDateOfBirth ?? '');
   const [physicalAddress, setPhysicalAddress] = useState(initialPhysicalAddress ?? '');
   const [otherPetsOnSite, setOtherPetsOnSite] = useState(initialOtherPetsOnSite ?? false);
   const [otherPetsDescription, setOtherPetsDescription] = useState(initialOtherPetsDescription ?? '');
@@ -146,7 +146,7 @@ export default function EditProfileForm({
       normalizedPostalCode, 
       travelDistance,
       pronouns,
-      birthday,
+      dateOfBirth,
       physicalAddress,
       otherPetsOnSite,
       otherPetsDescription,
@@ -413,18 +413,16 @@ export default function EditProfileForm({
           </div>
 
           <div>
-            <label htmlFor="birthday" className="block text-sm font-semibold text-gray-700 mb-2">
-              {visitRecipientType === 'other' ? 'Birth year of person receiving visits' : 'Birth year'} <span className="text-red-500">*</span>
+            <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-700 mb-2">
+              {visitRecipientType === 'other' ? 'Date of birth of person receiving visits' : 'Date of Birth'} <span className="text-red-500">*</span>
             </label>
             <input
-              id="birthday"
-              type="number"
-              min="1900"
-              max={new Date().getFullYear()}
-              value={birthday}
-              onChange={(e) => setBirthday(e.target.value)}
+              id="dateOfBirth"
+              type="date"
+              max={new Date().toISOString().split('T')[0]}
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
               className="w-full px-3 py-2 bg-gray-100 rounded-md border border-gray-300"
-              placeholder="e.g., 1990"
             />
           </div>
 

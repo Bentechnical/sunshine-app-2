@@ -1,0 +1,14 @@
+Hi {{firstName}},
+
+Your compliance documents have been reviewed and approved. You're now fully compliant and can register for visits!
+
+{{dashboardLink}}
+
+If you have any questions, we're always here to help.
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

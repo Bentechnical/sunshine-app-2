@@ -15,15 +15,15 @@ export async function GET() {
     .select(`
       id, first_name, last_name, email, phone_number, city, postal_code,
       bio, role, profile_image, travel_distance_km, status,
-      pronouns, birthday, physical_address, other_pets_on_site, other_pets_description,
+      pronouns, date_of_birth, physical_address, other_pets_on_site, other_pets_description,
       third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at,
       visit_recipient_type, relationship_to_recipient, dependant_name,
       org_name, org_type, org_address, org_contact_name, org_contact_phone, fee_tier,
       assigned_region_id, region_assignment_method,
-      vsc_document_url, vsc_date_issued, vsc_renewal_due,
+      vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_upload_comment,
       dogs (
         dog_name, dog_breed, dog_bio, dog_picture_url, dog_age, status,
-        vaccine_record_url, vaccine_expiry_date
+        vaccine_record_url, vaccine_expiry_date, vaccine_date_issued, vaccine_verification_status, vaccine_upload_comment
       )
     `)
     .eq('status', 'pending')

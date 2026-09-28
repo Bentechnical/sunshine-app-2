@@ -79,7 +79,7 @@ function PDDashboardInner() {
           />
         );
       case 'manage-volunteers':
-        return <AdminManageVolunteers role="pd" />;
+        return <AdminManageVolunteers role="pd" onDocReviewChange={handleAlertCountsChange} />;
       case 'manage-orgs':
         return (
           <AdminGroupVisits

@@ -1,0 +1,20 @@
+Hi {{firstName}},
+
+We've reviewed your {{documentName}} and unfortunately we're unable to approve it at this time.
+
+{{#if rejectionReason}}
+Reason: {{rejectionReason}}
+{{/if}}
+
+Please log in to your dashboard and upload a new copy of this document. Once submitted, our team will review it promptly.
+
+{{dashboardLink}}
+
+If you have any questions or believe this was an error, please reach out to us.
+
+This email was sent from an unmonitored address. For support, please contact info@sunshinetherapydogs.ca
+
+— Sunshine Therapy Dogs
+{{year}}
+https://www.sunshinetherapydogs.ca
+Support: info@sunshinetherapydogs.ca

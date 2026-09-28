@@ -6,24 +6,30 @@ import { useUser } from '@clerk/nextjs';
 interface AlertCounts {
   userRequests: number;
   groupVisits: number;
+  pendingDocReviews: number;
+  pendingCompletion: number;
 }
 
 export function useAdminAlertCounts(enabled = true, isPd = false, refreshTrigger = 0) {
   const { user } = useUser();
-  const [counts, setCounts] = useState<AlertCounts>({ userRequests: 0, groupVisits: 0 });
+  const [counts, setCounts] = useState<AlertCounts>({ userRequests: 0, groupVisits: 0, pendingDocReviews: 0, pendingCompletion: 0 });
 
   useEffect(() => {
     if (!enabled || !user) return;
 
     const fetchCounts = async () => {
       try {
-        const [usersRes, visitsRes] = await Promise.all([
+        const [usersRes, visitsRes, docReviewsRes, pendingCompletionRes] = await Promise.all([
           fetch('/api/admin/pending-users'),
           fetch('/api/admin/visits?status=pending_review'),
+          fetch('/api/admin/pending-doc-reviews-count'),
+          fetch('/api/admin/visits?scope=pending_completion'),
         ]);
 
         let userRequests = 0;
         let groupVisits = 0;
+        let pendingDocReviews = 0;
+        let pendingCompletion = 0;
 
         if (usersRes.ok) {
           const json = await usersRes.json();
@@ -45,7 +51,20 @@ export function useAdminAlertCounts(enabled = true, isPd = false, refreshTrigger
             : pendingVisits.length;
         }
 
-        setCounts({ userRequests, groupVisits });
+        if (docReviewsRes.ok) {
+          const json = await docReviewsRes.json();
+          pendingDocReviews = json.count ?? 0;
+        }
+
+        if (pendingCompletionRes.ok) {
+          const json = await pendingCompletionRes.json();
+          const pendingVisits = json.visits ?? [];
+          pendingCompletion = isPd
+            ? pendingVisits.filter((v: { assigned_pd_id: string | null }) => v.assigned_pd_id === user.id).length
+            : pendingVisits.length;
+        }
+
+        setCounts({ userRequests, groupVisits, pendingDocReviews, pendingCompletion });
       } catch (err) {
         console.error('[useAdminAlertCounts] Error fetching alert counts:', err);
       }

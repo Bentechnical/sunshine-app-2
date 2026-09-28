@@ -37,13 +37,13 @@ export async function GET(req: NextRequest) {
     const [volunteersRes, dogsRes] = await Promise.all([
       supabase
         .from('users')
-        .select('id, first_name, last_name, email, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_verified_at, vsc_verified_by')
+        .select('id, first_name, last_name, email, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_verified_at, vsc_verified_by, vsc_upload_comment')
         .eq('role', 'volunteer')
         .eq('status', 'approved')
         .order('last_name', { ascending: true }),
       supabase
         .from('dogs')
-        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status, vaccine_verified_at, vaccine_verified_by'),
+        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status, vaccine_verified_at, vaccine_verified_by, vaccine_upload_comment'),
     ]);
 
     if (volunteersRes.error) {
@@ -53,6 +53,25 @@ export async function GET(req: NextRequest) {
 
     const volunteers = volunteersRes.data ?? [];
     const dogsByVolunteer = new Map((dogsRes.data ?? []).map(d => [d.volunteer_id, d]));
+
+    // Batch-resolve verifier names (admins/PDs who approved/rejected)
+    const verifierIds = new Set<string>();
+    for (const v of volunteers) {
+      if (v.vsc_verified_by) verifierIds.add(v.vsc_verified_by);
+    }
+    for (const d of dogsRes.data ?? []) {
+      if (d.vaccine_verified_by) verifierIds.add(d.vaccine_verified_by);
+    }
+    const verifierNames = new Map<string, string>();
+    if (verifierIds.size > 0) {
+      const { data: verifiers } = await supabase
+        .from('users')
+        .select('id, first_name, last_name')
+        .in('id', Array.from(verifierIds));
+      for (const u of verifiers ?? []) {
+        verifierNames.set(u.id, `${u.first_name} ${u.last_name}`);
+      }
+    }
 
     const annotated = volunteers.map((v) => {
       const dog = dogsByVolunteer.get(v.id) ?? null;
@@ -74,6 +93,8 @@ export async function GET(req: NextRequest) {
           verification_status: v.vsc_verification_status ?? null,
           verified_at: v.vsc_verified_at ?? null,
           verified_by: v.vsc_verified_by ?? null,
+          verified_by_name: v.vsc_verified_by ? (verifierNames.get(v.vsc_verified_by) ?? null) : null,
+          upload_comment: v.vsc_upload_comment ?? null,
         },
         vaccine: {
           status: vaccineStatus,
@@ -84,6 +105,8 @@ export async function GET(req: NextRequest) {
           verification_status: dog?.vaccine_verification_status ?? null,
           verified_at: dog?.vaccine_verified_at ?? null,
           verified_by: dog?.vaccine_verified_by ?? null,
+          verified_by_name: dog?.vaccine_verified_by ? (verifierNames.get(dog.vaccine_verified_by) ?? null) : null,
+          upload_comment: dog?.vaccine_upload_comment ?? null,
         },
       };
     });
