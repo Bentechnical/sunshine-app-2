@@ -1,11 +1,12 @@
 // src/components/visits/BrowseOrgVisits.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import {
   Calendar, Clock, MapPin, AlertCircle, ArrowLeft,
   ChevronRight, Lock, CheckCircle, Building2, PawPrint, ExternalLink,
+  SlidersHorizontal, X,
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
 import VisitMap from '@/components/ui/VisitMap';
@@ -73,6 +74,48 @@ interface Props {
 const MIN_DISTANCE = 5;
 const MAX_DISTANCE = 250;
 const DEFAULT_DISTANCE = 15;
+
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const ALL_DAYS = new Set([0, 1, 2, 3, 4, 5, 6]);
+const TIME_SLOTS = [
+  { key: 'morning', label: 'Morning', desc: 'Before 12 pm' },
+  { key: 'afternoon', label: 'Afternoon', desc: '12–5 pm' },
+  { key: 'evening', label: 'Evening', desc: 'After 5 pm' },
+] as const;
+type TimeSlot = typeof TIME_SLOTS[number]['key'];
+const ALL_TIMES = new Set<TimeSlot>(['morning', 'afternoon', 'evening']);
+
+const FILTER_STORAGE_KEY = 'sunshine_browse_filters';
+
+interface StoredFilters {
+  days?: number[];
+  times?: TimeSlot[];
+  openOnly?: boolean;
+  distance?: number;
+}
+
+function loadStoredFilters(): StoredFilters {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveFilters(filters: StoredFilters) {
+  try { localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters)); } catch {}
+}
+
+function getTimeSlot(startTime: string): TimeSlot {
+  const hour = new Date(startTime).getHours();
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+}
+
+function getDayOfWeek(dateStr: string): number {
+  return new Date(dateStr + 'T12:00:00').getDay();
+}
 
 // Exponential mapping: slider position (0–1) → distance value
 // ~60% of slider covers 5–50 km, remaining 40% stretches to 250 km
@@ -213,12 +256,68 @@ export default function BrowseOrgVisits({
   const [meta, setMeta] = useState<VolunteerMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterDistance, setFilterDistance] = useState(DEFAULT_DISTANCE);
-  const [filterQualifyOnly, setFilterQualifyOnly] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [actionError, setActionError] = useState<Record<number, string>>({});
   const [detailRegs, setDetailRegs] = useState<VolunteerReg[] | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Filters — initialized from localStorage
+  const [filterDistance, setFilterDistance] = useState(() => loadStoredFilters().distance ?? DEFAULT_DISTANCE);
+  const [filterDays, setFilterDays] = useState<Set<number>>(() => {
+    const stored = loadStoredFilters().days;
+    return stored ? new Set(stored) : new Set(ALL_DAYS);
+  });
+  const [filterTimes, setFilterTimes] = useState<Set<TimeSlot>>(() => {
+    const stored = loadStoredFilters().times;
+    return stored ? new Set(stored) : new Set(ALL_TIMES);
+  });
+  const [filterOpenOnly, setFilterOpenOnly] = useState(() => loadStoredFilters().openOnly ?? false);
+  const [filterQualifyOnly, setFilterQualifyOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(() => {
+    // Auto-open if returning with active filters so user sees what's filtering
+    const stored = loadStoredFilters();
+    return !!(stored.days || stored.times || stored.openOnly || (stored.distance && stored.distance !== DEFAULT_DISTANCE));
+  });
+
+  // Persist filters to localStorage
+  const persistFilters = useCallback((days: Set<number>, times: Set<TimeSlot>, openOnly: boolean, distance: number) => {
+    const isDefault = days.size === 7 && times.size === 3 && !openOnly && distance === DEFAULT_DISTANCE;
+    if (isDefault) {
+      try { localStorage.removeItem(FILTER_STORAGE_KEY); } catch {}
+    } else {
+      saveFilters({ days: [...days], times: [...times], openOnly, distance });
+    }
+  }, []);
+
+  // Check if any filters are active (non-default)
+  const hasActiveFilters = filterDays.size < 7 || filterTimes.size < 3 || filterOpenOnly || filterDistance !== DEFAULT_DISTANCE;
+
+  const clearAllFilters = () => {
+    setFilterDays(new Set(ALL_DAYS));
+    setFilterTimes(new Set(ALL_TIMES));
+    setFilterOpenOnly(false);
+    setFilterDistance(DEFAULT_DISTANCE);
+    setFilterQualifyOnly(false);
+    persistFilters(new Set(ALL_DAYS), new Set(ALL_TIMES), false, DEFAULT_DISTANCE);
+  };
+
+  const toggleDay = (day: number) => {
+    setFilterDays(prev => {
+      const next = new Set(prev);
+      if (next.has(day)) { if (next.size > 1) next.delete(day); } else next.add(day);
+      persistFilters(next, filterTimes, filterOpenOnly, filterDistance);
+      return next;
+    });
+  };
+
+  const toggleTime = (time: TimeSlot) => {
+    setFilterTimes(prev => {
+      const next = new Set(prev);
+      if (next.has(time)) { if (next.size > 1) next.delete(time); } else next.add(time);
+      persistFilters(filterDays, next, filterOpenOnly, filterDistance);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -338,16 +437,22 @@ export default function BrowseOrgVisits({
     ? visits.find(v => v.id === selectedVisitId) ?? null
     : null;
 
-  const passesDistanceFilter = (v: Visit) => {
-    if (!meta?.volunteer_location_set || v.distance_km == null) return true;
-    return v.distance_km <= filterDistance;
+  const passesFilters = (v: Visit) => {
+    // Distance
+    if (meta?.volunteer_location_set && v.distance_km != null && v.distance_km > filterDistance) return false;
+    // Day of week
+    if (filterDays.size < 7 && !filterDays.has(getDayOfWeek(v.visit_date))) return false;
+    // Time of day
+    if (filterTimes.size < 3 && !filterTimes.has(getTimeSlot(v.start_time))) return false;
+    // Open spots only
+    if (filterOpenOnly && v.slots_remaining <= 0) return false;
+    // Qualification
+    if (filterQualifyOnly && getLockReason(v, meta)) return false;
+    return true;
   };
 
   // Browse shows ALL upcoming visits (including already-registered ones, with overlay)
-  const browseVisits = visits.filter(v =>
-    passesDistanceFilter(v) &&
-    (!filterQualifyOnly || !getLockReason(v, meta))
-  );
+  const browseVisits = visits.filter(passesFilters);
 
   const myEvents = visits
     .filter(v => v.my_registration_status !== null)
@@ -798,43 +903,249 @@ export default function BrowseOrgVisits({
       )}
 
       {/* Browse filters */}
-      {activeTab === 'browse' && (meta?.volunteer_location_set || hasAnyLocked) && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3">
-          {meta?.volunteer_location_set && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Distance
-                </label>
-                <span className="text-xs font-semibold text-gray-700">{filterDistance} km</span>
+      {activeTab === 'browse' && (
+        <>
+          {/* Desktop: always-visible inline filter bar */}
+          <div className="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-4 flex-wrap">
+              {/* Days — segmented control */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-400">Day</span>
+                <div className="inline-flex border border-gray-200 rounded-lg overflow-hidden">
+                  {DAYS_OF_WEEK.map((label, i) => (
+                    <button
+                      key={i}
+                      onClick={() => toggleDay(i)}
+                      className={`px-2.5 py-1.5 text-xs font-semibold transition-all border-r border-gray-200 last:border-r-0 ${
+                        filterDays.has(i)
+                          ? 'bg-[#0e62ae] text-white'
+                          : 'bg-white text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.005}
-                value={distanceToSlider(filterDistance)}
-                onChange={e => setFilterDistance(sliderToDistance(Number(e.target.value)))}
-                className="w-full accent-[#0e62ae]"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                <span>{MIN_DISTANCE} km</span>
-                <span>{MAX_DISTANCE} km</span>
+
+              <div className="w-px h-6 bg-gray-200" />
+
+              {/* Time — segmented control */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-400">Time</span>
+                <div className="inline-flex border border-gray-200 rounded-lg overflow-hidden">
+                  {TIME_SLOTS.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => toggleTime(key)}
+                      className={`px-3 py-1.5 text-xs font-semibold transition-all border-r border-gray-200 last:border-r-0 ${
+                        filterTimes.has(key)
+                          ? 'bg-[#0e62ae] text-white'
+                          : 'bg-white text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-px h-6 bg-gray-200" />
+
+              {/* Distance */}
+              {meta?.volunteer_location_set && (
+                <div className="flex items-center gap-2 min-w-45">
+                  <span className="text-xs font-medium text-gray-400 shrink-0">Within</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.005}
+                    value={distanceToSlider(filterDistance)}
+                    onChange={e => {
+                      const d = sliderToDistance(Number(e.target.value));
+                      setFilterDistance(d);
+                      persistFilters(filterDays, filterTimes, filterOpenOnly, d);
+                    }}
+                    className="flex-1 accent-[#0e62ae] h-1.5"
+                  />
+                  <span className="text-xs font-semibold text-gray-700 w-12 text-right shrink-0">{filterDistance} km</span>
+                </div>
+              )}
+
+              {/* Toggles */}
+              <div className="flex items-center gap-3 ml-auto">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={filterOpenOnly}
+                    onChange={e => {
+                      setFilterOpenOnly(e.target.checked);
+                      persistFilters(filterDays, filterTimes, e.target.checked, filterDistance);
+                    }}
+                    className="rounded accent-[#0e62ae]"
+                  />
+                  <span className="text-xs font-medium text-gray-600">Open spots</span>
+                </label>
+                {hasAnyLocked && (
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={filterQualifyOnly}
+                      onChange={e => setFilterQualifyOnly(e.target.checked)}
+                      className="rounded accent-[#0e62ae]"
+                    />
+                    <span className="text-xs font-medium text-gray-600">Qualified only</span>
+                  </label>
+                )}
               </div>
             </div>
-          )}
-          {hasAnyLocked && (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={filterQualifyOnly}
-                onChange={e => setFilterQualifyOnly(e.target.checked)}
-                className="rounded accent-[#0e62ae]"
-              />
-              <span className="text-sm text-gray-700">Only show visits I qualify for</span>
-            </label>
-          )}
-        </div>
+
+            {/* Results count + clear */}
+            {hasActiveFilters && (
+              <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  Showing {browseVisits.length} of {visits.length} visits
+                </span>
+                <button
+                  onClick={clearAllFilters}
+                  className="flex items-center gap-1 text-xs font-medium text-[#0e62ae] hover:text-[#0a4f8f] transition"
+                >
+                  <X size={11} />
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile: collapsible compact version */}
+          <div className="sm:hidden space-y-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowFilters(prev => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  showFilters
+                    ? 'bg-[#0e62ae] text-white'
+                    : hasActiveFilters
+                    ? 'bg-blue-50 text-[#0e62ae] border border-blue-200'
+                    : 'bg-white text-gray-600 border border-gray-200'
+                }`}
+              >
+                <SlidersHorizontal size={14} />
+                Filters
+                {hasActiveFilters && !showFilters && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0e62ae]" />
+                )}
+              </button>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition"
+                >
+                  <X size={11} />
+                  Clear
+                </button>
+              )}
+              <span className="ml-auto text-xs text-gray-400">
+                {browseVisits.length} visit{browseVisits.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {showFilters && (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-4">
+                {/* Days — segmented control */}
+                <div>
+                  <span className="text-xs font-medium text-gray-400 mb-2 block">Day</span>
+                  <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                    {DAYS_OF_WEEK.map((label, i) => (
+                      <button
+                        key={i}
+                        onClick={() => toggleDay(i)}
+                        className={`flex-1 py-2 text-xs font-semibold transition-all border-r border-gray-200 last:border-r-0 ${
+                          filterDays.has(i)
+                            ? 'bg-[#0e62ae] text-white'
+                            : 'bg-white text-gray-400'
+                        }`}
+                      >
+                        {label.charAt(0)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time — segmented control */}
+                <div>
+                  <span className="text-xs font-medium text-gray-400 mb-2 block">Time</span>
+                  <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                    {TIME_SLOTS.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => toggleTime(key)}
+                        className={`flex-1 py-2 text-xs font-semibold transition-all border-r border-gray-200 last:border-r-0 ${
+                          filterTimes.has(key)
+                            ? 'bg-[#0e62ae] text-white'
+                            : 'bg-white text-gray-400'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Distance */}
+                {meta?.volunteer_location_set && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-gray-400">Distance</span>
+                      <span className="text-xs font-semibold text-gray-700">{filterDistance} km</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.005}
+                      value={distanceToSlider(filterDistance)}
+                      onChange={e => {
+                        const d = sliderToDistance(Number(e.target.value));
+                        setFilterDistance(d);
+                        persistFilters(filterDays, filterTimes, filterOpenOnly, d);
+                      }}
+                      className="w-full accent-[#0e62ae]"
+                    />
+                  </div>
+                )}
+
+                {/* Toggles */}
+                <div className="flex gap-3 pt-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={filterOpenOnly}
+                      onChange={e => {
+                        setFilterOpenOnly(e.target.checked);
+                        persistFilters(filterDays, filterTimes, e.target.checked, filterDistance);
+                      }}
+                      className="rounded accent-[#0e62ae]"
+                    />
+                    <span className="text-xs font-medium text-gray-600">Open spots</span>
+                  </label>
+                  {hasAnyLocked && (
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={filterQualifyOnly}
+                        onChange={e => setFilterQualifyOnly(e.target.checked)}
+                        className="rounded accent-[#0e62ae]"
+                      />
+                      <span className="text-xs font-medium text-gray-600">Qualified only</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Cards */}
