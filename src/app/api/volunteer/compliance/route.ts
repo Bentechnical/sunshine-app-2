@@ -79,6 +79,7 @@ export async function DELETE() {
       vsc_verified_at: null,
       vsc_verified_by: null,
       vsc_rejection_reason: null,
+      vsc_upload_comment: null,
     })
     .eq('id', userId);
 

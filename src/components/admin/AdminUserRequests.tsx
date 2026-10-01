@@ -415,10 +415,10 @@ export default function UserRequestsTab({ hideIndividuals = false, onCountChange
     // Soft gate: if docs are pending review, prompt before approving
     const record = complianceRecords[volId];
     if (record && approveGate !== volId) {
-      const hasPendingDocs =
-        record.vsc.verification_status === 'pending_review' ||
-        record.vaccine.verification_status === 'pending_review';
-      if (hasPendingDocs) {
+      const pendingDocs =
+        record.vsc.status === 'pending_review' ||
+        record.vaccine.status === 'pending_review';
+      if (pendingDocs) {
         setApproveGate(volId);
         return;
       }
@@ -453,10 +453,11 @@ export default function UserRequestsTab({ hideIndividuals = false, onCountChange
   const hasAnyDocs = (user: VolunteerRequest) =>
     !!(user.vsc_document_url || user.dog?.vaccine_record_url);
 
-  // Check if any docs are pending review
+  // Check if any docs are pending review (use derived status, not raw verification_status,
+  // because uploaded docs with null verification_status should also count as pending)
   const hasPendingDocs = (record: ComplianceRecord) =>
-    record.vsc.verification_status === 'pending_review' ||
-    record.vaccine.verification_status === 'pending_review';
+    record.vsc.status === 'pending_review' ||
+    record.vaccine.status === 'pending_review';
 
   return (
     <div className="px-4 py-4">

@@ -127,6 +127,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
   const [vscUploading, setVscUploading] = useState(false);
   const [vscRemoving, setVscRemoving] = useState(false);
   const [vscUploadError, setVscUploadError] = useState<string | null>(null);
+  const [vscUnsaved, setVscUnsaved] = useState(false);
   const [complianceSaving, setComplianceSaving] = useState(false);
   const [complianceError, setComplianceError] = useState<string | null>(null);
 
@@ -139,11 +140,16 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
   const [vaccineUploading, setVaccineUploading] = useState(false);
   const [vaccineRemoving, setVaccineRemoving] = useState(false);
   const [vaccineUploadError, setVaccineUploadError] = useState<string | null>(null);
+  const [vaccineUnsaved, setVaccineUnsaved] = useState(false);
   const [vaccineSaving, setVaccineSaving] = useState(false);
   const [vaccineError, setVaccineError] = useState<string | null>(null);
 
-  const vscStatus = getComplianceStatus(vscDocUrl || null, vscRenewalDue || null, vscVerificationStatus);
-  const vaccineStatus = getComplianceStatus(vaccineDocUrl || null, vaccineExpiry || null, vaccineVerificationStatus);
+  // For badge display: if file uploaded but not yet saved to DB, treat as 'missing' (the original state)
+  // so the badge doesn't prematurely flip to "Needs Review"
+  const vscStatusDocUrl = vscUnsaved ? null : (vscDocUrl || null);
+  const vaccineStatusDocUrl = vaccineUnsaved ? null : (vaccineDocUrl || null);
+  const vscStatus = getComplianceStatus(vscStatusDocUrl, vscRenewalDue || null, vscVerificationStatus);
+  const vaccineStatus = getComplianceStatus(vaccineStatusDocUrl, vaccineExpiry || null, vaccineVerificationStatus);
 
   // ── Profile save ────────────────────────────────────────────────────────────
 
@@ -243,8 +249,14 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
 
       const newPath = data.path;
       setVscDocUrl(newPath);
-      setVscVerificationStatus('pending_review');
-      await saveComplianceFields(newPath, vscDateIssued);
+      // Only auto-save to DB if date is already filled in; otherwise wait for Save click
+      if (vscDateIssued) {
+        setVscVerificationStatus('pending_review');
+        setVscUnsaved(false);
+        await saveComplianceFields(newPath, vscDateIssued);
+      } else {
+        setVscUnsaved(true);
+      }
     } catch {
       setVscUploadError('Upload failed. Please try again.');
     } finally {
@@ -255,6 +267,8 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
 
   const handleVscDateBlur = () => {
     if (vscDocUrl && vscDateIssued) {
+      setVscVerificationStatus('pending_review');
+      setVscUnsaved(false);
       saveComplianceFields(vscDocUrl, vscDateIssued);
     }
   };
@@ -269,6 +283,10 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
     const ok = await saveComplianceFields(docToSave, issuedToSave);
     if (ok) {
       setComplianceError(null);
+      setVscUnsaved(false);
+      if (vscDocUrl) {
+        setVscVerificationStatus('pending_review');
+      }
       if (!vscDocUrl) {
         setVscDateIssued('');
         setVscVerificationStatus(null);
@@ -288,6 +306,10 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
     const ok = await saveVaccineFields(docToSave, issuedToSave, expiryToSave);
     if (ok) {
       setVaccineError(null);
+      setVaccineUnsaved(false);
+      if (vaccineDocUrl) {
+        setVaccineVerificationStatus('pending_review');
+      }
       if (!vaccineDocUrl) {
         setVaccineIssued('');
         setVaccineExpiry('');
@@ -323,6 +345,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
       setVscDocUrl('');
       setVscDateIssued('');
       setVscVerificationStatus(null);
+      setVscUploadComment('');
     } catch {
       setComplianceError('Failed to remove document.');
     } finally {
@@ -382,8 +405,14 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
 
       const newPath = data.path;
       setVaccineDocUrl(newPath);
-      setVaccineVerificationStatus('pending_review');
-      await saveVaccineFields(newPath, vaccineIssued, vaccineExpiry);
+      // Only auto-save to DB if both dates are already filled in; otherwise wait for Save click
+      if (vaccineIssued && vaccineExpiry) {
+        setVaccineVerificationStatus('pending_review');
+        setVaccineUnsaved(false);
+        await saveVaccineFields(newPath, vaccineIssued, vaccineExpiry);
+      } else {
+        setVaccineUnsaved(true);
+      }
     } catch {
       setVaccineUploadError('Upload failed. Please try again.');
     } finally {
@@ -394,6 +423,8 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
 
   const handleVaccineDateBlur = () => {
     if (vaccineDocUrl && vaccineIssued && vaccineExpiry) {
+      setVaccineVerificationStatus('pending_review');
+      setVaccineUnsaved(false);
       saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
     }
   };
@@ -426,6 +457,7 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
       setVaccineIssued('');
       setVaccineExpiry('');
       setVaccineVerificationStatus(null);
+      setVaccineUploadComment('');
     } catch {
       setVaccineError('Failed to remove document.');
     } finally {
@@ -696,7 +728,12 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                   />
                 </div>
 
-                {vaccineVerificationStatus === 'pending_review' && (
+                {vaccineUnsaved && vaccineDocUrl && (
+                  <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    File uploaded. Fill in the dates and click Save to submit for review.
+                  </p>
+                )}
+                {!vaccineUnsaved && vaccineVerificationStatus === 'pending_review' && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
                   </p>
@@ -814,7 +851,12 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
                   </p>
                 )}
 
-                {vscVerificationStatus === 'pending_review' && (
+                {vscUnsaved && vscDocUrl && (
+                  <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    File uploaded. Fill in the issue date and click Save to submit for review.
+                  </p>
+                )}
+                {!vscUnsaved && vscVerificationStatus === 'pending_review' && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
                   </p>

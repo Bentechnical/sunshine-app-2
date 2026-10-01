@@ -364,7 +364,7 @@ export function DocumentModal({
                   {localRecord.vsc.upload_comment && (
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Volunteer Comment</p>
-                      <p className="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vsc.upload_comment}&rdquo;</p>
+                      <p className="text-sm text-gray-900 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vsc.upload_comment}&rdquo;</p>
                     </div>
                   )}
                 </div>
@@ -384,7 +384,7 @@ export function DocumentModal({
                   {localRecord.vaccine.upload_comment && (
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Volunteer Comment</p>
-                      <p className="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vaccine.upload_comment}&rdquo;</p>
+                      <p className="text-sm text-gray-900 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vaccine.upload_comment}&rdquo;</p>
                     </div>
                   )}
                   {dog && (

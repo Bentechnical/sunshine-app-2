@@ -76,6 +76,7 @@ export async function DELETE() {
       vaccine_verified_at: null,
       vaccine_verified_by: null,
       vaccine_rejection_reason: null,
+      vaccine_upload_comment: null,
     })
     .eq('volunteer_id', userId);
 

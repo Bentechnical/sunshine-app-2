@@ -113,9 +113,11 @@ export default function ProfileCompleteForm() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [vscDocumentUrl, setVscDocumentUrl] = useState('');
   const [vscDate, setVscDate] = useState('');
+  const [vscComment, setVscComment] = useState('');
   const [vaccineDocumentUrl, setVaccineDocumentUrl] = useState('');
   const [vaccineIssuedDate, setVaccineIssuedDate] = useState('');
   const [vaccineExpiryDate, setVaccineExpiryDate] = useState('');
+  const [vaccineComment, setVaccineComment] = useState('');
 
   // Organization fields
   const [orgName, setOrgName] = useState('');
@@ -408,6 +410,7 @@ export default function ProfileCompleteForm() {
           travel_distance_km: openToIndividualVisits ? Number(travelDistance) : 25,
           vsc_document_url: vscDocumentUrl || null,
           vsc_date_issued: vscDate || null,
+          vsc_upload_comment: vscComment || null,
         };
       }
 
@@ -475,6 +478,7 @@ export default function ProfileCompleteForm() {
           vaccine_record_url: vaccineDocumentUrl || null,
           vaccine_date_issued: vaccineIssuedDate || null,
           vaccine_expiry_date: vaccineExpiryDate || null,
+          vaccine_upload_comment: vaccineComment || null,
         };
 
         if (existingDog) {
@@ -641,9 +645,11 @@ export default function ProfileCompleteForm() {
           userId={user!.id}
           vscDocumentUrl={vscDocumentUrl} setVscDocumentUrl={setVscDocumentUrl}
           vscDate={vscDate} setVscDate={setVscDate}
+          vscComment={vscComment} setVscComment={setVscComment}
           vaccineDocumentUrl={vaccineDocumentUrl} setVaccineDocumentUrl={setVaccineDocumentUrl}
           vaccineIssuedDate={vaccineIssuedDate} setVaccineIssuedDate={setVaccineIssuedDate}
           vaccineExpiryDate={vaccineExpiryDate} setVaccineExpiryDate={setVaccineExpiryDate}
+          vaccineComment={vaccineComment} setVaccineComment={setVaccineComment}
           isLoading={isLoading}
         />
       );

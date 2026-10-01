@@ -8,13 +8,28 @@ interface VolunteerComplianceProps {
   setVscDocumentUrl: (v: string) => void;
   vscDate: string;
   setVscDate: (v: string) => void;
+  vscComment: string;
+  setVscComment: (v: string) => void;
   vaccineDocumentUrl: string;
   setVaccineDocumentUrl: (v: string) => void;
   vaccineIssuedDate: string;
   setVaccineIssuedDate: (v: string) => void;
   vaccineExpiryDate: string;
   setVaccineExpiryDate: (v: string) => void;
+  vaccineComment: string;
+  setVaccineComment: (v: string) => void;
   isLoading: boolean;
+}
+
+async function isPdfPasswordProtected(file: File): Promise<boolean> {
+  if (file.type !== 'application/pdf') return false;
+  try {
+    const buffer = await file.slice(0, Math.min(file.size, 4096)).arrayBuffer();
+    const text = new TextDecoder('latin1').decode(buffer);
+    return text.includes('/Encrypt');
+  } catch {
+    return false;
+  }
 }
 
 function FileUploadField({
@@ -23,6 +38,8 @@ function FileUploadField({
   documentType,
   currentPath,
   onUpload,
+  comment,
+  setComment,
   isLoading,
 }: {
   label: string;
@@ -30,6 +47,8 @@ function FileUploadField({
   documentType: 'vsc' | 'vaccine';
   currentPath: string;
   onUpload: (path: string) => void;
+  comment: string;
+  setComment: (v: string) => void;
   isLoading: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +59,12 @@ function FileUploadField({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setError(null);
+    if (await isPdfPasswordProtected(file)) {
+      setError('This file appears to be password-protected. It will still be uploaded, but please share the password in the comment field below so our team can review it.');
+      if (!comment) setComment('Password: ');
+    } else {
+      setError(null);
+    }
     setUploading(true);
 
     try {
@@ -65,7 +89,6 @@ function FileUploadField({
       setError('Upload failed. Please try again.');
     } finally {
       setUploading(false);
-      // Reset input so the same file can be re-selected if needed
       if (inputRef.current) inputRef.current.value = '';
     }
   };
@@ -96,6 +119,21 @@ function FileUploadField({
         disabled={isLoading || uploading}
       />
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {currentPath && (
+        <div className="mt-2">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            Comments
+          </label>
+          <input
+            type="text"
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder="Add a note for your documents, optional"
+            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+            disabled={isLoading}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -105,12 +143,16 @@ export default function VolunteerCompliance({
   setVscDocumentUrl,
   vscDate,
   setVscDate,
+  vscComment,
+  setVscComment,
   vaccineDocumentUrl,
   setVaccineDocumentUrl,
   vaccineIssuedDate,
   setVaccineIssuedDate,
   vaccineExpiryDate,
   setVaccineExpiryDate,
+  vaccineComment,
+  setVaccineComment,
   isLoading,
 }: VolunteerComplianceProps) {
   return (
@@ -129,6 +171,8 @@ export default function VolunteerCompliance({
           documentType="vsc"
           currentPath={vscDocumentUrl}
           onUpload={setVscDocumentUrl}
+          comment={vscComment}
+          setComment={setVscComment}
           isLoading={isLoading}
         />
 
@@ -157,6 +201,8 @@ export default function VolunteerCompliance({
           documentType="vaccine"
           currentPath={vaccineDocumentUrl}
           onUpload={setVaccineDocumentUrl}
+          comment={vaccineComment}
+          setComment={setVaccineComment}
           isLoading={isLoading}
         />
 
