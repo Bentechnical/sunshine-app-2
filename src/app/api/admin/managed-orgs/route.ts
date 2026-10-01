@@ -84,9 +84,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create managed organization' }, { status: 500 });
     }
 
-    // Auto-assign region based on lat/lng if address was provided
-    let assigned_region_id: number | null = null;
-    if (location_lat != null && location_lng != null) {
+    // Assign region: use manual override if provided, otherwise auto-assign from address
+    let assigned_region_id: number | null = body.assigned_region_id ?? null;
+    if (assigned_region_id) {
+      await supabase
+        .from('users')
+        .update({ assigned_region_id, region_assignment_method: 'manual' })
+        .eq('id', syntheticId);
+    } else if (location_lat != null && location_lng != null) {
       const regionResult = await autoAssignRegion(syntheticId);
       if (regionResult.region_id) {
         await supabase

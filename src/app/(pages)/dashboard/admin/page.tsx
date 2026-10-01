@@ -65,6 +65,7 @@ function AdminDashboardInner() {
   const activeTab: ActiveTab = PARAM_TO_TAB[tabParam] ?? 'dashboard-home';
   const visitParam = searchParams.get('visit');
   const selectedVisitId = visitParam ? parseInt(visitParam, 10) : null;
+  const orgParam = searchParams.get('org');
   const profileImage = user?.imageUrl ?? '';
 
   const setActiveTab = (tabOrUpdater: ActiveTab | ((prev: ActiveTab) => ActiveTab)) => {
@@ -103,16 +104,21 @@ function AdminDashboardInner() {
             onBackFromVisit={() => router.back()}
             onCountChange={handleAlertCountsChange}
             role="admin"
+            onSelectOrg={(orgId) => router.push(`/dashboard/admin?tab=manage-orgs&org=${orgId}`)}
           />
         );
       case 'manage-orgs':
         return (
           <AdminGroupVisits
             selectedVisitId={null}
-            onSelectVisit={() => {}}
+            onSelectVisit={(id) => router.push(`/dashboard/admin?tab=group-visits&visit=${id}`)}
             onBackFromVisit={() => {}}
+            onCountChange={handleAlertCountsChange}
             role="admin"
             view="orgs"
+            selectedOrgId={orgParam}
+            onSelectOrg={(orgId) => router.push(`/dashboard/admin?tab=manage-orgs&org=${orgId}`)}
+            onBackFromOrg={() => router.back()}
           />
         );
       case 'manage-volunteers':

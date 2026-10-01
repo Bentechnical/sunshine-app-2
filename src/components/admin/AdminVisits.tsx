@@ -45,6 +45,7 @@ interface Region {
 interface VisitSummary {
   id: number;
   title: string | null;
+  organization_id: string | null;
   guest_org_name: string | null;
   guest_contact_name: string | null;
   guest_contact_email: string | null;
@@ -131,6 +132,7 @@ interface Props {
   onBackFromVisit?: () => void;
   onCountChange?: () => void;
   pdMode?: boolean;
+  onSelectOrg?: (orgId: string) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -612,12 +614,14 @@ function VisitDetailView({
   pdUsers,
   onBack,
   onUpdated,
+  onSelectOrg,
 }: {
   visitId: number;
   orgImage: string | null;
   pdUsers: PdUser[];
   onBack: () => void;
   onUpdated: () => void;
+  onSelectOrg?: (orgId: string) => void;
 }) {
   const [visit, setVisit] = useState<VisitDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1230,7 +1234,16 @@ function VisitDetailView({
         {visit.title && (
           <p className="text-xl font-bold text-gray-900 mb-0.5">{visit.title}</p>
         )}
-        <p className="text-base text-gray-500 mb-0.5">{orgName}</p>
+        {onSelectOrg && visit.organization_id ? (
+          <p
+            className="text-base text-[#0e62ae] hover:underline mb-0.5 cursor-pointer inline-block"
+            onClick={() => onSelectOrg(visit.organization_id!)}
+          >
+            {orgName}
+          </p>
+        ) : (
+          <p className="text-base text-gray-500 mb-0.5">{orgName}</p>
+        )}
 
         <div className="space-y-1.5 text-sm text-gray-700 mt-3">
           <div className="flex items-center gap-2">
@@ -1749,7 +1762,7 @@ function VisitDetailView({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false }: Props) {
+export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false, onSelectOrg }: Props) {
   const { user } = useUser();
   const currentUserId = user?.id ?? null;
   const [view, setView] = useState<ViewMode>('list');
@@ -1876,6 +1889,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
           pdUsers={pdUsers}
           onBack={() => onBackFromVisit?.()}
           onUpdated={() => { fetchVisits(); fetchTabCounts(); }}
+          onSelectOrg={onSelectOrg}
         />
       </div>
     );

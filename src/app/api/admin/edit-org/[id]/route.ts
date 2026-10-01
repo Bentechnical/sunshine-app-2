@@ -70,9 +70,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to update organization' }, { status: 500 });
     }
 
-    // Re-run auto-assign region if address/location changed
+    // Assign region: use manual override if provided, otherwise auto-assign if address changed
     let assigned_region_id: number | null = null;
-    if ('location_lat' in updateData || 'location_lng' in updateData) {
+    if ('assigned_region_id' in body) {
+      assigned_region_id = body.assigned_region_id ?? null;
+      await supabase
+        .from('users')
+        .update({
+          assigned_region_id,
+          region_assignment_method: assigned_region_id ? 'manual' : null,
+        })
+        .eq('id', id);
+    } else if ('location_lat' in updateData || 'location_lng' in updateData) {
       const regionResult = await autoAssignRegion(id);
       if (regionResult.region_id) {
         await supabase

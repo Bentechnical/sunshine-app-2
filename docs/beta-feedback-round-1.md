@@ -49,24 +49,29 @@ A tester uploaded a real VSC as a password-protected PDF. This is likely common 
 
 ## Visit Lifecycle (Process Design Needed)
 
-### 10. No clear visit completion/archival model
+### 10. ~~No clear visit completion/archival model~~ DONE
 Currently admin can mark a visit as complete, but the broader lifecycle is undefined: Are visits auto-completed after they pass? Can visits be deleted if created by accident? What's the archive vs. delete distinction? Needs a designed flow for the full visit lifecycle (upcoming → completed → archived/deleted).
+**Fix:** Visit lifecycle fully implemented with auto-completion, cancellation, and status management.
 
-### 11. Visit deletion/cancellation not synced with Google Calendar
+### 11. ~~Visit deletion/cancellation not synced with Google Calendar~~ DONE
 If a visit is deleted or archived in the app, the corresponding Google Calendar event should be removed. This linkage doesn't exist yet.
+**Fix:** Google Calendar sync implemented for visit cancellation/deletion.
 
 ---
 
 ## Feature Requests
 
-### 12. Linked org visit history
+### 12. ~~Linked org visit history~~ DONE
 Admin should be able to click through to an org and see all past visits (who signed up, notes, etc.). Primarily an admin tool, but could later be exposed to volunteers. Major feature but potentially straightforward since the data already exists.
+**Fix:** Dedicated AdminOrgDetail view with profile card and full visit history (filterable by All/Upcoming/Pending/Past). Accessible from Manage Organizations table and clickable org names in visit detail view. URL-based navigation (`?tab=manage-orgs&org=<id>`) with browser back button support. Region assignment added to org edit modal.
 
-### 13. Day-of-week and date range filters for browsing visits
+### 13. ~~Day-of-week and date range filters for browsing visits~~ DONE
 E.g., "show me all Friday visits" or "visits between Oct 1–15." (Amanda)
+**Fix:** Already addressed in volunteer filter revamp.
 
-### 14. Visit completion tracking for volunteers
+### 14. ~~Visit completion tracking for volunteers~~ DONE
 "You've completed 3 of 24 visits this year." Useful for volunteer engagement and reporting. Depends on visit lifecycle (#10) being solved first. (Desktop tester)
+**Fix:** Implemented as part of visit lifecycle work.
 
 ---
 
@@ -96,7 +101,6 @@ Security suggestion — automatic session timeout after idle period. Low priorit
 
 | Priority | Items |
 |----------|-------|
-| Done | #1–4 (bugs), #6–9 (compliance flow), #15, #16, #17, #18 (mostly) |
+| Done | #1–4 (bugs), #6–14 (compliance, lifecycle, org history, filters, tracking), #15, #16, #17, #18 (mostly) |
 | Investigate | #5 (may not be a bug) |
-| Design for later | #10–11 (visit lifecycle) |
-| Backlog | #12, #13, #14, #19 |
+| Backlog | #19 |

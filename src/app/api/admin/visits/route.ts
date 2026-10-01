@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const scope = searchParams.get('scope'); // 'active' | 'past' | 'pending_completion' | 'completed'
     const dateFrom = searchParams.get('date_from');
     const dateTo = searchParams.get('date_to');
+    const orgId = searchParams.get('org');
 
     const now = new Date().toISOString();
 
@@ -55,6 +56,10 @@ export async function GET(req: NextRequest) {
       query = query.in('status', ['approved', 'completed']).lte('end_time', now);
     } else if (status) {
       query = query.eq('status', status);
+    }
+
+    if (orgId) {
+      query = query.eq('organization_id', orgId);
     }
 
     if (dateFrom) {

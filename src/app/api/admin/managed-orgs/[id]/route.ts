@@ -75,8 +75,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to update managed organization' }, { status: 500 });
     }
 
-    // Re-run auto-assign region if address/location changed
-    if ('location_lat' in updateData || 'location_lng' in updateData) {
+    // Assign region: use manual override if provided, otherwise auto-assign if address changed
+    let assigned_region_id: number | null = null;
+    if ('assigned_region_id' in body) {
+      assigned_region_id = body.assigned_region_id ?? null;
+      await supabase
+        .from('users')
+        .update({
+          assigned_region_id,
+          region_assignment_method: assigned_region_id ? 'manual' : null,
+        })
+        .eq('id', id);
+    } else if ('location_lat' in updateData || 'location_lng' in updateData) {
       const regionResult = await autoAssignRegion(id);
       if (regionResult.region_id) {
         await supabase
@@ -86,10 +96,11 @@ export async function PATCH(
             region_assignment_method: regionResult.method,
           })
           .eq('id', id);
+        assigned_region_id = regionResult.region_id;
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, assigned_region_id });
   } catch (err: any) {
     console.error('[PATCH /api/admin/managed-orgs] Unexpected error:', err.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

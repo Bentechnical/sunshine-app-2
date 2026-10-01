@@ -43,6 +43,11 @@ const PARKING_OPTIONS = [
   { value: 'invoice', label: 'Invoice / billed separately' },
 ];
 
+interface Region {
+  id: number;
+  name: string;
+}
+
 export interface ManagedOrgData {
   id?: string;
   org_name: string;
@@ -57,6 +62,7 @@ export interface ManagedOrgData {
   email: string;
   fee_tier: string;
   profile_image: string;
+  assigned_region_id: number | null;
   default_parking_coverage: string;
   default_parking_instructions: string;
   default_arrival_instructions: string;
@@ -80,6 +86,7 @@ const EMPTY_FORM: ManagedOrgData = {
   email: '',
   fee_tier: '',
   profile_image: '',
+  assigned_region_id: null,
   default_parking_coverage: '',
   default_parking_instructions: '',
   default_arrival_instructions: '',
@@ -95,11 +102,12 @@ interface Props {
   /** 'managed' = admin-managed org (no Clerk account); 'linked' = real org with Clerk account */
   context?: 'managed' | 'linked';
   initialData?: Partial<ManagedOrgData>;
+  regions?: Region[];
   onClose: () => void;
   onSaved: (data: ManagedOrgData & { id: string; assigned_region_id?: number | null }) => void;
 }
 
-export default function ManagedOrgModal({ mode, context = 'managed', initialData, onClose, onSaved }: Props) {
+export default function ManagedOrgModal({ mode, context = 'managed', initialData, regions = [], onClose, onSaved }: Props) {
   const [form, setForm] = useState<ManagedOrgData>({
     ...EMPTY_FORM,
     ...initialData,
@@ -156,7 +164,7 @@ export default function ManagedOrgModal({ mode, context = 'managed', initialData
       onSaved({
         ...form,
         id: mode === 'create' ? json.id : initialData!.id!,
-        assigned_region_id: json.assigned_region_id ?? null,
+        assigned_region_id: form.assigned_region_id ?? json.assigned_region_id ?? null,
       });
     } catch {
       setError('An error occurred. Please try again.');
@@ -279,6 +287,23 @@ export default function ManagedOrgModal({ mode, context = 'managed', initialData
               ))}
             </select>
           </div>
+
+          {regions.length > 0 && (
+            <div>
+              <label className={lc}>Region</label>
+              <select
+                className={ic}
+                value={form.assigned_region_id ?? ''}
+                onChange={e => setForm(prev => ({ ...prev, assigned_region_id: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="">Auto-assign by address</option>
+                {regions.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Leave as auto-assign to determine region from the address.</p>
+            </div>
+          )}
 
           {/* ── Visit Defaults Section ── */}
           <div className="pt-2 border-t border-gray-200">

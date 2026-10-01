@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Pencil, Link2, Unlink } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 import AdminVisits from './AdminVisits';
+import AdminOrgDetail from './AdminOrgDetail';
 import ManagedOrgModal, { ManagedOrgData } from './ManagedOrgModal';
 import LinkOrgModal from './LinkOrgModal';
 
@@ -72,11 +73,14 @@ interface Props {
   role?: 'admin' | 'pd';
   /** Which view to show. 'visits' = group visits list, 'orgs' = manage organizations. Default: 'visits' */
   view?: 'visits' | 'orgs';
+  selectedOrgId?: string | null;
+  onSelectOrg?: (orgId: string) => void;
+  onBackFromOrg?: () => void;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, role = 'admin', view = 'visits' }: Props) {
+export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, role = 'admin', view = 'visits', selectedOrgId, onSelectOrg, onBackFromOrg }: Props) {
   const { user: clerkUser } = useUser();
   const subtab = view;
 
@@ -94,16 +98,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
   // Shared state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedOrgIds, setExpandedOrgIds] = useState<string[]>([]);
   const [orgSearchQuery, setOrgSearchQuery] = useState('');
-
-  // Org mutation state
-  const [orgRegionSaving, setOrgRegionSaving] = useState<Record<string, boolean>>({});
-  const [regionAssignConfirm, setRegionAssignConfirm] = useState<{
-    orgId: string; orgName: string; regionId: number | null; regionName: string;
-  } | null>(null);
-  const [orgFeeTierDraft, setOrgFeeTierDraft] = useState<Record<string, string>>({});
-  const [orgFeeTierSaving, setOrgFeeTierSaving] = useState<Record<string, boolean>>({});
 
   // Managed org modal state
   const [managedOrgModal, setManagedOrgModal] = useState<{
@@ -211,42 +206,6 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
 
   // ── Org handlers ──────────────────────────────────────────────────────────────
 
-  const handleSaveOrgFeeTier = async (orgId: string) => {
-    const tier = orgFeeTierDraft[orgId] ?? '';
-    setOrgFeeTierSaving(prev => ({ ...prev, [orgId]: true }));
-    try {
-      const res = await fetch('/api/admin/update-org-fee-tier', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org_id: orgId, fee_tier: tier || null }),
-      });
-      if (!res.ok) { const json = await res.json(); alert(json.error || 'Failed to update fee tier'); return; }
-      setOrganizations(prev => prev.map(o => o.id === orgId ? { ...o, fee_tier: tier || null } : o));
-    } catch {
-      alert('Failed to update fee tier');
-    } finally {
-      setOrgFeeTierSaving(prev => ({ ...prev, [orgId]: false }));
-    }
-  };
-
-  const handleAssignOrgRegion = async (orgId: string, regionId: number | null, cascade: boolean) => {
-    setOrgRegionSaving(prev => ({ ...prev, [orgId]: true }));
-    setRegionAssignConfirm(null);
-    try {
-      const res = await fetch('/api/admin/assign-org-region', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org_id: orgId, region_id: regionId, cascade_visits: cascade }),
-      });
-      if (!res.ok) { const json = await res.json(); alert(json.error || 'Failed to update assignment'); return; }
-      setOrganizations(prev => prev.map(o => o.id === orgId ? { ...o, assigned_region_id: regionId } : o));
-    } catch {
-      alert('An error occurred. Please try again.');
-    } finally {
-      setOrgRegionSaving(prev => ({ ...prev, [orgId]: false }));
-    }
-  };
-
   const handleArchiveOrg = async (orgId: string, orgName: string) => {
     if (!confirm(`Archive ${orgName}? They will no longer be able to access the platform.`)) return;
     try {
@@ -269,6 +228,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
           if (!result2.success) { alert(`Failed to archive: ${result2.error}`); return; }
         }
         setOrganizations(prev => prev.filter(o => o.id !== orgId));
+        if (selectedOrgId === orgId) onBackFromOrg?.();
         alert('Organization archived successfully');
       } else {
         alert(`Failed to archive: ${result.error}`);
@@ -366,6 +326,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
 
   const handleLinked = (_clerkUserId: string, visitsTransferred: number) => {
     if (linkModal) {
+      if (selectedOrgId === linkModal.managedOrgId) onBackFromOrg?.();
       setOrganizations(prev => prev.filter(o => o.id !== linkModal.managedOrgId));
     }
     setLinkModal(null);
@@ -421,6 +382,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
           );
         setOrganizations(sortedOrgs);
       }
+      if (selectedOrgId === orgId) onBackFromOrg?.();
       alert(`Unlinked successfully. ${json.visits_transferred} visit(s) moved to a new managed organization.`);
     } catch {
       alert('An error occurred. Please try again.');
@@ -437,6 +399,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
       const json = await res.json();
       if (!res.ok) { alert(json.error || 'Failed to delete'); return; }
       setOrganizations(prev => prev.filter(o => o.id !== orgId));
+      if (selectedOrgId === orgId) onBackFromOrg?.();
     } catch {
       alert('Failed to delete organization');
     }
@@ -463,6 +426,10 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
     return matchesSearch && matchesRegion;
   });
 
+  // ── Render helpers ────────────────────────────────────────────────────────────
+
+  const selectedOrg = selectedOrgId ? organizations.find(o => o.id === selectedOrgId) : null;
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -475,11 +442,51 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
           onSelectVisit={onSelectVisit}
           onBackFromVisit={onBackFromVisit}
           onCountChange={onCountChange}
+          onSelectOrg={onSelectOrg}
         />
       )}
 
-      {/* Manage Organizations */}
-      {subtab === 'orgs' && (
+      {/* Manage Organizations — Loading org detail */}
+      {subtab === 'orgs' && selectedOrgId && !selectedOrg && loading && (
+        <div className="flex items-center justify-center py-24 gap-2">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-gray-600">Loading organization…</span>
+        </div>
+      )}
+
+      {/* Manage Organizations — Org not found */}
+      {subtab === 'orgs' && selectedOrgId && !selectedOrg && !loading && (
+        <div className="px-4 py-4 max-w-3xl mx-auto">
+          <button
+            onClick={() => onBackFromOrg?.()}
+            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium transition mb-5"
+          >
+            ← Back
+          </button>
+          <div className="text-center py-12 text-gray-500">
+            <p className="font-medium">Organization not found</p>
+            <p className="text-sm mt-1">This organization may have been removed or the link is invalid.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Organizations — Org Detail View */}
+      {subtab === 'orgs' && selectedOrg && (
+        <AdminOrgDetail
+          org={selectedOrg}
+          regions={regions}
+          onBack={() => onBackFromOrg?.()}
+          onSelectVisit={onSelectVisit}
+          onEditOrg={() => setManagedOrgModal({ mode: 'edit', org: selectedOrg })}
+          onArchiveOrg={() => handleArchiveOrg(selectedOrg.id, selectedOrg.org_name || `${selectedOrg.first_name} ${selectedOrg.last_name}`)}
+          onDeleteOrg={() => handleDeleteManagedOrg(selectedOrg.id, selectedOrg.org_name || '—')}
+          onLinkOrg={() => setLinkModal({ managedOrgId: selectedOrg.id, managedOrgName: selectedOrg.org_name || '—' })}
+          onUnlinkOrg={() => setUnlinkConfirm({ orgId: selectedOrg.id, orgName: selectedOrg.org_name || '—' })}
+        />
+      )}
+
+      {/* Manage Organizations — Org List */}
+      {subtab === 'orgs' && !selectedOrgId && (
         <div className="px-4 py-4">
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             {/* Header */}
@@ -555,195 +562,53 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
                     <th className="px-4 py-2">Contact</th>
                     <th className="px-4 py-2">Default Fee Tier</th>
                     <th className="px-4 py-2">Region</th>
-                    <th className="px-2 py-2 w-6" />
                   </tr>
                 </thead>
                 <tbody>
                   {filteredOrgs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">No approved organizations found.</td>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">No approved organizations found.</td>
                     </tr>
                   ) : filteredOrgs.map(org => {
-                    const isExpanded = expandedOrgIds.includes(org.id);
                     const assignedRegion = regions.find(r => r.id === org.assigned_region_id);
-                    const isSaving = orgRegionSaving[org.id];
                     return (
-                      <React.Fragment key={org.id}>
-                        <tr
-                          className="border-t hover:bg-gray-50 cursor-pointer"
-                          onClick={() => setExpandedOrgIds(prev =>
-                            prev.includes(org.id) ? prev.filter(id => id !== org.id) : [...prev, org.id]
+                      <tr
+                        key={org.id}
+                        className="border-t hover:bg-gray-50 cursor-pointer"
+                        onClick={() => onSelectOrg?.(org.id)}
+                      >
+                        <td className="px-2 py-2">
+                          {org.org_logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={org.org_logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs font-bold">
+                              {(org.org_name || '?')[0].toUpperCase()}
+                            </div>
                           )}
-                        >
-                          <td className="px-2 py-2">
-                            {org.org_logo ? (
-                              <img src={org.org_logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs font-bold">
-                                {(org.org_name || '?')[0].toUpperCase()}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-2 py-2 font-medium">
-                            {org.org_name || '—'}
-                            {org.is_admin_managed && (
-                              <span className="ml-2 text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
-                                Admin-managed
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2">{org.org_contact_name || `${org.first_name} ${org.last_name}`}</td>
-                          <td className="px-4 py-2">
-                            {org.fee_tier
-                              ? <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{FEE_TIER_LABELS[org.fee_tier]?.split(' — ')[0] ?? org.fee_tier}</span>
-                              : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Not set</span>
-                            }
-                          </td>
-                          <td className="px-4 py-2">
-                            {assignedRegion
-                              ? <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{assignedRegion.name}</span>
-                              : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Unassigned</span>
-                            }
-                          </td>
-                          <td className="px-2 py-2">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
-                        </tr>
-                        {isExpanded && (
-                          <tr className="bg-gray-50 border-t">
-                            <td colSpan={6} className="px-6 py-4">
-                              {/* Org header: logo + name + address */}
-                              <div className="flex gap-4 items-start mb-4">
-                                {org.org_logo ? (
-                                  <img src={org.org_logo} alt={org.org_name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
-                                ) : (
-                                  <div className="w-16 h-16 rounded-xl bg-gray-200 flex items-center justify-center text-gray-400 text-xl font-bold shrink-0">
-                                    {(org.org_name || '?')[0].toUpperCase()}
-                                  </div>
-                                )}
-                                <div className="space-y-1 text-sm">
-                                  <p className="font-semibold text-gray-900 text-base">{org.org_name || '—'}</p>
-                                  {org.org_address && <p className="text-gray-500">{org.org_address}</p>}
-                                </div>
-                              </div>
-
-                              {/* Contact details */}
-                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm mb-4">
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact Name</p>
-                                  <p className="text-gray-900">{org.org_contact_name || `${org.first_name} ${org.last_name}`}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact Phone</p>
-                                  <p className="text-gray-900">{org.org_contact_phone || '—'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account Email</p>
-                                  <p className="text-gray-900">{org.email}</p>
-                                </div>
-                              </div>
-
-                              {/* Default Fee Tier + PD Assignment side by side */}
-                              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div>
-                                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Default Fee Tier</h3>
-                                  <div className="flex items-center gap-3">
-                                    <select
-                                      value={orgFeeTierDraft[org.id] ?? (org.fee_tier ?? '')}
-                                      onChange={e => setOrgFeeTierDraft(prev => ({ ...prev, [org.id]: e.target.value }))}
-                                      disabled={orgFeeTierSaving[org.id]}
-                                      className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white disabled:opacity-50 flex-1 min-w-0"
-                                    >
-                                      <option value="">— Not set —</option>
-                                      <option value="tier_500">$500 — Corporate / for-profit</option>
-                                      <option value="tier_200">$200 — Post-secondary / private</option>
-                                      <option value="tier_0">$0 — Public schools / non-profits</option>
-                                    </select>
-                                    <button
-                                      onClick={() => handleSaveOrgFeeTier(org.id)}
-                                      disabled={orgFeeTierSaving[org.id]}
-                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded disabled:opacity-50 shrink-0"
-                                    >
-                                      {orgFeeTierSaving[org.id] ? 'Saving…' : 'Save'}
-                                    </button>
-                                  </div>
-                                </div>
-                                <div>
-                                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Region</h3>
-                                  <div className="flex items-center gap-3">
-                                    <select
-                                      value={org.assigned_region_id ?? ''}
-                                      disabled={isSaving}
-                                      onChange={e => {
-                                        const newRegionId = e.target.value ? Number(e.target.value) : null;
-                                        const newRegion = regions.find(r => r.id === newRegionId);
-                                        setRegionAssignConfirm({
-                                          orgId: org.id,
-                                          orgName: org.org_name || `${org.first_name} ${org.last_name}`,
-                                          regionId: newRegionId,
-                                          regionName: newRegion ? newRegion.name : 'Unassigned',
-                                        });
-                                      }}
-                                      className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white disabled:opacity-50 flex-1 min-w-0"
-                                    >
-                                      <option value="">— Unassigned —</option>
-                                      {regions.map(r => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                      ))}
-                                    </select>
-                                    {isSaving && <span className="text-xs text-gray-400 shrink-0">Saving…</span>}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="mt-6 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
-                                {org.is_admin_managed && (
-                                  <>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setManagedOrgModal({ mode: 'edit', org }); }}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition"
-                                    >
-                                      <Pencil size={14} /> Edit
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setLinkModal({ managedOrgId: org.id, managedOrgName: org.org_name || '—' }); }}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded transition"
-                                    >
-                                      <Link2 size={14} /> Link to Account
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteManagedOrg(org.id, org.org_name || '—'); }}
-                                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
-                                    >
-                                      Delete
-                                    </button>
-                                  </>
-                                )}
-                                {!org.is_admin_managed && (
-                                  <>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setManagedOrgModal({ mode: 'edit', org }); }}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition"
-                                    >
-                                      <Pencil size={14} /> Edit
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setUnlinkConfirm({ orgId: org.id, orgName: org.org_name || '—' }); }}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded transition"
-                                    >
-                                      <Unlink size={14} /> Detach to Managed
-                                    </button>
-                                    <button
-                                      onClick={() => handleArchiveOrg(org.id, org.org_name || `${org.first_name} ${org.last_name}`)}
-                                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition"
-                                    >
-                                      Archive Organization
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
+                        </td>
+                        <td className="px-2 py-2 font-medium">
+                          {org.org_name || '—'}
+                          {org.is_admin_managed && (
+                            <span className="ml-2 text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
+                              Admin-managed
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">{org.org_contact_name || `${org.first_name} ${org.last_name}`}</td>
+                        <td className="px-4 py-2">
+                          {org.fee_tier
+                            ? <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{FEE_TIER_LABELS[org.fee_tier]?.split(' — ')[0] ?? org.fee_tier}</span>
+                            : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Not set</span>
+                          }
+                        </td>
+                        <td className="px-4 py-2">
+                          {assignedRegion
+                            ? <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{assignedRegion.name}</span>
+                            : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Unassigned</span>
+                          }
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -813,6 +678,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
             email: managedOrgModal.org.email,
             fee_tier: managedOrgModal.org.fee_tier || '',
             profile_image: managedOrgModal.org.org_logo || '',
+            assigned_region_id: managedOrgModal.org.assigned_region_id,
             default_parking_coverage: managedOrgModal.org.default_parking_coverage || '',
             default_parking_instructions: managedOrgModal.org.default_parking_instructions || '',
             default_arrival_instructions: managedOrgModal.org.default_arrival_instructions || '',
@@ -822,6 +688,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
             default_dogs_needed: managedOrgModal.org.default_dogs_needed,
             default_requires_vsc: managedOrgModal.org.default_requires_vsc,
           } : undefined}
+          regions={regions}
           onClose={() => setManagedOrgModal(null)}
           onSaved={handleManagedOrgSaved}
         />
@@ -867,39 +734,6 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
                 className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg disabled:opacity-50 transition"
               >
                 {unlinking ? 'Processing…' : 'Confirm Detach'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Region Assignment Confirm Modal */}
-      {regionAssignConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Update Region Assignment</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Assign <strong>{regionAssignConfirm.orgName}</strong> to region <strong>{regionAssignConfirm.regionName}</strong>.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">Do you also want to update all active visits for this organization to the region&apos;s Program Director?</p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => handleAssignOrgRegion(regionAssignConfirm.orgId, regionAssignConfirm.regionId, true)}
-                className="w-full px-4 py-2 bg-[#0e62ae] hover:bg-[#0a4f8f] text-white text-sm font-semibold rounded-lg transition"
-              >
-                Yes — update org and all active visits
-              </button>
-              <button
-                onClick={() => handleAssignOrgRegion(regionAssignConfirm.orgId, regionAssignConfirm.regionId, false)}
-                className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-lg transition"
-              >
-                No — update org only
-              </button>
-              <button
-                onClick={() => setRegionAssignConfirm(null)}
-                className="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition"
-              >
-                Cancel
               </button>
             </div>
           </div>
