@@ -11,23 +11,30 @@ export async function PATCH(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { vaccine_record_url, vaccine_expiry_date, vaccine_date_issued, vaccine_upload_comment } = body;
+  const { vaccine_record_url, vaccine_expiry_date, vaccine_date_issued, vaccine_upload_comment, vaccine_supporting_urls } = body;
 
   const supabase = createSupabaseAdminClient();
 
+  const updatePayload: Record<string, unknown> = {
+    vaccine_record_url,
+    vaccine_expiry_date,
+    vaccine_date_issued,
+    vaccine_upload_comment: vaccine_upload_comment ?? null,
+    // Reset verification on every upload/update — requires re-review by admin/PD
+    vaccine_verification_status: 'pending_review',
+    vaccine_verified_at: null,
+    vaccine_verified_by: null,
+    vaccine_rejection_reason: null,
+  };
+
+  // Only include supporting URLs if explicitly provided (avoid clearing on older clients)
+  if (vaccine_supporting_urls !== undefined) {
+    updatePayload.vaccine_supporting_urls = vaccine_supporting_urls ?? [];
+  }
+
   const { data, error } = await supabase
     .from('dogs')
-    .update({
-      vaccine_record_url,
-      vaccine_expiry_date,
-      vaccine_date_issued,
-      vaccine_upload_comment: vaccine_upload_comment ?? null,
-      // Reset verification on every upload/update — requires re-review by admin/PD
-      vaccine_verification_status: 'pending_review',
-      vaccine_verified_at: null,
-      vaccine_verified_by: null,
-      vaccine_rejection_reason: null,
-    })
+    .update(updatePayload)
     .eq('volunteer_id', userId)
     .select('id');
 
@@ -50,17 +57,22 @@ export async function DELETE() {
 
   const supabase = createSupabaseAdminClient();
 
-  // Get current path so we can remove from storage
+  // Get current paths so we can remove from storage
   const { data: dog } = await supabase
     .from('dogs')
-    .select('vaccine_record_url')
+    .select('vaccine_record_url, vaccine_supporting_urls')
     .eq('volunteer_id', userId)
     .single();
 
-  if (dog?.vaccine_record_url) {
+  // Remove primary doc and all supporting docs from storage
+  const pathsToRemove: string[] = [];
+  if (dog?.vaccine_record_url) pathsToRemove.push(dog.vaccine_record_url);
+  if (dog?.vaccine_supporting_urls?.length) pathsToRemove.push(...dog.vaccine_supporting_urls);
+
+  if (pathsToRemove.length > 0) {
     const { error: storageError } = await supabase.storage
       .from('compliance-documents')
-      .remove([dog.vaccine_record_url]);
+      .remove(pathsToRemove);
     if (storageError) {
       console.error('[DELETE /api/volunteer/dog/compliance] Storage error:', storageError.message);
     }
@@ -77,6 +89,7 @@ export async function DELETE() {
       vaccine_verified_by: null,
       vaccine_rejection_reason: null,
       vaccine_upload_comment: null,
+      vaccine_supporting_urls: [],
     })
     .eq('volunteer_id', userId);
 

@@ -118,6 +118,7 @@ export default function ProfileCompleteForm() {
   const [vaccineIssuedDate, setVaccineIssuedDate] = useState('');
   const [vaccineExpiryDate, setVaccineExpiryDate] = useState('');
   const [vaccineComment, setVaccineComment] = useState('');
+  const [vaccineSupportingUrls, setVaccineSupportingUrls] = useState<string[]>([]);
 
   // Organization fields
   const [orgName, setOrgName] = useState('');
@@ -213,6 +214,7 @@ export default function ProfileCompleteForm() {
             setVaccineDocumentUrl(dogData.vaccine_record_url || '');
             setVaccineIssuedDate(dogData.vaccine_date_issued || '');
             setVaccineExpiryDate(dogData.vaccine_expiry_date || '');
+            setVaccineSupportingUrls(dogData.vaccine_supporting_urls || []);
           }
         }
 
@@ -479,6 +481,7 @@ export default function ProfileCompleteForm() {
           vaccine_date_issued: vaccineIssuedDate || null,
           vaccine_expiry_date: vaccineExpiryDate || null,
           vaccine_upload_comment: vaccineComment || null,
+          vaccine_supporting_urls: vaccineSupportingUrls.length > 0 ? vaccineSupportingUrls : [],
         };
 
         if (existingDog) {
@@ -650,6 +653,7 @@ export default function ProfileCompleteForm() {
           vaccineIssuedDate={vaccineIssuedDate} setVaccineIssuedDate={setVaccineIssuedDate}
           vaccineExpiryDate={vaccineExpiryDate} setVaccineExpiryDate={setVaccineExpiryDate}
           vaccineComment={vaccineComment} setVaccineComment={setVaccineComment}
+          vaccineSupportingUrls={vaccineSupportingUrls} setVaccineSupportingUrls={setVaccineSupportingUrls}
           isLoading={isLoading}
         />
       );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { Trash2 } from 'lucide-react';
 
 interface VolunteerComplianceProps {
   userId: string;
@@ -18,6 +19,8 @@ interface VolunteerComplianceProps {
   setVaccineExpiryDate: (v: string) => void;
   vaccineComment: string;
   setVaccineComment: (v: string) => void;
+  vaccineSupportingUrls: string[];
+  setVaccineSupportingUrls: (v: string[]) => void;
   isLoading: boolean;
 }
 
@@ -138,6 +141,86 @@ function FileUploadField({
   );
 }
 
+function SupportingDocsField({
+  urls,
+  onAdd,
+  onRemove,
+  isLoading,
+}: {
+  urls: string[];
+  onAdd: (path: string) => void;
+  onRemove: (index: number) => void;
+  isLoading: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'vaccine_supporting');
+      const res = await fetch('/api/compliance/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Upload failed.'); return; }
+      onAdd(data.path);
+    } catch {
+      setError('Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-sm font-semibold text-gray-700 mb-1">Additional Documents (optional)</p>
+      <p className="text-xs text-gray-500 mb-2">Upload any additional vaccine records (boosters, vet letters, etc.)</p>
+
+      {urls.length > 0 && (
+        <div className="space-y-1.5 mb-2">
+          {urls.map((_, i) => (
+            <div key={i} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+              <span className="text-xs text-gray-600">Supporting document {i + 1}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                disabled={isLoading}
+                className="text-red-500 hover:text-red-700 transition p-0.5"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={isLoading || uploading}
+        className="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+      >
+        {uploading ? 'Uploading...' : 'Add supporting document'}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        onChange={handleFileChange}
+        className="hidden"
+        disabled={isLoading || uploading}
+      />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 export default function VolunteerCompliance({
   vscDocumentUrl,
   setVscDocumentUrl,
@@ -153,6 +236,8 @@ export default function VolunteerCompliance({
   setVaccineExpiryDate,
   vaccineComment,
   setVaccineComment,
+  vaccineSupportingUrls,
+  setVaccineSupportingUrls,
   isLoading,
 }: VolunteerComplianceProps) {
   return (
@@ -234,6 +319,15 @@ export default function VolunteerCompliance({
             disabled={isLoading}
           />
         </div>
+
+        {vaccineDocumentUrl && (
+          <SupportingDocsField
+            urls={vaccineSupportingUrls}
+            onAdd={path => setVaccineSupportingUrls([...vaccineSupportingUrls, path])}
+            onRemove={i => setVaccineSupportingUrls(vaccineSupportingUrls.filter((_, idx) => idx !== i))}
+            isLoading={isLoading}
+          />
+        )}
       </div>
     </div>
   );

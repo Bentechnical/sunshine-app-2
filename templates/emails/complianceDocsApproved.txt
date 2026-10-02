@@ -1,6 +1,6 @@
 Hi {{firstName}},
 
-Your compliance documents have been reviewed and approved. You're now fully compliant and can register for visits!
+Your compliance documents have been reviewed and approved.
 
 {{dashboardLink}}
 

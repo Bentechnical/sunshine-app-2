@@ -22,7 +22,7 @@ export async function GET(
     // Fetch volunteer's document paths
     const [volunteerRes, dogRes] = await Promise.all([
       supabase.from('users').select('id, first_name, last_name, vsc_document_url').eq('id', volunteerId).eq('role', 'volunteer').single(),
-      supabase.from('dogs').select('vaccine_record_url, dog_name').eq('volunteer_id', volunteerId).maybeSingle(),
+      supabase.from('dogs').select('vaccine_record_url, vaccine_supporting_urls, dog_name').eq('volunteer_id', volunteerId).maybeSingle(),
     ]);
 
     if (volunteerRes.error || !volunteerRes.data) {
@@ -61,11 +61,26 @@ export async function GET(
       documents.vaccine_signed_url = null;
     }
 
+    // Generate signed URLs for supporting vaccine docs
+    const vaccine_supporting_signed_urls: string[] = [];
+    if (dog?.vaccine_supporting_urls?.length) {
+      for (const path of dog.vaccine_supporting_urls) {
+        const { data: supportingSigned, error: supportingError } = await supabase.storage
+          .from('compliance-documents')
+          .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS);
+        if (supportingError) {
+          console.error('[GET documents] Supporting doc signed URL error:', supportingError);
+        }
+        if (supportingSigned?.signedUrl) vaccine_supporting_signed_urls.push(supportingSigned.signedUrl);
+      }
+    }
+
     return NextResponse.json({
       volunteer_id: volunteerId,
       volunteer_name: `${volunteer.first_name ?? ''} ${volunteer.last_name ?? ''}`.trim(),
       dog_name: dog?.dog_name ?? null,
       documents,
+      vaccine_supporting_signed_urls,
     });
   } catch (err: any) {
     console.error('[GET documents] Unexpected error:', err.message);

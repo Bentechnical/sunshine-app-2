@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { Loader2, CheckCircle, AlertCircle, Clock, Pencil } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Clock, Pencil, FileText } from 'lucide-react';
 import Image from 'next/image';
 import VolunteerEditModal from './VolunteerEditModal';
 
@@ -35,13 +35,10 @@ interface ProfileData {
   relationship_to_recipient?: string | null;
   dependant_name?: string | null;
   assigned_region_id?: number | null;
-  // Compliance
+  // VSC compliance (for badge display)
   vsc_document_url?: string | null;
-  vsc_date_issued?: string | null;
   vsc_renewal_due?: string | null;
   vsc_verification_status?: string | null;
-  vsc_upload_comment?: string | null;
-  vsc_rejection_reason?: string | null;
 }
 
 function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
@@ -66,18 +63,16 @@ const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactN
   rejected:       { label: 'VSC Rejected',      icon: <AlertCircle size={12} />, classes: 'bg-red-100 text-red-700' },
 };
 
-const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, date_of_birth, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_upload_comment, vsc_rejection_reason';
+const PROFILE_FIELDS = 'first_name, last_name, email, phone_number, profile_image, bio, postal_code, travel_distance_km, open_to_individual_visits, location_lat, location_lng, role, pronouns, date_of_birth, physical_address, other_pets_on_site, other_pets_description, third_party_available, additional_information, liability_waiver_accepted, liability_waiver_accepted_at, visit_recipient_type, relationship_to_recipient, dependant_name, assigned_region_id, vsc_document_url, vsc_renewal_due, vsc_verification_status';
 
-export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClose }: { openDocumentsTrigger?: number; onModalClose?: () => void }) {
+export default function ProfileCardBlock({ onOpenCompliance }: { onOpenCompliance?: () => void }) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [regionInfo, setRegionInfo] = useState<{ name: string; pd_first_name: string | null } | null>(null);
-  const [dogVaccine, setDogVaccine] = useState<{ vaccine_record_url: string | null; vaccine_date_issued: string | null; vaccine_expiry_date: string | null; vaccine_verification_status: string | null; vaccine_upload_comment: string | null; vaccine_rejection_reason: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editModalTab, setEditModalTab] = useState<'profile' | 'compliance'>('profile');
 
   const loadProfile = async () => {
     if (!user?.id) return;
@@ -108,16 +103,6 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
     } else {
       setRegionInfo(null);
     }
-
-    // Fetch dog vaccine data for volunteer edit modal
-    if (data?.role === 'volunteer') {
-      const { data: dog } = await supabase
-        .from('dogs')
-        .select('vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status, vaccine_upload_comment, vaccine_rejection_reason')
-        .eq('volunteer_id', user.id)
-        .single();
-      setDogVaccine(dog ?? null);
-    }
   };
 
   useEffect(() => {
@@ -131,13 +116,6 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
     return () => window.removeEventListener('profile-updated', handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  useEffect(() => {
-    if (openDocumentsTrigger > 0) {
-      setEditModalTab('compliance');
-      setShowEditModal(true);
-    }
-  }, [openDocumentsTrigger]);
 
   if (loading || !profile) {
     return (
@@ -179,13 +157,24 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
           <div className="flex-1 flex flex-col gap-1.5 min-w-0 shrink-0">
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-2xl font-bold text-gray-900">{fullName}</h3>
-              <button
-                onClick={() => { setEditModalTab('profile'); setShowEditModal(true); }}
-                className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-lg px-2.5 py-1.5 transition-colors"
-              >
-                <Pencil size={12} />
-                Edit
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isVolunteer && (
+                  <button
+                    onClick={() => onOpenCompliance?.()}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-lg px-2.5 py-1.5 transition-colors"
+                  >
+                    <FileText size={12} />
+                    Documents
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-lg px-2.5 py-1.5 transition-colors"
+                >
+                  <Pencil size={12} />
+                  Edit
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1 mt-1 text-sm">
@@ -205,7 +194,7 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
             {/* VSC compliance badge */}
             {vscConfig && (
               <button
-                onClick={() => { setEditModalTab('compliance'); setShowEditModal(true); }}
+                onClick={() => onOpenCompliance?.()}
                 className={`mt-1 self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80 ${vscConfig.classes}`}
                 title="Click to manage compliance documents"
               >
@@ -299,10 +288,9 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
         )}
       </div>
 
-      {/* Edit modal — volunteers only */}
+      {/* Edit profile modal — volunteers only */}
       {showEditModal && isVolunteer && (
         <VolunteerEditModal
-          initialTab={editModalTab}
           initialProfile={{
             bio: profile.bio ?? null,
             phone_number: profile.phone_number ?? null,
@@ -312,28 +300,14 @@ export default function ProfileCardBlock({ openDocumentsTrigger = 0, onModalClos
             open_to_individual_visits: profile.open_to_individual_visits ?? true,
             pronouns: profile.pronouns ?? null,
             date_of_birth: profile.date_of_birth ?? null,
-            vsc_document_url: profile.vsc_document_url ?? null,
-            vsc_date_issued: profile.vsc_date_issued ?? null,
-            vsc_renewal_due: profile.vsc_renewal_due ?? null,
-            vsc_verification_status: profile.vsc_verification_status ?? null,
-            vsc_upload_comment: profile.vsc_upload_comment ?? null,
-            vsc_rejection_reason: profile.vsc_rejection_reason ?? null,
-            vaccine_record_url: dogVaccine?.vaccine_record_url ?? null,
-            vaccine_date_issued: dogVaccine?.vaccine_date_issued ?? null,
-            vaccine_expiry_date: dogVaccine?.vaccine_expiry_date ?? null,
-            vaccine_verification_status: dogVaccine?.vaccine_verification_status ?? null,
-            vaccine_upload_comment: dogVaccine?.vaccine_upload_comment ?? null,
-            vaccine_rejection_reason: dogVaccine?.vaccine_rejection_reason ?? null,
           }}
           onClose={() => {
             setShowEditModal(false);
             loadProfile();
-            onModalClose?.();
           }}
           onSaved={() => {
             setShowEditModal(false);
             loadProfile();
-            onModalClose?.();
           }}
         />
       )}

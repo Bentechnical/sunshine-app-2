@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File | null;
   const documentType = formData.get('type') as string | null;
 
-  if (!file || !documentType || !['vsc', 'vaccine'].includes(documentType)) {
+  if (!file || !documentType || !['vsc', 'vaccine', 'vaccine_supporting'].includes(documentType)) {
     return NextResponse.json({ error: 'Missing or invalid file/type.' }, { status: 400 });
   }
 
@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = file.name.split('.').pop();
-  const path = `${userId}/${documentType}/document.${ext}`;
+  const path = documentType === 'vaccine_supporting'
+    ? `${userId}/vaccine_supporting/${Date.now()}.${ext}`
+    : `${userId}/${documentType}/document.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const supabase = createSupabaseAdminClient();

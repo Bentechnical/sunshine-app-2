@@ -3,13 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useSupabaseClient } from '@/utils/supabase/client';
-import { X, CheckCircle, AlertCircle, Clock, ExternalLink, Trash2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useDashboardUI } from '@/contexts/DashboardUIContext';
 import AvatarUpload, { AvatarUploadHandle } from '@/components/profile/AvatarUpload';
 import { geocodePostalCode } from '@/utils/geocode';
-
-type Tab = 'profile' | 'compliance';
-type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 interface InitialProfile {
   bio: string | null;
@@ -20,48 +17,13 @@ interface InitialProfile {
   pronouns: string | null;
   date_of_birth: string | null;
   open_to_individual_visits: boolean | null;
-  vsc_document_url: string | null;
-  vsc_date_issued: string | null;
-  vsc_renewal_due: string | null;
-  vsc_verification_status: string | null;
-  vsc_upload_comment: string | null;
-  vsc_rejection_reason: string | null;
-  vaccine_record_url: string | null;
-  vaccine_date_issued: string | null;
-  vaccine_expiry_date: string | null;
-  vaccine_verification_status: string | null;
-  vaccine_upload_comment: string | null;
-  vaccine_rejection_reason: string | null;
 }
 
 interface Props {
   initialProfile: InitialProfile;
-  initialTab?: Tab;
   onClose: () => void;
   onSaved: () => void;
 }
-
-function getComplianceStatus(documentUrl: string | null, expiryDate: string | null, verificationStatus: string | null): ComplianceStatus {
-  if (!documentUrl) return 'missing';
-  if (verificationStatus === 'rejected') return 'rejected';
-  if (!verificationStatus || verificationStatus === 'pending_review') return 'pending_review';
-  // approved
-  if (!expiryDate) return 'approved';
-  const expiry = new Date(expiryDate);
-  const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-  if (daysUntil < 0) return 'expired';
-  if (daysUntil <= 30) return 'expiring';
-  return 'approved';
-}
-
-const statusConfig: Record<ComplianceStatus, { label: string; icon: React.ReactNode; classes: string }> = {
-  missing:        { label: 'Not uploaded',  icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
-  pending_review: { label: 'Needs Review',  icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-800' },
-  approved:       { label: 'Valid',         icon: <CheckCircle size={14} />, classes: 'bg-green-100 text-green-700' },
-  expiring:       { label: 'Expiring soon', icon: <Clock size={14} />,       classes: 'bg-amber-100 text-amber-700' },
-  expired:        { label: 'Expired',       icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-800' },
-  rejected:       { label: 'Rejected',      icon: <AlertCircle size={14} />, classes: 'bg-red-100 text-red-700' },
-};
 
 function formatPhoneNumber(value: string): string {
   const cleaned = value.replace(/\D/g, '').slice(0, 10);
@@ -79,26 +41,11 @@ function normalizePostalCode(code: string): string {
   return upper.length === 6 ? `${upper.slice(0, 3)} ${upper.slice(3)}` : upper;
 }
 
-async function isPdfPasswordProtected(file: File): Promise<boolean> {
-  if (file.type !== 'application/pdf') return false;
-  try {
-    const buffer = await file.slice(0, Math.min(file.size, 4096)).arrayBuffer();
-    const text = new TextDecoder('latin1').decode(buffer);
-    return text.includes('/Encrypt');
-  } catch {
-    return false;
-  }
-}
-
-export default function VolunteerEditModal({ initialProfile, initialTab = 'profile', onClose, onSaved }: Props) {
+export default function VolunteerEditModal({ initialProfile, onClose, onSaved }: Props) {
   const { user } = useUser();
   const supabase = useSupabaseClient();
   const { setHideMobileNav } = useDashboardUI();
   const avatarRef = useRef<AvatarUploadHandle>(null);
-  const vscFileRef = useRef<HTMLInputElement>(null);
-  const vaccineFileRef = useRef<HTMLInputElement>(null);
-
-  const [tab, setTab] = useState<Tab>(initialTab);
 
   // Hide mobile nav while modal is open
   useEffect(() => {
@@ -117,41 +64,6 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
   const avatarUrlRef = useRef(initialProfile.profile_image ?? '');
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-
-  // Compliance state
-  const [vscDocUrl, setVscDocUrl] = useState(initialProfile.vsc_document_url ?? '');
-  const [vscDateIssued, setVscDateIssued] = useState(initialProfile.vsc_date_issued ?? '');
-  const [vscRenewalDue] = useState(initialProfile.vsc_renewal_due ?? '');
-  const [vscVerificationStatus, setVscVerificationStatus] = useState<string | null>(initialProfile.vsc_verification_status ?? null);
-  const [vscUploadComment, setVscUploadComment] = useState(initialProfile.vsc_upload_comment ?? '');
-  const [vscUploading, setVscUploading] = useState(false);
-  const [vscRemoving, setVscRemoving] = useState(false);
-  const [vscUploadError, setVscUploadError] = useState<string | null>(null);
-  const [vscUnsaved, setVscUnsaved] = useState(false);
-  const [complianceSaving, setComplianceSaving] = useState(false);
-  const [complianceError, setComplianceError] = useState<string | null>(null);
-
-  // Vaccine state
-  const [vaccineDocUrl, setVaccineDocUrl] = useState(initialProfile.vaccine_record_url ?? '');
-  const [vaccineIssued, setVaccineIssued] = useState(initialProfile.vaccine_date_issued ?? '');
-  const [vaccineExpiry, setVaccineExpiry] = useState(initialProfile.vaccine_expiry_date ?? '');
-  const [vaccineVerificationStatus, setVaccineVerificationStatus] = useState<string | null>(initialProfile.vaccine_verification_status ?? null);
-  const [vaccineUploadComment, setVaccineUploadComment] = useState(initialProfile.vaccine_upload_comment ?? '');
-  const [vaccineUploading, setVaccineUploading] = useState(false);
-  const [vaccineRemoving, setVaccineRemoving] = useState(false);
-  const [vaccineUploadError, setVaccineUploadError] = useState<string | null>(null);
-  const [vaccineUnsaved, setVaccineUnsaved] = useState(false);
-  const [vaccineSaving, setVaccineSaving] = useState(false);
-  const [vaccineError, setVaccineError] = useState<string | null>(null);
-
-  // For badge display: if file uploaded but not yet saved to DB, treat as 'missing' (the original state)
-  // so the badge doesn't prematurely flip to "Needs Review"
-  const vscStatusDocUrl = vscUnsaved ? null : (vscDocUrl || null);
-  const vaccineStatusDocUrl = vaccineUnsaved ? null : (vaccineDocUrl || null);
-  const vscStatus = getComplianceStatus(vscStatusDocUrl, vscRenewalDue || null, vscVerificationStatus);
-  const vaccineStatus = getComplianceStatus(vaccineStatusDocUrl, vaccineExpiry || null, vaccineVerificationStatus);
-
-  // ── Profile save ────────────────────────────────────────────────────────────
 
   const handleSaveProfile = async () => {
     if (!user?.id) return;
@@ -197,281 +109,8 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
     onClose();
   };
 
-  // ── VSC compliance ──────────────────────────────────────────────────────────
-
-  const saveComplianceFields = async (docUrl: string, dateIssued: string): Promise<boolean> => {
-    setComplianceSaving(true);
-    setComplianceError(null);
-    try {
-      const res = await fetch('/api/volunteer/compliance', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vsc_document_url: docUrl || null, vsc_date_issued: dateIssued || null, vsc_upload_comment: vscUploadComment || null }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setComplianceError(json.error || 'Failed to save. Please try again.');
-        return false;
-      }
-      return true;
-    } catch {
-      setComplianceError('Failed to save. Please try again.');
-      return false;
-    } finally {
-      setComplianceSaving(false);
-    }
-  };
-
-  const handleVscFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (await isPdfPasswordProtected(file)) {
-      setVscUploadError('This file appears to be password-protected. It will still be uploaded, but please share the password in the comment field below so our team can review it.');
-      if (!vscUploadComment) setVscUploadComment('Password: ');
-    } else {
-      setVscUploadError(null);
-    }
-    setVscUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'vsc');
-
-      const res = await fetch('/api/compliance/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setVscUploadError(data.error || 'Upload failed. Please try again.');
-        return;
-      }
-
-      const newPath = data.path;
-      setVscDocUrl(newPath);
-      // Only auto-save to DB if date is already filled in; otherwise wait for Save click
-      if (vscDateIssued) {
-        setVscVerificationStatus('pending_review');
-        setVscUnsaved(false);
-        await saveComplianceFields(newPath, vscDateIssued);
-      } else {
-        setVscUnsaved(true);
-      }
-    } catch {
-      setVscUploadError('Upload failed. Please try again.');
-    } finally {
-      setVscUploading(false);
-      if (vscFileRef.current) vscFileRef.current.value = '';
-    }
-  };
-
-  const handleVscDateBlur = () => {
-    if (vscDocUrl && vscDateIssued) {
-      setVscVerificationStatus('pending_review');
-      setVscUnsaved(false);
-      saveComplianceFields(vscDocUrl, vscDateIssued);
-    }
-  };
-
-  const handleSaveVscOnly = async () => {
-    if (vscDocUrl && !vscDateIssued) {
-      setComplianceError('Please enter the VSC issue date.');
-      return;
-    }
-    const docToSave = vscDocUrl || '';
-    const issuedToSave = vscDocUrl ? vscDateIssued : '';
-    const ok = await saveComplianceFields(docToSave, issuedToSave);
-    if (ok) {
-      setComplianceError(null);
-      setVscUnsaved(false);
-      if (vscDocUrl) {
-        setVscVerificationStatus('pending_review');
-      }
-      if (!vscDocUrl) {
-        setVscDateIssued('');
-        setVscVerificationStatus(null);
-      }
-    }
-  };
-
-  const handleSaveVaccineOnly = async () => {
-    if (vaccineDocUrl && (!vaccineIssued || !vaccineExpiry)) {
-      setVaccineError('Please enter both the date of issue and expiry date.');
-      return;
-    }
-    // If no doc, clear dates too
-    const docToSave = vaccineDocUrl || '';
-    const issuedToSave = vaccineDocUrl ? vaccineIssued : '';
-    const expiryToSave = vaccineDocUrl ? vaccineExpiry : '';
-    const ok = await saveVaccineFields(docToSave, issuedToSave, expiryToSave);
-    if (ok) {
-      setVaccineError(null);
-      setVaccineUnsaved(false);
-      if (vaccineDocUrl) {
-        setVaccineVerificationStatus('pending_review');
-      }
-      if (!vaccineDocUrl) {
-        setVaccineIssued('');
-        setVaccineExpiry('');
-        setVaccineVerificationStatus(null);
-      }
-    }
-  };
-
-  const handleViewVsc = async () => {
-    try {
-      const res = await fetch('/api/volunteer/compliance/documents');
-      const data = await res.json();
-      if (data.vsc_signed_url) {
-        window.open(data.vsc_signed_url, '_blank', 'noopener,noreferrer');
-      }
-    } catch {
-      // Silent fail — no action needed
-    }
-  };
-
-  const handleRemoveVsc = async () => {
-    if (!confirm('Remove your VSC document? This cannot be undone.')) return;
-
-    setVscRemoving(true);
-    setComplianceError(null);
-    try {
-      const res = await fetch('/api/volunteer/compliance', { method: 'DELETE' });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setComplianceError(json.error || 'Failed to remove document.');
-        return;
-      }
-      setVscDocUrl('');
-      setVscDateIssued('');
-      setVscVerificationStatus(null);
-      setVscUploadComment('');
-    } catch {
-      setComplianceError('Failed to remove document.');
-    } finally {
-      setVscRemoving(false);
-    }
-  };
-
-  // ── Vaccine compliance ─────────────────────────────────────────────────────
-
-  const saveVaccineFields = async (docUrl: string, issued: string, expiry: string): Promise<boolean> => {
-    setVaccineSaving(true);
-    setVaccineError(null);
-    try {
-      const res = await fetch('/api/volunteer/dog/compliance', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaccine_record_url: docUrl || null, vaccine_date_issued: issued || null, vaccine_expiry_date: expiry || null, vaccine_upload_comment: vaccineUploadComment || null }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setVaccineError(json.error || 'Failed to save. Please try again.');
-        return false;
-      }
-      return true;
-    } catch {
-      setVaccineError('Failed to save. Please try again.');
-      return false;
-    } finally {
-      setVaccineSaving(false);
-    }
-  };
-
-  const handleVaccineFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (await isPdfPasswordProtected(file)) {
-      setVaccineUploadError('This file appears to be password-protected. It will still be uploaded, but please share the password in the comment field below so our team can review it.');
-      if (!vaccineUploadComment) setVaccineUploadComment('Password: ');
-    } else {
-      setVaccineUploadError(null);
-    }
-    setVaccineUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'vaccine');
-
-      const res = await fetch('/api/compliance/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setVaccineUploadError(data.error || 'Upload failed. Please try again.');
-        return;
-      }
-
-      const newPath = data.path;
-      setVaccineDocUrl(newPath);
-      // Only auto-save to DB if both dates are already filled in; otherwise wait for Save click
-      if (vaccineIssued && vaccineExpiry) {
-        setVaccineVerificationStatus('pending_review');
-        setVaccineUnsaved(false);
-        await saveVaccineFields(newPath, vaccineIssued, vaccineExpiry);
-      } else {
-        setVaccineUnsaved(true);
-      }
-    } catch {
-      setVaccineUploadError('Upload failed. Please try again.');
-    } finally {
-      setVaccineUploading(false);
-      if (vaccineFileRef.current) vaccineFileRef.current.value = '';
-    }
-  };
-
-  const handleVaccineDateBlur = () => {
-    if (vaccineDocUrl && vaccineIssued && vaccineExpiry) {
-      setVaccineVerificationStatus('pending_review');
-      setVaccineUnsaved(false);
-      saveVaccineFields(vaccineDocUrl, vaccineIssued, vaccineExpiry);
-    }
-  };
-
-  const handleViewVaccine = async () => {
-    try {
-      const res = await fetch('/api/volunteer/compliance/documents');
-      const data = await res.json();
-      if (data.vaccine_signed_url) {
-        window.open(data.vaccine_signed_url, '_blank', 'noopener,noreferrer');
-      }
-    } catch {
-      // Silent fail
-    }
-  };
-
-  const handleRemoveVaccine = async () => {
-    if (!confirm("Remove your dog's vaccine record? This cannot be undone.")) return;
-
-    setVaccineRemoving(true);
-    setVaccineError(null);
-    try {
-      const res = await fetch('/api/volunteer/dog/compliance', { method: 'DELETE' });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setVaccineError(json.error || 'Failed to remove document.');
-        return;
-      }
-      setVaccineDocUrl('');
-      setVaccineIssued('');
-      setVaccineExpiry('');
-      setVaccineVerificationStatus(null);
-      setVaccineUploadComment('');
-    } catch {
-      setVaccineError('Failed to remove document.');
-    } finally {
-      setVaccineRemoving(false);
-    }
-  };
-
-  // ── Shared styles ────────────────────────────────────────────────────────────
-
   const ic = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
   const lc = 'block text-sm font-semibold text-gray-700 mb-1.5';
-
-  const { label: vscLabel, icon: vscIcon, classes: vscClasses } = statusConfig[vscStatus];
-  const { label: vaccineLabel, icon: vaccineIcon, classes: vaccineClasses } = statusConfig[vaccineStatus];
 
   return (
     <div
@@ -491,412 +130,120 @@ export default function VolunteerEditModal({ initialProfile, initialTab = 'profi
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex px-6 pt-3 pb-0 gap-4 shrink-0 border-b border-gray-100">
-          {(['profile', 'compliance'] as Tab[]).map(t => {
-            const needsAttention = t === 'compliance' && (
-              vscStatus === 'missing' || vscStatus === 'expired' || vscStatus === 'rejected' ||
-              vaccineStatus === 'missing' || vaccineStatus === 'expired' || vaccineStatus === 'rejected'
-            );
-            return (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`relative pb-3 text-sm font-semibold capitalize border-b-2 transition-colors ${
-                  tab === t
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {t === 'compliance' ? 'Documents' : 'My Profile'}
-                {needsAttention && (
-                  <span className="absolute -top-0.5 -right-2.5 w-2 h-2 bg-red-500 rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 px-6 py-5">
+          <div className="space-y-5">
 
-          {tab === 'profile' && (
-            <div className="space-y-5">
-
-              {/* Photo */}
-              <div className="flex items-center gap-4">
-                <AvatarUpload
-                  ref={avatarRef}
-                  initialUrl={avatarUrlRef.current}
-                  fallbackUrl="https://via.placeholder.com/100"
-                  onUpload={url => { avatarUrlRef.current = url; }}
-                  size={72}
-                  altText="Profile picture"
-                />
-                <button
-                  type="button"
-                  onClick={() => avatarRef.current?.triggerClick()}
-                  className="text-sm font-medium text-blue-600 hover:underline"
-                >
-                  Change photo
-                </button>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className={lc}>Phone Number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(formatPhoneNumber(e.target.value))}
-                  placeholder="(123) 456-7890"
-                  className={ic}
-                />
-              </div>
-
-              {/* Postal Code */}
-              <div>
-                <label className={lc}>Postal Code</label>
-                <input
-                  type="text"
-                  value={postalCode}
-                  onChange={e => setPostalCode(e.target.value.toUpperCase())}
-                  placeholder="e.g., M5V 2T6"
-                  className={`${ic} uppercase`}
-                />
-              </div>
-
-              {/* Individual visits opt-in */}
-              <div className={`p-4 border rounded-xl transition-colors ${openToIndividualVisits ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={openToIndividualVisits}
-                    onChange={e => setOpenToIndividualVisits(e.target.checked)}
-                    className="mt-0.5 shrink-0"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">Open to individual visit requests</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Allow people seeking an individual therapy dog visit to find my profile and send me a request.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-
-              {/* Bio */}
-              <div>
-                <label className={lc}>Bio</label>
-                <textarea
-                  value={bio}
-                  onChange={e => setBio(e.target.value)}
-                  rows={4}
-                  placeholder="Tell us about yourself..."
-                  className={ic}
-                />
-              </div>
-
-              {/* Pronouns */}
-              <div>
-                <label className={lc}>Pronouns</label>
-                <select value={pronouns} onChange={e => setPronouns(e.target.value)} className={ic}>
-                  <option value="">Select pronouns</option>
-                  <option value="he/him">He/Him</option>
-                  <option value="she/her">She/Her</option>
-                  <option value="they/them">They/Them</option>
-                </select>
-              </div>
-
-              {/* Date of Birth */}
-              <div>
-                <label className={lc}>Date of Birth</label>
-                <input
-                  type="date"
-                  max={new Date().toISOString().split('T')[0]}
-                  value={dateOfBirth}
-                  onChange={e => setDateOfBirth(e.target.value)}
-                  className={ic}
-                />
-              </div>
-
-              {profileError && <p className="text-sm text-red-600">{profileError}</p>}
+            {/* Photo */}
+            <div className="flex items-center gap-4">
+              <AvatarUpload
+                ref={avatarRef}
+                initialUrl={avatarUrlRef.current}
+                fallbackUrl="https://via.placeholder.com/100"
+                onUpload={url => { avatarUrlRef.current = url; }}
+                size={72}
+                altText="Profile picture"
+              />
+              <button
+                type="button"
+                onClick={() => avatarRef.current?.triggerClick()}
+                className="text-sm font-medium text-blue-600 hover:underline"
+              >
+                Change photo
+              </button>
             </div>
-          )}
 
-          {tab === 'compliance' && (
-            <div className="space-y-6">
-              <p className="text-sm text-gray-500">
-                These documents may be required before your first visit. All submissions are manually reviewed by Sunshine staff. If you replace or remove a document, the new submission will need to be re-approved.
-              </p>
-
-              {/* Vaccine section */}
-              <div className="rounded-xl border border-gray-200 p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-800">Rabies Vaccine Record</h3>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${vaccineClasses}`}>
-                    {vaccineIcon}
-                    {vaccineLabel}
-                  </span>
-                </div>
-
-                {/* Upload / View / Remove */}
-                <div>
-                  <p className="text-xs font-semibold text-gray-700 mb-1">Document</p>
-                  <p className="text-xs text-gray-500 mb-2">PDF or image (max 10 MB)</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => vaccineFileRef.current?.click()}
-                      disabled={vaccineUploading || vaccineRemoving}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
-                    >
-                      {vaccineUploading ? 'Uploading…' : vaccineDocUrl ? 'Replace' : 'Upload document'}
-                    </button>
-
-                    {vaccineDocUrl && !vaccineUploading && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleViewVaccine}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
-                        >
-                          <ExternalLink size={13} />
-                          View
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleRemoveVaccine}
-                          disabled={vaccineRemoving}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        >
-                          <Trash2 size={13} />
-                          {vaccineRemoving ? 'Removing…' : 'Remove'}
-                        </button>
-                      </>
-                    )}
-
-                    {vaccineSaving && (
-                      <span className="text-xs text-gray-400">Saving…</span>
-                    )}
-                  </div>
-                  <input
-                    ref={vaccineFileRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={handleVaccineFileChange}
-                    className="hidden"
-                    disabled={vaccineUploading}
-                  />
-                  {vaccineUploadError && <p className="text-xs text-red-500 mt-1">{vaccineUploadError}</p>}
-                </div>
-
-                {/* Upload comment */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Comment (optional)</label>
-                  <textarea
-                    value={vaccineUploadComment}
-                    onChange={e => setVaccineUploadComment(e.target.value)}
-                    placeholder="Add a note about your document if needed"
-                    rows={2}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Issue date */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date of Issue</label>
-                  <input
-                    type="date"
-                    value={vaccineIssued}
-                    onChange={e => setVaccineIssued(e.target.value)}
-                    onBlur={handleVaccineDateBlur}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Expiry date */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Expiry Date</label>
-                  <input
-                    type="date"
-                    value={vaccineExpiry}
-                    onChange={e => setVaccineExpiry(e.target.value)}
-                    onBlur={handleVaccineDateBlur}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {vaccineUnsaved && vaccineDocUrl && (
-                  <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                    File uploaded. Fill in the dates and click Save to submit for review.
-                  </p>
-                )}
-                {!vaccineUnsaved && vaccineVerificationStatus === 'pending_review' && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
-                  </p>
-                )}
-                {vaccineVerificationStatus === 'rejected' && (
-                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 space-y-1">
-                    <p className="font-semibold">Your document was not accepted. Please upload a new document.</p>
-                    {initialProfile.vaccine_rejection_reason && (
-                      <p>Admin comment: {initialProfile.vaccine_rejection_reason}</p>
-                    )}
-                  </div>
-                )}
-
-                {vaccineError && <p className="text-xs text-red-600">{vaccineError}</p>}
-
-                <button
-                  type="button"
-                  onClick={handleSaveVaccineOnly}
-                  disabled={vaccineSaving || vaccineUploading || vaccineRemoving}
-                  className="w-full py-2 px-3 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-[#094e8b] transition disabled:opacity-50"
-                >
-                  {vaccineSaving ? 'Saving…' : 'Save Vaccine Record'}
-                </button>
-              </div>
-
-              {/* VSC section */}
-              <div className="rounded-xl border border-gray-200 p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-800">Vulnerable Sector Check (VSC)</h3>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${vscClasses}`}>
-                    {vscIcon}
-                    {vscLabel}
-                  </span>
-                </div>
-
-                {/* Upload / View / Remove */}
-                <div>
-                  <p className="text-xs font-semibold text-gray-700 mb-1">Document</p>
-                  <p className="text-xs text-gray-500 mb-2">PDF or image (max 10 MB)</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => vscFileRef.current?.click()}
-                      disabled={vscUploading || vscRemoving}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
-                    >
-                      {vscUploading ? 'Uploading…' : vscDocUrl ? 'Replace' : 'Upload document'}
-                    </button>
-
-                    {vscDocUrl && !vscUploading && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleViewVsc}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
-                        >
-                          <ExternalLink size={13} />
-                          View
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleRemoveVsc}
-                          disabled={vscRemoving}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        >
-                          <Trash2 size={13} />
-                          {vscRemoving ? 'Removing…' : 'Remove'}
-                        </button>
-                      </>
-                    )}
-
-                    {complianceSaving && (
-                      <span className="text-xs text-gray-400">Saving…</span>
-                    )}
-                  </div>
-                  <input
-                    ref={vscFileRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={handleVscFileChange}
-                    className="hidden"
-                    disabled={vscUploading}
-                  />
-                  {vscUploadError && <p className="text-xs text-red-500 mt-1">{vscUploadError}</p>}
-                </div>
-
-                {/* Upload comment */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Comment (optional)</label>
-                  <textarea
-                    value={vscUploadComment}
-                    onChange={e => setVscUploadComment(e.target.value)}
-                    placeholder="Add a note about your document if needed"
-                    rows={2}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Date issued */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Date Issued</label>
-                  <input
-                    type="date"
-                    value={vscDateIssued}
-                    onChange={e => setVscDateIssued(e.target.value)}
-                    onBlur={handleVscDateBlur}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {vscRenewalDue && (
-                  <p className="text-xs text-gray-500">
-                    Renewal due: <span className="font-medium text-gray-700">{new Date(vscRenewalDue + 'T00:00:00').toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                  </p>
-                )}
-
-                {vscUnsaved && vscDocUrl && (
-                  <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                    File uploaded. Fill in the issue date and click Save to submit for review.
-                  </p>
-                )}
-                {!vscUnsaved && vscVerificationStatus === 'pending_review' && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Your submission is being reviewed by Sunshine staff. Please allow up to 48 hours for approval.
-                  </p>
-                )}
-                {vscVerificationStatus === 'rejected' && (
-                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 space-y-1">
-                    <p className="font-semibold">Your document was not accepted. Please upload a new document.</p>
-                    {initialProfile.vsc_rejection_reason && (
-                      <p>Admin comment: {initialProfile.vsc_rejection_reason}</p>
-                    )}
-                  </div>
-                )}
-
-                {complianceError && <p className="text-xs text-red-600">{complianceError}</p>}
-
-                <button
-                  type="button"
-                  onClick={handleSaveVscOnly}
-                  disabled={complianceSaving || vscUploading || vscRemoving}
-                  className="w-full py-2 px-3 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-[#094e8b] transition disabled:opacity-50"
-                >
-                  {complianceSaving ? 'Saving…' : 'Save VSC'}
-                </button>
-              </div>
+            {/* Phone */}
+            <div>
+              <label className={lc}>Phone Number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(formatPhoneNumber(e.target.value))}
+                placeholder="(123) 456-7890"
+                className={ic}
+              />
             </div>
-          )}
+
+            {/* Postal Code */}
+            <div>
+              <label className={lc}>Postal Code</label>
+              <input
+                type="text"
+                value={postalCode}
+                onChange={e => setPostalCode(e.target.value.toUpperCase())}
+                placeholder="e.g., M5V 2T6"
+                className={`${ic} uppercase`}
+              />
+            </div>
+
+            {/* Individual visits opt-in */}
+            <div className={`p-4 border rounded-xl transition-colors ${openToIndividualVisits ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={openToIndividualVisits}
+                  onChange={e => setOpenToIndividualVisits(e.target.checked)}
+                  className="mt-0.5 shrink-0"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Open to individual visit requests</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Allow people seeking an individual therapy dog visit to find my profile and send me a request.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Bio */}
+            <div>
+              <label className={lc}>Bio</label>
+              <textarea
+                value={bio}
+                onChange={e => setBio(e.target.value)}
+                rows={4}
+                placeholder="Tell us about yourself..."
+                className={ic}
+              />
+            </div>
+
+            {/* Pronouns */}
+            <div>
+              <label className={lc}>Pronouns</label>
+              <select value={pronouns} onChange={e => setPronouns(e.target.value)} className={ic}>
+                <option value="">Select pronouns</option>
+                <option value="he/him">He/Him</option>
+                <option value="she/her">She/Her</option>
+                <option value="they/them">They/Them</option>
+              </select>
+            </div>
+
+            {/* Date of Birth */}
+            <div>
+              <label className={lc}>Date of Birth</label>
+              <input
+                type="date"
+                max={new Date().toISOString().split('T')[0]}
+                value={dateOfBirth}
+                onChange={e => setDateOfBirth(e.target.value)}
+                className={ic}
+              />
+            </div>
+
+            {profileError && <p className="text-sm text-red-600">{profileError}</p>}
+          </div>
         </div>
 
         {/* Footer */}
-        {tab === 'profile' && (
-          <div className="px-6 py-4 border-t border-gray-100 shrink-0">
-            <button
-              onClick={handleSaveProfile}
-              disabled={saving}
-              className="w-full py-2.5 px-4 bg-[#0e62ae] text-white text-sm font-semibold rounded-xl hover:bg-[#094e8b] transition disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-        )}
+        <div className="px-6 py-4 border-t border-gray-100 shrink-0">
+          <button
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="w-full py-2.5 px-4 bg-[#0e62ae] text-white text-sm font-semibold rounded-xl hover:bg-[#094e8b] transition disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
 
       </div>
     </div>

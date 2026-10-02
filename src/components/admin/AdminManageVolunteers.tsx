@@ -46,7 +46,7 @@ export interface ComplianceRecord {
   vaccine: { status: ComplianceStatus; date_issued: string | null; expiry_date: string | null; dog_name: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null };
 }
 
-export type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; dog_name: string | null };
+export type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; vaccine_supporting_signed_urls: string[]; dog_name: string | null };
 
 interface ArchivedVolunteer {
   id: string;
@@ -239,7 +239,7 @@ export function DocumentModal({
         const res = await fetch(`/api/admin/compliance/${volunteerId}/documents`);
         const json = await res.json();
         if (!res.ok) { setError(json.error || 'Failed to load documents'); return; }
-        setDocs(json.documents ? { ...json.documents, dog_name: json.dog_name } : null);
+        setDocs(json.documents ? { ...json.documents, dog_name: json.dog_name, vaccine_supporting_signed_urls: json.vaccine_supporting_signed_urls ?? [] } : null);
       } catch {
         setError('Failed to load documents');
       } finally {
@@ -391,6 +391,24 @@ export function DocumentModal({
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Dog</p>
                       <p className="text-sm text-gray-900">{dog.dog_name} <span className="text-gray-500">· {dog.dog_breed}{dog.dog_age ? ` · ${dog.dog_age} yr${dog.dog_age !== 1 ? 's' : ''} old` : ''}</span></p>
+                    </div>
+                  )}
+                  {docs.vaccine_supporting_signed_urls.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                        Supporting Documents ({docs.vaccine_supporting_signed_urls.length})
+                      </p>
+                      <div className="space-y-1.5">
+                        {docs.vaccine_supporting_signed_urls.map((url, i) => (
+                          <button
+                            key={i}
+                            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                            className="w-full text-left text-xs text-[#0e62ae] bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-100 transition"
+                          >
+                            View supporting document {i + 1}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -559,7 +577,7 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
         if (!res.ok) return;
         const json = await res.json();
         if (json.documents) {
-          setSignedUrlCache(prev => new Map(prev).set(id, { ...json.documents, dog_name: json.dog_name }));
+          setSignedUrlCache(prev => new Map(prev).set(id, { ...json.documents, dog_name: json.dog_name, vaccine_supporting_signed_urls: json.vaccine_supporting_signed_urls ?? [] }));
         }
       } catch { /* non-fatal */ }
     });
