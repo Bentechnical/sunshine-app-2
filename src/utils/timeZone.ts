@@ -118,6 +118,17 @@ export function formatTimeRange(startTime: Date | string, endTime: Date | string
 }
 
 /**
+ * Format a visit's calendar date (visits.visit_date, a plain 'YYYY-MM-DD') for emails
+ * Returns format like "Monday, October 5, 2026"
+ * Formatted in UTC because the string parses as UTC midnight; any other zone can shift it a day.
+ */
+export function formatVisitDate(visitDate: string): string {
+  return new Date(visitDate).toLocaleDateString('en-CA', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+  });
+}
+
+/**
  * Check if an appointment date is in the past (Eastern Time)
  */
 export function isAppointmentPast(endTime: Date | string): boolean {

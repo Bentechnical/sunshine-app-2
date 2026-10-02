@@ -100,7 +100,10 @@ The core table for organization visit requests and confirmed visits. Distinct fr
 | `approx_space_sqft` | integer | YES | — | Approximate available space |
 | `fee_tier` | text | YES | — | `tier_500`, `tier_200`, `tier_0`, `custom` |
 | `fee_amount` | numeric | YES | — | Dollar amount (used when fee_tier = 'custom') |
-| `volunteer_slots` | integer | NO | 1 | Number of volunteer/dog slots available |
+| `volunteer_slots` | integer | NO | 1 | Maximum volunteer/dog teams; signups beyond this are waitlisted |
+| `min_volunteers` | integer | NO | = `volunteer_slots` | Minimum confirmed teams for the visit to go ahead (Migration 38) |
+| `min_reached_at` | timestamptz | YES | — | When confirmed count last reached `min_volunteers`; null while below (Migration 38) |
+| `staffed_notified_at` | timestamptz | YES | — | When the org was sent the "going ahead" email; sent once per visit (Migration 38) |
 | `parking_coverage` | text | YES | — | `free_on_site`, `reimbursed_on_site`, `invoice` |
 | `parking_instructions` | text | YES | — | Parking location and access details |
 | `arrival_instructions` | text | YES | — | Check-in location and access details |
@@ -1228,6 +1231,66 @@ ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_rejection_reason text;
 
 ---
 
+### Migration 38 — Flexible volunteer slots (min/max range) and delayed "going ahead" org email
+
+Script: `scripts/addFlexibleVolunteerSlots.sql`
+
+A visit's dog count becomes a range: `min_volunteers` (minimum confirmed teams for the visit to go ahead) to `volunteer_slots` (maximum; unchanged meaning — signups beyond it are waitlisted). Existing visits are backfilled with min = max, so they behave exactly as before.
+
+- **Org-facing forms** collect a single "dogs requested" number (max 6), which seeds both columns. Orgs cannot change it after approval.
+- **Admin/PD forms** edit min and max separately (server sanity cap 99).
+- A trigger fills `min_volunteers` from `volunteer_slots` when omitted and clamps it so it never exceeds the max. This also keeps inserts/updates from code deployed before this migration working.
+
+`min_reached_at` and `staffed_notified_at` drive the org "Your visit is going ahead" email (template `visitFullyStaffed`). `recalcVisitStaffing()` sets `min_reached_at` when the confirmed count rises to the minimum and clears it if it drops below; waitlist changes don't touch it. An hourly cron sends the email once `min_reached_at` is at least 3 hours old, then sets `staffed_notified_at` so it is never re-sent. Existing visits already at their minimum are marked as notified, because they received the old immediate "fully staffed" email.
+
+```sql
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS min_volunteers integer;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS min_reached_at timestamptz DEFAULT NULL;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS staffed_notified_at timestamptz DEFAULT NULL;
+
+UPDATE visits SET min_volunteers = volunteer_slots WHERE min_volunteers IS NULL;
+
+CREATE OR REPLACE FUNCTION visits_normalize_min_volunteers()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.min_volunteers IS NULL THEN
+    NEW.min_volunteers := NEW.volunteer_slots;
+  END IF;
+  IF NEW.min_volunteers > NEW.volunteer_slots THEN
+    NEW.min_volunteers := NEW.volunteer_slots;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_visits_normalize_min_volunteers ON visits;
+CREATE TRIGGER trg_visits_normalize_min_volunteers
+  BEFORE INSERT OR UPDATE OF min_volunteers, volunteer_slots ON visits
+  FOR EACH ROW EXECUTE FUNCTION visits_normalize_min_volunteers();
+
+ALTER TABLE visits ALTER COLUMN min_volunteers SET NOT NULL;
+
+ALTER TABLE visits DROP CONSTRAINT IF EXISTS visits_min_volunteers_check;
+ALTER TABLE visits ADD CONSTRAINT visits_min_volunteers_check
+  CHECK (min_volunteers >= 1 AND min_volunteers <= volunteer_slots);
+
+UPDATE visits v
+SET min_reached_at = NOW()
+WHERE v.min_reached_at IS NULL
+  AND (SELECT COUNT(*) FROM visit_registrations r
+       WHERE r.visit_id = v.id AND r.status = 'confirmed') >= v.min_volunteers;
+
+UPDATE visits
+SET staffed_notified_at = NOW()
+WHERE min_reached_at IS NOT NULL AND staffed_notified_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_visits_pending_staffed_notification
+  ON visits(min_reached_at)
+  WHERE staffed_notified_at IS NULL AND min_reached_at IS NOT NULL;
+```
+
+---
+
 ## Change Log
 
 | Date | Migration | Description |
@@ -1277,3 +1340,6 @@ ALTER TABLE dogs ADD COLUMN IF NOT EXISTS vaccine_rejection_reason text;
 | Sep 2026 | 35 | Dropped `birthday` integer column (legacy birth year); added `date_of_birth date` to `users` — full DOB collected at profile creation for volunteers and individuals, visible to admin/PD only. Added `vsc_upload_comment text` to `users` and `vaccine_upload_comment text` to `dogs` — optional volunteer comments when uploading compliance documents |
 | Sep 2026 | 36 | Added `vsc_rejection_reason text` to `users` and `vaccine_rejection_reason text` to `dogs` — admin/PD rejection reasons displayed to volunteers; cleared on re-upload |
 | Oct 2026 | 37 | Added `vaccine_supporting_urls text[]` to `dogs` — array of storage paths for additional vaccine supporting documents; reviewed alongside primary vaccine record with no independent compliance lifecycle |
+| Oct 2026 | 38 | Flexible volunteer slots: added `visits.min_volunteers` (go-ahead threshold; `volunteer_slots` is now the max), backfilled = `volunteer_slots`, normalizing trigger + `min <= max` check. Added `min_reached_at` and `staffed_notified_at` for the hourly, once-per-visit "going ahead" org email (replaces the immediate "fully staffed" email). Org-facing dog count capped at 6 and locked after approval |
+| Oct 2026 | Backfill | `scripts/backfillVisitAssignedPd.sql` — re-derives `visits.assigned_pd_id` from the owning org's active region (`users.assigned_region_id` → `pd_regions.owner_pd_id`), and clears it where the org has no region. No schema change; data repair only. Idempotent, safe to re-run. Fixes visits orphaned to an outgoing PD by region handovers that predate the cascade below |
+| Oct 2026 | Cascade | `PATCH /api/admin/regions/[id]` now cascades an `owner_pd_id` change onto `visits.assigned_pd_id` for all visits belonging to orgs in that region, **all statuses** (a region handover transfers history too, unlike `assign-org-region`, which stays active-only). Opt out with `cascade_visits: false`; response adds `visits_updated` and `previous_owner_pd_id`. `POST /api/admin/regions/[id]/deactivate` now also nulls `assigned_pd_id` on the affected orgs' visits, so they surface in the admin "unassigned" filter; response adds `visits_unassigned`. Both are API-layer cascades — there is no DB trigger |

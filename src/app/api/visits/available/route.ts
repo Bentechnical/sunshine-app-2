@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
         organization_id, guest_org_name,
         location_lat, location_lng, location_place_id, audience_age_ranges,
         visitor_count_expected, event_description,
-        volunteer_slots, requires_vsc, requires_vaccine_record,
+        volunteer_slots, min_volunteers, requires_vsc, requires_vaccine_record,
         parking_coverage, parking_instructions, arrival_instructions,
         accessibility_notes, status,
         visit_registrations(id, volunteer_id, status, waitlist_position)
@@ -135,6 +135,7 @@ export async function GET(req: NextRequest) {
         location_place_id: (v as any).location_place_id as string | null ?? null,
         distance_km: distanceKm,
         volunteer_slots: v.volunteer_slots,
+        min_volunteers: (v as any).min_volunteers ?? v.volunteer_slots,
         slots_remaining: slotsRemaining,
         confirmed_count: confirmedCount,
         waitlisted_count: waitlistedCount,

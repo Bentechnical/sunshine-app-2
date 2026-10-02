@@ -30,7 +30,7 @@ export async function GET() {
       .select(`
         id, title, visit_date, start_time, end_time, address, postal_code,
         location_lat, location_lng, location_place_id,
-        volunteer_slots, visitor_count_expected, status, admin_note, created_at,
+        volunteer_slots, min_volunteers, visitor_count_expected, status, admin_note, created_at,
         requires_vsc, requires_vaccine_record,
         guest_contact_name, guest_contact_email, guest_contact_phone,
         audience_age_ranges, event_description, approx_space_sqft,
@@ -62,6 +62,7 @@ export async function GET() {
         admin_note: ['approved', 'declined', 'cancelled'].includes(v.status as string) ? (v.admin_note ?? null) : null,
         created_at: v.created_at,
         max_volunteers: v.volunteer_slots,
+        min_volunteers: (v as any).min_volunteers ?? v.volunteer_slots,
         expected_visitors: v.visitor_count_expected ?? null,
         requires_vsc: v.requires_vsc ?? false,
         requires_vaccine: v.requires_vaccine_record ?? false,

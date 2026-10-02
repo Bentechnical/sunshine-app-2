@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 
 const PARKING_COVERAGE_LABELS: Record<string, string> = {
   free_on_site: 'Free parking on-site',
@@ -71,13 +72,8 @@ export async function GET(req: Request) {
       if (!registrations || registrations.length === 0) continue;
 
       const visitTitle = visit.title || visit.guest_org_name || 'Therapy Dog Visit';
-      const formattedDate = new Date(visit.visit_date).toLocaleDateString('en-CA', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      });
-      const formattedTime = [
-        new Date(visit.start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        new Date(visit.end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-      ].join(' – ');
+      const formattedDate = formatVisitDate(visit.visit_date);
+      const formattedTime = formatTimeRange(visit.start_time, visit.end_time);
 
       const rawCoverage = visit.parking_coverage as string | null;
       const visitAddressMapLink = visit.address

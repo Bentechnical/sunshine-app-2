@@ -7,6 +7,9 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { addAttendeeToEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
+import { isWaitlistOnly } from '@/utils/visitSlots';
+import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 
 export async function POST(
   req: NextRequest,
@@ -137,18 +140,16 @@ export async function POST(
       .eq('visit_id', visitId)
       .eq('status', 'confirmed');
 
-    const slotsAvailable = (confirmedCount ?? 0) < (visit.volunteer_slots as number);
-    const newStatus = slotsAvailable ? 'confirmed' : 'waitlisted';
+    const { count: waitlistCount } = await supabase
+      .from('visit_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('visit_id', visitId)
+      .eq('status', 'waitlisted');
 
-    let waitlistPosition: number | null = null;
-    if (!slotsAvailable) {
-      const { count: waitlistCount } = await supabase
-        .from('visit_registrations')
-        .select('id', { count: 'exact', head: true })
-        .eq('visit_id', visitId)
-        .eq('status', 'waitlisted');
-      waitlistPosition = (waitlistCount ?? 0) + 1;
-    }
+    // Open spots are held for the waitlist (PD promotes manually), so join the queue if one exists
+    const waitlistOnly = isWaitlistOnly(confirmedCount ?? 0, visit.volunteer_slots as number, waitlistCount ?? 0);
+    const newStatus = waitlistOnly ? 'waitlisted' : 'confirmed';
+    const waitlistPosition: number | null = waitlistOnly ? (waitlistCount ?? 0) + 1 : null;
 
     // Upsert (handles the case where a prior cancelled registration exists)
     const { data: registration, error: regError } = existing
@@ -205,13 +206,8 @@ export async function POST(
 
     if (volunteerUser?.email) {
       const visitTitle = (visit as any).title || (visit as any).guest_org_name || 'Therapy Dog Visit';
-      const formattedDate = new Date((visit as any).visit_date).toLocaleDateString('en-CA', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      });
-      const formattedTime = [
-        new Date((visit as any).start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        new Date((visit as any).end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-      ].join(' – ');
+      const formattedDate = formatVisitDate((visit as any).visit_date);
+      const formattedTime = formatTimeRange((visit as any).start_time, (visit as any).end_time);
 
       const parkingCoverageLabels: Record<string, string> = {
         free_on_site: 'Free parking on-site',
@@ -245,99 +241,13 @@ export async function POST(
           contactName: (visit as any).guest_contact_name || null,
           contactEmail: (visit as any).guest_contact_email || null,
           contactPhone: (visit as any).guest_contact_phone || null,
-          waitlistPosition: waitlistPosition ?? undefined,
           dashboardLink: `${getAppUrl()}/dashboard/visits`,
           year: new Date().getFullYear(),
         },
       }).catch(err => console.error('[register] Failed to send volunteer email:', err));
     }
 
-    // Notify org when visit reaches full capacity
-    if (newStatus === 'confirmed' && ((confirmedCount ?? 0) + 1) >= (visit.volunteer_slots as number)) {
-      let orgEmail: string | null = null;
-      let orgContactName: string | null = (visit as any).guest_contact_name;
-      let isAccountHolder = false;
-
-      if ((visit as any).organization_id) {
-        const { data: orgUser } = await supabase
-          .from('users')
-          .select('email, org_name, org_contact_name, is_admin_managed')
-          .eq('id', (visit as any).organization_id)
-          .single();
-        if (orgUser?.email) {
-          orgEmail = orgUser.email;
-          orgContactName = orgContactName || orgUser.org_contact_name || orgUser.org_name;
-          isAccountHolder = !orgUser.is_admin_managed;
-        }
-      }
-      if (!orgEmail && (visit as any).guest_contact_email) {
-        orgEmail = (visit as any).guest_contact_email;
-      }
-
-      // Fetch assigned PD contact for non-account-holder orgs
-      let pdName: string | null = null;
-      let pdEmail: string | null = null;
-      if (!isAccountHolder && (visit as any).assigned_pd_id) {
-        const { data: pdUser } = await supabase
-          .from('users')
-          .select('first_name, last_name, email')
-          .eq('id', (visit as any).assigned_pd_id)
-          .single();
-        if (pdUser) {
-          pdName = [pdUser.first_name, pdUser.last_name].filter(Boolean).join(' ') || null;
-          pdEmail = pdUser.email ?? null;
-        }
-      }
-
-      if (orgEmail) {
-        const visitTitle = (visit as any).title || (visit as any).guest_org_name || 'Therapy Dog Visit';
-        const formattedDate = new Date((visit as any).visit_date).toLocaleDateString('en-CA', {
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-        });
-        const formattedTime = [
-          new Date((visit as any).start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          new Date((visit as any).end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        ].join(' – ');
-
-        const visitAddressMapLink = (visit as any).address
-          ? `https://maps.google.com/?q=${encodeURIComponent((visit as any).address)}${(visit as any).location_place_id ? `&query_place_id=${(visit as any).location_place_id}` : ''}`
-          : null;
-
-        const parkingCoverageLabels: Record<string, string> = {
-          free_on_site: 'Free parking on-site',
-          reimbursed_on_site: 'Volunteers pay — reimbursed on-site',
-          invoice: 'Volunteers pay — added to invoice',
-        };
-        const rawCoverage = (visit as any).parking_coverage as string | null;
-
-        sendTransactionalEmail({
-          to: orgEmail,
-          subject: `Your visit is fully staffed — ${visitTitle}`,
-          templateName: 'visitFullyStaffed',
-          data: {
-            contactName: orgContactName || 'there',
-            visitTitle,
-            visitDate: formattedDate,
-            visitTime: formattedTime,
-            visitAddress: (visit as any).address,
-            visitAddressMapLink,
-            volunteerCount: visit.volunteer_slots,
-            singleSlot: visit.volunteer_slots === 1,
-            parkingCoverage: rawCoverage ? (parkingCoverageLabels[rawCoverage] ?? rawCoverage) : null,
-            parkingInstructions: (visit as any).parking_instructions || null,
-            arrivalInstructions: (visit as any).arrival_instructions || null,
-            accessibilityNotes: (visit as any).accessibility_notes || null,
-            eventDescription: (visit as any).event_description || null,
-            hasLogistics: !!(rawCoverage || (visit as any).parking_instructions || (visit as any).arrival_instructions || (visit as any).accessibility_notes),
-            isAccountHolder,
-            dashboardLink: isAccountHolder ? `${getAppUrl()}/dashboard/organization` : null,
-            pdName,
-            pdEmail,
-            year: new Date().getFullYear(),
-          },
-        }).catch(err => console.error('[register] Failed to send capacity email:', err));
-      }
-    }
+    if (newStatus === 'confirmed') await recalcVisitStaffing(supabase, visitId);
 
     return NextResponse.json({
       success: true,

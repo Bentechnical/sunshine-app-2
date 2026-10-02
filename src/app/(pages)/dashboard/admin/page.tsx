@@ -66,6 +66,7 @@ function AdminDashboardInner() {
   const visitParam = searchParams.get('visit');
   const selectedVisitId = visitParam ? parseInt(visitParam, 10) : null;
   const orgParam = searchParams.get('org');
+  const filterParam = searchParams.get('filter');
   const profileImage = user?.imageUrl ?? '';
 
   const setActiveTab = (tabOrUpdater: ActiveTab | ((prev: ActiveTab) => ActiveTab)) => {
@@ -95,13 +96,17 @@ function AdminDashboardInner() {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard-home':
-        return <AdminDashboardHome />;
+        return <AdminDashboardHome
+            onOpenVisit={(id) => router.push(`/dashboard/admin?tab=group-visits&visit=${id}`)}
+            onOpenTab={(param, filter) => router.push(`/dashboard/admin?tab=${param}${filter ? `&filter=${filter}` : ''}`)}
+          />;
       case 'group-visits':
         return (
           <AdminGroupVisits
             selectedVisitId={selectedVisitId}
             onSelectVisit={(id) => router.push(`/dashboard/admin?tab=group-visits&visit=${id}`)}
             onBackFromVisit={() => router.back()}
+            initialVisitFilter={filterParam}
             onCountChange={handleAlertCountsChange}
             role="admin"
             onSelectOrg={(orgId) => router.push(`/dashboard/admin?tab=manage-orgs&org=${orgId}`)}

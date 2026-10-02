@@ -42,6 +42,7 @@ function PDDashboardInner() {
   const visitParam = searchParams.get('visit');
   const selectedVisitId = visitParam ? parseInt(visitParam, 10) : null;
   const orgParam = searchParams.get('org');
+  const filterParam = searchParams.get('filter');
 
   const profileImage = user?.imageUrl ?? '';
 
@@ -68,13 +69,17 @@ function PDDashboardInner() {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard-home':
-        return <AdminDashboardHome pdMode />;
+        return <AdminDashboardHome pdMode
+            onOpenVisit={(id) => router.push(`/dashboard/pd?tab=group-visits&visit=${id}`)}
+            onOpenTab={(param, filter) => router.push(`/dashboard/pd?tab=${param}${filter ? `&filter=${filter}` : ''}`)}
+          />;
       case 'group-visits':
         return (
           <AdminGroupVisits
             selectedVisitId={selectedVisitId}
             onSelectVisit={(id: number) => router.push(`/dashboard/pd?tab=group-visits&visit=${id}`)}
             onBackFromVisit={() => router.back()}
+            initialVisitFilter={filterParam}
             onCountChange={handleAlertCountsChange}
             role="pd"
             onSelectOrg={(orgId) => router.push(`/dashboard/pd?tab=manage-orgs&org=${orgId}`)}

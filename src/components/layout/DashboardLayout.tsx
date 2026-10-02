@@ -65,7 +65,7 @@ export default function DashboardLayout({
   const alertCounts = useAdminAlertCounts(role === 'admin' || role === 'pd', role === 'pd', alertCountsRefreshTrigger);
   const tabAlertCounts: Record<string, number> = {
     'user-requests': alertCounts.userRequests,
-    'group-visits': alertCounts.groupVisits + alertCounts.pendingCompletion,
+    'group-visits': alertCounts.groupVisits + alertCounts.pendingCompletion + alertCounts.visitsNeedingAttention,
     'manage-volunteers': alertCounts.pendingDocReviews,
   };
 

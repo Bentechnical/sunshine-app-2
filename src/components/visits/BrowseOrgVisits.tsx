@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
 import VisitMap from '@/components/ui/VisitMap';
+import { VolunteerSlotBar, StaffingStatus } from '@/components/visits/VolunteerSlotBar';
+import { isWaitlistOnly } from '@/utils/visitSlots';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,7 @@ interface Visit {
   location_place_id: string | null;
   distance_km: number | null;
   volunteer_slots: number;
+  min_volunteers: number;
   slots_remaining: number;
   confirmed_count: number;
   waitlisted_count: number;
@@ -135,21 +138,6 @@ function distanceToSlider(d: number): number {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function SlotBar({ confirmed, total }: { confirmed: number; total: number }) {
-  const pct = total > 0 ? Math.min(100, (confirmed / total) * 100) : 0;
-  const isFull = confirmed >= total;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isFull ? 'bg-green-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs text-gray-600 whitespace-nowrap">{confirmed}/{total} volunteers</span>
-    </div>
-  );
-}
 
 function OrgLogo({ url, size = 40 }: { url: string | null | undefined; size?: number }) {
   if (url) {
@@ -257,6 +245,8 @@ export default function BrowseOrgVisits({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  // Visit whose minimum was just met by this volunteer's signup (shows a thank-you note)
+  const [tippedVisitId, setTippedVisitId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<Record<number, string>>({});
   const [detailRegs, setDetailRegs] = useState<VolunteerReg[] | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -379,6 +369,11 @@ export default function BrowseOrgVisits({
         return;
       }
       const newStatus: RegistrationStatus = json.status;
+      const before = visits.find(v => v.id === visitId);
+      if (newStatus === 'confirmed' && before
+        && before.confirmed_count < before.min_volunteers && before.confirmed_count + 1 >= before.min_volunteers) {
+        setTippedVisitId(visitId);
+      }
       setVisits(prev => prev.map(v => {
         if (v.id !== visitId) return v;
         const isWaitlisted = newStatus === 'waitlisted';
@@ -404,6 +399,7 @@ export default function BrowseOrgVisits({
     setActionLoading(visitId);
     setActionError(prev => { const n = { ...prev }; delete n[visitId]; return n; });
     try {
+      if (tippedVisitId === visitId) setTippedVisitId(null);
       const res = await fetch(`/api/visits/${visitId}/cancel-registration`, { method: 'POST' });
       const json = await res.json();
       if (!res.ok) {
@@ -445,7 +441,7 @@ export default function BrowseOrgVisits({
     // Time of day
     if (filterTimes.size < 3 && !filterTimes.has(getTimeSlot(v.start_time))) return false;
     // Open spots only
-    if (filterOpenOnly && v.slots_remaining <= 0) return false;
+    if (filterOpenOnly && isWaitlistOnly(v.confirmed_count, v.volunteer_slots, v.waitlisted_count)) return false;
     // Qualification
     if (filterQualifyOnly && getLockReason(v, meta)) return false;
     return true;
@@ -485,7 +481,7 @@ export default function BrowseOrgVisits({
   if (selectedVisit) {
     const lockReason = getLockReason(selectedVisit, meta);
     const myStatus = selectedVisit.my_registration_status;
-    const isFull = selectedVisit.slots_remaining <= 0;
+    const isFull = isWaitlistOnly(selectedVisit.confirmed_count, selectedVisit.volunteer_slots, selectedVisit.waitlisted_count);
     const isLoading = actionLoading === selectedVisit.id;
     const err = actionError[selectedVisit.id];
     const backLabel = activeTab === 'my-events' ? 'My Events' : 'Browse Events';
@@ -513,7 +509,7 @@ export default function BrowseOrgVisits({
             )}
             {myStatus === 'waitlisted' && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                Waitlisted #{selectedVisit.my_waitlist_position}
+                Waitlisted
               </span>
             )}
           </div>
@@ -601,14 +597,15 @@ export default function BrowseOrgVisits({
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
             <PawPrint size={14} className="text-gray-400" /> Volunteer Slots
+            <span className="ml-auto"><StaffingStatus confirmed={selectedVisit.confirmed_count} min={selectedVisit.min_volunteers} max={selectedVisit.volunteer_slots} audience="volunteer" registered={myStatus !== null} waitlisted={selectedVisit.waitlisted_count} /></span>
           </h3>
-          <SlotBar confirmed={selectedVisit.confirmed_count} total={selectedVisit.volunteer_slots} />
+          <VolunteerSlotBar confirmed={selectedVisit.confirmed_count} min={selectedVisit.min_volunteers} max={selectedVisit.volunteer_slots} />
           <div className="mt-2 mb-4 flex flex-wrap gap-4 text-sm text-gray-600">
             <span><span className="font-semibold text-gray-900">{selectedVisit.confirmed_count}</span> confirmed</span>
             {selectedVisit.waitlisted_count > 0 && (
               <span><span className="font-semibold text-amber-700">{selectedVisit.waitlisted_count}</span> waitlisted</span>
             )}
-            <span><span className="font-semibold text-gray-900">{selectedVisit.slots_remaining}</span> spots open</span>
+            {!isFull && <span><span className="font-semibold text-gray-900">{selectedVisit.slots_remaining}</span> spots open</span>}
           </div>
 
           {/* Dog / volunteer bars */}
@@ -620,7 +617,7 @@ export default function BrowseOrgVisits({
           ) : (
             <>
               <div className="space-y-2 mb-4">
-                {Array.from({ length: selectedVisit.volunteer_slots }).map((_, i) => {
+                {Array.from({ length: Math.max(selectedVisit.volunteer_slots, confirmedRegs.length) }).map((_, i) => {
                   const reg = confirmedRegs[i];
                   if (reg) {
                     return (
@@ -643,13 +640,22 @@ export default function BrowseOrgVisits({
                       </div>
                     );
                   }
+                  // While a waitlist exists, open spots are held for the PD to offer to waitlisted volunteers
+                  const heldForWaitlist = selectedVisit.waitlisted_count > 0;
                   return (
-                    <div key={`empty-${i}`} className="flex items-stretch rounded-xl overflow-hidden border-2 border-dashed border-gray-200 h-32">
-                      <div className="w-32 shrink-0 bg-gray-50 flex items-center justify-center">
-                        <PawPrint size={22} className="text-gray-200" />
+                    <div key={`empty-${i}`} className={`flex items-stretch rounded-xl overflow-hidden border-2 border-dashed h-32 ${
+                      heldForWaitlist ? 'border-amber-200' : 'border-gray-200'
+                    }`}>
+                      <div className={`w-32 shrink-0 flex items-center justify-center ${heldForWaitlist ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                        <PawPrint size={22} className={heldForWaitlist ? 'text-amber-200' : 'text-gray-200'} />
                       </div>
-                      <div className="flex-1 px-4 flex items-center">
-                        <p className="text-sm text-gray-300 font-medium">Open Slot</p>
+                      <div className="flex-1 px-4 flex flex-col justify-center gap-0.5">
+                        {heldForWaitlist ? (<>
+                          <p className="text-sm text-amber-700 font-medium">Reserved for waitlist</p>
+                          <p className="text-xs text-amber-600/80">This spot is being offered to volunteers already on the waitlist.</p>
+                        </>) : (
+                          <p className="text-sm text-gray-300 font-medium">Open Slot</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -703,18 +709,25 @@ export default function BrowseOrgVisits({
               </a>
             </div>
           ) : myStatus === 'confirmed' ? (
-            <button
-              onClick={() => handleCancel(selectedVisit.id)}
-              disabled={isLoading}
-              className="w-full px-4 py-3 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-xl transition disabled:opacity-50"
-            >
-              {isLoading ? 'Cancelling…' : 'Cancel Registration'}
-            </button>
+            <div className="space-y-3">
+              {tippedVisitId === selectedVisit.id && (
+                <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
+                  Thanks, your signup means this visit can go ahead!
+                </div>
+              )}
+              <button
+                onClick={() => handleCancel(selectedVisit.id)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-xl transition disabled:opacity-50"
+              >
+                {isLoading ? 'Cancelling…' : 'Cancel Registration'}
+              </button>
+            </div>
           ) : myStatus === 'waitlisted' ? (
             <div className="space-y-3">
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-                You're <strong>#{selectedVisit.my_waitlist_position}</strong> on the waitlist.
-                We'll notify you if a spot opens up.
+                You&apos;re on the waitlist.
+                If a spot opens up, your Program Director may get in touch to offer it to you.
               </div>
               <button
                 onClick={() => handleCancel(selectedVisit.id)}
@@ -824,7 +837,7 @@ export default function BrowseOrgVisits({
         )}
         {isRegistered && myStatus === 'waitlisted' && (
           <div className="flex items-center gap-1.5 bg-amber-500 text-white text-xs font-semibold px-3 py-1.5">
-            Waitlisted #{visit.my_waitlist_position}
+            Waitlisted
           </div>
         )}
 
@@ -862,11 +875,12 @@ export default function BrowseOrgVisits({
             <p className="text-xs text-gray-400 mb-2">{visit.distance_km} km away</p>
           )}
 
-          <SlotBar confirmed={visit.confirmed_count} total={visit.volunteer_slots} />
+          <VolunteerSlotBar confirmed={visit.confirmed_count} min={visit.min_volunteers} max={visit.volunteer_slots} />
 
           {/* Bottom row: countdown */}
-          <div className="mt-2">
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
             <CountdownBadge dateStr={visit.visit_date} />
+            <StaffingStatus confirmed={visit.confirmed_count} min={visit.min_volunteers} max={visit.volunteer_slots} audience="volunteer" registered={myStatus !== null} waitlisted={visit.waitlisted_count} />
           </div>
         </div>
       </div>

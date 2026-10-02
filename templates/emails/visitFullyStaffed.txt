@@ -1,6 +1,6 @@
 Hi {{contactName}},
 
-Great news — all {{volunteerCount}} volunteer spot{{#unless singleSlot}}s{{/unless}} for your upcoming visit {{#unless singleSlot}}have{{else}}has{{/unless}} been filled! Our volunteer handlers and their therapy dogs are looking forward to visiting.
+Great news — enough volunteer handlers and therapy dogs have signed up for your upcoming visit, so it's confirmed to go ahead! Our teams are looking forward to visiting.
 
 Here's how your visit details will appear to our volunteers:
 

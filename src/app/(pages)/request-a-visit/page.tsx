@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { CheckCircle } from 'lucide-react';
+import { ORG_MAX_DOGS } from '@/utils/visitSlots';
 
 interface FormState {
   org_name: string;
@@ -269,7 +270,7 @@ export default function RequestAVisitPage() {
                   <input
                     type="number"
                     min={1}
-                    max={20}
+                    max={ORG_MAX_DOGS}
                     className={inputClass}
                     value={form.max_volunteers}
                     onChange={e => set('max_volunteers', e.target.value)}

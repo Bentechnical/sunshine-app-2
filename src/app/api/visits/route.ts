@@ -7,6 +7,8 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
 import { geocodePostalCodeServer } from '@/utils/geocode';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
+import { resolveOrgDogCount } from '@/utils/visitSlots';
+import { formatVisitDate } from '@/utils/timeZone';
 
 const EASTERN = 'America/New_York';
 
@@ -80,6 +82,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const dogCount = resolveOrgDogCount(volunteer_slots ?? 1);
+    if ('error' in dogCount) {
+      return NextResponse.json({ error: dogCount.error }, { status: 400 });
+    }
+
     // Combine visit_date + time into full ISO timestamps
     const startTimestamp = fromZonedTime(`${visit_date}T${start_time}:00`, EASTERN).toISOString();
     const endTimestamp = fromZonedTime(`${visit_date}T${end_time}:00`, EASTERN).toISOString();
@@ -116,7 +123,8 @@ export async function POST(req: NextRequest) {
         visitor_count_expected: visitor_count_expected ?? null,
         event_description: event_description ?? null,
         approx_space_sqft: approx_space_sqft ?? null,
-        volunteer_slots: volunteer_slots ?? 1,
+        volunteer_slots: dogCount.max,
+        min_volunteers: dogCount.min,
         parking_coverage: parking_coverage ?? null,
         parking_instructions: parking_instructions ?? null,
         arrival_instructions: arrival_instructions ?? null,
@@ -139,9 +147,7 @@ export async function POST(req: NextRequest) {
     const primaryEmail = user.email;
     const eventEmail = guest_contact_email ?? null;
     const contactName = guest_contact_name || user.org_contact_name || user.org_name || 'there';
-    const formattedDate = new Date(visit_date).toLocaleDateString('en-CA', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
+    const formattedDate = formatVisitDate(visit_date);
 
     if (primaryEmail) {
       const ccEmail = eventEmail && eventEmail !== primaryEmail ? eventEmail : undefined;

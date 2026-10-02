@@ -10,6 +10,7 @@ import {
   Pencil, Link2, Unlink,
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
+import { VolunteerSlotBar } from '@/components/visits/VolunteerSlotBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ interface VisitSummary {
   end_time: string;
   address: string;
   volunteer_slots: number;
+  min_volunteers: number;
   confirmed_count: number;
   slots_remaining: number;
   status: VisitStatus;
@@ -95,23 +97,6 @@ function StatusBadge({ status }: { status: VisitStatus }) {
   );
 }
 
-function SlotBar({ confirmed, total }: { confirmed: number; total: number }) {
-  const pct = total > 0 ? Math.min(100, (confirmed / total) * 100) : 0;
-  const isFull = confirmed >= total;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isFull ? 'bg-green-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs text-gray-600 whitespace-nowrap">
-        {confirmed}/{total} volunteers
-      </span>
-    </div>
-  );
-}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -358,7 +343,7 @@ export default function AdminOrgDetail({
 
                   <p className="text-xs text-gray-500 truncate mb-2">{visit.address}</p>
 
-                  <SlotBar confirmed={visit.confirmed_count} total={visit.volunteer_slots} />
+                  <VolunteerSlotBar confirmed={visit.confirmed_count} min={visit.min_volunteers ?? visit.volunteer_slots} max={visit.volunteer_slots} showMinimum />
                 </div>
               );
             })}

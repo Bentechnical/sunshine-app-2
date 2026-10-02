@@ -6,6 +6,8 @@ import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { updateVisitEvent, getTeamAssigned, addAttendeeToEvent, removeAttendeeFromEvent } from '@/utils/googleCalendar';
 import { fromZonedTime } from 'date-fns-tz';
+import { resolveSlotRange, ADMIN_MAX_DOGS } from '@/utils/visitSlots';
+import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
 
 const EASTERN = 'America/New_York';
 
@@ -102,7 +104,7 @@ export async function PATCH(
       'title', 'visit_date', 'start_time', 'end_time', 'address',
       'location_lat', 'location_lng', 'location_place_id', 'audience_age_ranges',
       'visitor_count_expected', 'event_description', 'approx_space_sqft',
-      'fee_tier', 'fee_amount', 'volunteer_slots', 'parking_coverage',
+      'fee_tier', 'fee_amount', 'volunteer_slots', 'min_volunteers', 'parking_coverage',
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
       'requires_vsc', 'organization_id',
       'guest_org_name', 'guest_contact_name', 'guest_contact_email', 'guest_contact_phone',
@@ -130,6 +132,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
+    const slotsChanged = 'volunteer_slots' in updates || 'min_volunteers' in updates;
+    if (slotsChanged) {
+      const { data: current } = await supabase
+        .from('visits')
+        .select('volunteer_slots, min_volunteers')
+        .eq('id', visitId)
+        .single();
+      const slotRange = resolveSlotRange(
+        updates.min_volunteers ?? current?.min_volunteers,
+        updates.volunteer_slots ?? current?.volunteer_slots,
+        ADMIN_MAX_DOGS,
+      );
+      if ('error' in slotRange) {
+        return NextResponse.json({ error: slotRange.error }, { status: 400 });
+      }
+      updates.volunteer_slots = slotRange.max;
+      updates.min_volunteers = slotRange.min;
+    }
+
     // Read old PD before updating (needed for calendar attendee swap)
     let oldPdId: string | null = null;
     if ('assigned_pd_id' in updates) {
@@ -150,6 +171,8 @@ export async function PATCH(
       console.error('[PATCH /api/admin/visits/[id]] Supabase error:', error);
       return NextResponse.json({ error: 'Failed to update visit' }, { status: 500 });
     }
+
+    if (slotsChanged) await recalcVisitStaffing(supabase, visitId);
 
     // If any calendar-visible fields changed, update the Google Calendar event
     const calendarFields = ['title', 'visit_date', 'start_time', 'end_time', 'address',

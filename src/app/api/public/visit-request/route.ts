@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
+import { resolveOrgDogCount } from '@/utils/visitSlots';
 
 const EASTERN = 'America/New_York';
 
@@ -49,6 +50,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const dogCount = resolveOrgDogCount(volunteer_slots ?? 1);
+    if ('error' in dogCount) {
+      return NextResponse.json({ error: dogCount.error }, { status: 400 });
+    }
+
     const supabase = createSupabaseAdminClient();
 
     const startTimestamp = fromZonedTime(`${visit_date}T${start_time}:00`, EASTERN).toISOString();
@@ -73,7 +79,8 @@ export async function POST(req: NextRequest) {
         visitor_count_expected: visitor_count_expected ?? null,
         event_description: event_description ?? null,
         approx_space_sqft: approx_space_sqft ?? null,
-        volunteer_slots: volunteer_slots ?? 1,
+        volunteer_slots: dogCount.max,
+        min_volunteers: dogCount.min,
         parking_coverage: parking_coverage ?? null,
         parking_instructions: parking_instructions ?? null,
         arrival_instructions: arrival_instructions ?? null,

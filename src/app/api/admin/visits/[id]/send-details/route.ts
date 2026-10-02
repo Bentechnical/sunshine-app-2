@@ -6,6 +6,7 @@ import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 
 const PARKING_COVERAGE_LABELS: Record<string, string> = {
   free_on_site: 'Free parking on-site',
@@ -76,13 +77,8 @@ export async function POST(
 
     const v = visit as any;
     const visitTitle = v.title || v.guest_org_name || 'Therapy Dog Visit';
-    const formattedDate = new Date(v.visit_date).toLocaleDateString('en-CA', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
-    const formattedTime = [
-      new Date(v.start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-      new Date(v.end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-    ].join(' – ');
+    const formattedDate = formatVisitDate(v.visit_date);
+    const formattedTime = formatTimeRange(v.start_time, v.end_time);
 
     const rawCoverage = v.parking_coverage as string | null;
     const visitAddressMapLink = v.address

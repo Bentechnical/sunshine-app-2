@@ -2,9 +2,11 @@
 // Body: { admin_note?: string }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { isDeliverableEmail } from '@/utils/orgEmail';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
+import { formatVisitDate } from '@/utils/timeZone';
 
 export async function POST(
   req: NextRequest,
@@ -60,7 +62,7 @@ export async function POST(
         .eq('id', visit.organization_id)
         .single();
       if (orgUser) {
-        if (orgUser.email) orgContactEmail = orgUser.email;
+        if (isDeliverableEmail(orgUser.email)) orgContactEmail = orgUser.email;
         if (orgUser.org_name) orgName = orgUser.org_name;
         if (orgUser.org_contact_name) contactName = orgUser.org_contact_name;
       }
@@ -72,9 +74,7 @@ export async function POST(
         ? visit.guest_contact_email
         : undefined;
 
-      const formattedDate = new Date(visit.visit_date).toLocaleDateString('en-CA', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      });
+      const formattedDate = formatVisitDate(visit.visit_date);
 
       sendTransactionalEmail({
         to: orgContactEmail,

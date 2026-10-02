@@ -4,11 +4,13 @@
 // Body: { admin_note?: string, notify_org?: boolean }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { isDeliverableEmail } from '@/utils/orgEmail';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { cancelVisitEvent } from '@/utils/googleCalendar';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 
 export async function POST(
   req: NextRequest,
@@ -68,13 +70,8 @@ export async function POST(
 
     // Prepare shared email data
     const visitTitle = visit.title || visit.guest_org_name || 'Therapy Dog Visit';
-    const formattedDate = new Date(visit.visit_date).toLocaleDateString('en-CA', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
-    const formattedTime = [
-      new Date(visit.start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-      new Date(visit.end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-    ].join(' – ');
+    const formattedDate = formatVisitDate(visit.visit_date);
+    const formattedTime = formatTimeRange(visit.start_time, visit.end_time);
     const year = new Date().getFullYear();
 
     // Send cancellation emails to all affected volunteers
@@ -126,13 +123,13 @@ export async function POST(
           .select('email, org_name, first_name')
           .eq('id', visit.organization_id)
           .single();
-        if (orgUser?.email) {
+        if (orgUser && isDeliverableEmail(orgUser.email)) {
           orgEmail = orgUser.email;
           orgContactName = orgContactName || orgUser.org_name || orgUser.first_name;
         }
       }
 
-      if (!orgEmail && visit.guest_contact_email) {
+      if (!orgEmail && isDeliverableEmail(visit.guest_contact_email)) {
         orgEmail = visit.guest_contact_email;
       }
 

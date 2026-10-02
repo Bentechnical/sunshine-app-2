@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
-import { promoteNextWaitlisted } from '@/utils/promoteNextWaitlisted';
+import { renumberWaitlist } from '@/utils/promoteWaitlisted';
+import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
 
 export async function DELETE(
   req: NextRequest,
@@ -62,7 +63,7 @@ export async function DELETE(
 
     // TODO: Send notification email to volunteer (removed from visit)
 
-    // If was confirmed, remove from Google Calendar event and check waitlist
+    // If was confirmed, remove from Google Calendar event
     if (wasConfirmed) {
       const { data: visitData } = await supabase
         .from('visits')
@@ -86,8 +87,11 @@ export async function DELETE(
       }
     }
 
+    // No auto-promotion — the PD promotes from the waitlist manually
     if (wasConfirmed) {
-      await promoteNextWaitlisted(supabase, visitId);
+      await recalcVisitStaffing(supabase, visitId);
+    } else {
+      await renumberWaitlist(supabase, visitId);
     }
 
     return NextResponse.json({ success: true });

@@ -2,12 +2,14 @@
 // Body: { admin_note?: string }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { isDeliverableEmail } from '@/utils/orgEmail';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { geocodePostalCodeServer } from '@/utils/geocode';
 import { createVisitEvent } from '@/utils/googleCalendar';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
+import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 
 export async function POST(
   req: NextRequest,
@@ -80,14 +82,14 @@ export async function POST(
     if (visit.organization_id) {
       const { data: orgUser } = await supabase
         .from('users')
-        .select('email, org_name, org_contact_name')
+        .select('email, org_name, org_contact_name, is_admin_managed')
         .eq('id', visit.organization_id)
         .single();
       if (orgUser) {
-        if (orgUser.email) orgContactEmail = orgUser.email;
+        if (isDeliverableEmail(orgUser.email)) orgContactEmail = orgUser.email;
         if (orgUser.org_name) orgName = orgUser.org_name;
         if (orgUser.org_contact_name) contactName = orgUser.org_contact_name;
-        isAccountHolder = true;
+        isAccountHolder = !orgUser.is_admin_managed;
       }
     }
 
@@ -128,13 +130,8 @@ export async function POST(
         ? visit.guest_contact_email
         : undefined;
 
-      const formattedDate = new Date(visit.visit_date).toLocaleDateString('en-CA', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      });
-      const formattedTime = [
-        new Date(visit.start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        new Date(visit.end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-      ].join(' – ');
+      const formattedDate = formatVisitDate(visit.visit_date);
+      const formattedTime = formatTimeRange(visit.start_time, visit.end_time);
 
       sendTransactionalEmail({
         to: orgContactEmail,

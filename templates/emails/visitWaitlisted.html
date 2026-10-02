@@ -19,15 +19,14 @@
         <td style="padding: 30px;">
           <h2 style="color: #0e62ae; margin-bottom: 16px;">You're on the Waitlist</h2>
           <p style="margin: 0 0 12px 0;">Hi {{firstName}},</p>
-          <p style="margin: 0 0 16px 0;">All volunteer spots for the visit below are currently filled, but you've been added to the waitlist. We'll reach out if a spot opens up.</p>
+          <p style="margin: 0 0 16px 0;">The visit below has a waitlist, and you've been added to it. If a spot becomes available, your Program Director may get in touch to offer it to you.</p>
 
           <!-- Visit Details -->
           <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 16px 0;">
             <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #0e62ae;">{{visitTitle}}</p>
             <p style="margin: 0 0 8px 0;"><strong>Date:</strong> {{visitDate}}</p>
             <p style="margin: 0 0 8px 0;"><strong>Time:</strong> {{visitTime}}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Location:</strong> {{#if visitAddressMapLink}}<a href="{{visitAddressMapLink}}" style="color: #0e62ae; text-decoration: none;">{{visitAddress}}</a>{{else}}{{visitAddress}}{{/if}}</p>
-            <p style="margin: 0;"><strong>Your position:</strong> #{{waitlistPosition}} on the waitlist</p>
+            <p style="margin: 0;"><strong>Location:</strong> {{#if visitAddressMapLink}}<a href="{{visitAddressMapLink}}" style="color: #0e62ae; text-decoration: none;">{{visitAddress}}</a>{{else}}{{visitAddress}}{{/if}}</p>
           </div>
 
           {{#if eventDescription}}

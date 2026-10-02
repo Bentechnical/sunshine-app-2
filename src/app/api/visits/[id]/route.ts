@@ -3,13 +3,15 @@
 // Admin/PD can also access any visit.
 //
 // PATCH /api/visits/[id]
-// Org users can edit their own pending_review or approved visits.
+// Org users can edit their own pending_review or approved visits
+// (dog count only while pending_review).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
 import { geocodePostalCodeServer } from '@/utils/geocode';
+import { resolveOrgDogCount } from '@/utils/visitSlots';
 
 const EASTERN = 'America/New_York';
 
@@ -48,7 +50,7 @@ export async function GET(
         id, title, organization_id, guest_org_name, guest_contact_name,
         visit_date, start_time, end_time, address, location_lat, location_lng, location_place_id,
         audience_age_ranges, visitor_count_expected, event_description,
-        approx_space_sqft, fee_tier, fee_amount, volunteer_slots,
+        approx_space_sqft, fee_tier, fee_amount, volunteer_slots, min_volunteers,
         parking_coverage, parking_instructions, arrival_instructions,
         accessibility_notes, requires_vsc, requires_vaccine_record,
         status, admin_note, created_at, updated_at,
@@ -124,7 +126,7 @@ export async function PATCH(
     // Verify caller owns this visit and it's in an editable state
     const { data: existing, error: fetchError } = await supabase
       .from('visits')
-      .select('organization_id, status')
+      .select('organization_id, status, volunteer_slots')
       .eq('id', visitId)
       .single();
 
@@ -190,7 +192,22 @@ export async function PATCH(
     if (guest_contact_email !== undefined) updates.guest_contact_email = guest_contact_email || null;
     if (guest_contact_phone !== undefined) updates.guest_contact_phone = guest_contact_phone || null;
     if (visitor_count_expected !== undefined) updates.visitor_count_expected = visitor_count_expected || null;
-    if (volunteer_slots !== undefined) updates.volunteer_slots = volunteer_slots;
+    if (volunteer_slots !== undefined && Number(volunteer_slots) !== existing.volunteer_slots) {
+      // Volunteers sign up against the dog count once a visit is approved, so orgs
+      // must ask their PD to change it after that.
+      if (existing.status !== 'pending_review') {
+        return NextResponse.json(
+          { error: 'The number of dogs can’t be changed after a visit is approved. Please contact your Program Director.' },
+          { status: 400 }
+        );
+      }
+      const dogCount = resolveOrgDogCount(volunteer_slots);
+      if ('error' in dogCount) {
+        return NextResponse.json({ error: dogCount.error }, { status: 400 });
+      }
+      updates.volunteer_slots = dogCount.max;
+      updates.min_volunteers = dogCount.min;
+    }
     if (event_description !== undefined) updates.event_description = event_description || null;
     if (approx_space_sqft !== undefined) updates.approx_space_sqft = approx_space_sqft || null;
     if (audience_age_ranges !== undefined) updates.audience_age_ranges = audience_age_ranges;

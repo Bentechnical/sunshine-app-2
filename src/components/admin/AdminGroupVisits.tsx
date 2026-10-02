@@ -76,11 +76,12 @@ interface Props {
   selectedOrgId?: string | null;
   onSelectOrg?: (orgId: string) => void;
   onBackFromOrg?: () => void;
+  initialVisitFilter?: string | null;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, role = 'admin', view = 'visits', selectedOrgId, onSelectOrg, onBackFromOrg }: Props) {
+export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, role = 'admin', view = 'visits', selectedOrgId, onSelectOrg, onBackFromOrg, initialVisitFilter }: Props) {
   const { user: clerkUser } = useUser();
   const subtab = view;
 
@@ -443,6 +444,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
           onBackFromVisit={onBackFromVisit}
           onCountChange={onCountChange}
           onSelectOrg={onSelectOrg}
+          initialFilter={initialVisitFilter}
         />
       )}
 

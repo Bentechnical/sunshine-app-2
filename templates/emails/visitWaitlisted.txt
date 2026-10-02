@@ -1,13 +1,12 @@
 Hi {{firstName}},
 
-All volunteer spots for the visit below are currently filled, but you've been added to the waitlist. We'll reach out if a spot opens up.
+The visit below has a waitlist, and you've been added to it. If a spot becomes available, your Program Director may get in touch to offer it to you.
 
 {{visitTitle}}
 Date: {{visitDate}}
 Time: {{visitTime}}
 Location: {{visitAddress}}{{#if visitAddressMapLink}}
 Map: {{visitAddressMapLink}}{{/if}}
-Your position: #{{waitlistPosition}} on the waitlist
 {{#if eventDescription}}
 
 About This Visit: {{eventDescription}}{{/if}}

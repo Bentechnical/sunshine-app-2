@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
 import { geocodePostalCodeServer } from '@/utils/geocode';
 import { createVisitEvent } from '@/utils/googleCalendar';
+import { resolveSlotRange, ADMIN_MAX_DOGS } from '@/utils/visitSlots';
 
 const EASTERN = 'America/New_York';
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       .from('visits')
       .select(`
         id, title, organization_id, guest_org_name, guest_contact_name, guest_contact_email,
-        visit_date, start_time, end_time, address, volunteer_slots,
+        visit_date, start_time, end_time, address, volunteer_slots, min_volunteers,
         requires_vsc, requires_vaccine_record, status, admin_note,
         assigned_pd_id,
         created_at, updated_at,
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
       fee_tier,
       fee_amount,
       volunteer_slots,
+      min_volunteers,
       parking_coverage,
       parking_instructions,
       arrival_instructions,
@@ -145,6 +147,11 @@ export async function POST(req: NextRequest) {
         { error: 'Visit date, start time, end time, and address are required' },
         { status: 400 }
       );
+    }
+
+    const slotRange = resolveSlotRange(min_volunteers, volunteer_slots ?? 1, ADMIN_MAX_DOGS);
+    if ('error' in slotRange) {
+      return NextResponse.json({ error: slotRange.error }, { status: 400 });
     }
 
     const startTimestamp = fromZonedTime(`${visit_date}T${start_time}:00`, EASTERN).toISOString();
@@ -184,7 +191,8 @@ export async function POST(req: NextRequest) {
         approx_space_sqft: approx_space_sqft ?? null,
         fee_tier: fee_tier ?? null,
         fee_amount: fee_amount ?? null,
-        volunteer_slots: volunteer_slots ?? 1,
+        volunteer_slots: slotRange.max,
+        min_volunteers: slotRange.min,
         parking_coverage: parking_coverage ?? null,
         parking_instructions: parking_instructions ?? null,
         arrival_instructions: arrival_instructions ?? null,

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
 import VisitMap from '@/components/ui/VisitMap';
+import { VolunteerSlotBar, StaffingStatus } from '@/components/visits/VolunteerSlotBar';
+import { ORG_MAX_DOGS } from '@/utils/visitSlots';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -31,6 +33,7 @@ interface OrgVisit {
   admin_note: string | null;
   created_at: string;
   max_volunteers: number;
+  min_volunteers: number;
   expected_visitors: number | null;
   requires_vsc: boolean;
   requires_vaccine: boolean;
@@ -104,21 +107,6 @@ function StatusBadge({ status }: { status: VisitStatus }) {
   );
 }
 
-function SlotBar({ confirmed, total }: { confirmed: number; total: number }) {
-  const pct = total > 0 ? Math.min(100, (confirmed / total) * 100) : 0;
-  const isFull = confirmed >= total;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isFull ? 'bg-green-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs text-gray-600 whitespace-nowrap">{confirmed}/{total} volunteers</span>
-    </div>
-  );
-}
 
 function OrgLogo({ url, size = 40 }: { url: string | null | undefined; size?: number }) {
   if (url) {
@@ -354,7 +342,10 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
           guest_contact_email: editForm.guest_contact_email || null,
           guest_contact_phone: editForm.guest_contact_phone || null,
           expected_visitors: editForm.visitor_count_expected ? parseInt(editForm.visitor_count_expected) : null,
-          max_volunteers: parseInt(editForm.volunteer_slots) || 1,
+          ...((parseInt(editForm.volunteer_slots) || 1) !== v.max_volunteers && {
+            max_volunteers: parseInt(editForm.volunteer_slots) || 1,
+            min_volunteers: parseInt(editForm.volunteer_slots) || 1,
+          }),
           event_description: editForm.event_description || null,
           approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
           parking_coverage: editForm.parking_coverage || null,
@@ -574,13 +565,23 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
             <PawPrint size={14} className="text-gray-400" /> Volunteers
+            {!isEditing && selectedVisit.status === 'approved' && (
+              <span className="ml-auto"><StaffingStatus confirmed={confirmed} min={selectedVisit.min_volunteers} max={selectedVisit.max_volunteers} audience="org" /></span>
+            )}
           </h3>
 
           {isEditing ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={lc}>Volunteer Slots</label>
-                <input type="number" min="1" className={ic} value={editForm!.volunteer_slots} onChange={set('volunteer_slots')} />
+                <label className={lc}>Dogs Requested</label>
+                {selectedVisit.status === 'pending_review' ? (
+                  <input type="number" min="1" max={ORG_MAX_DOGS} className={ic} value={editForm!.volunteer_slots} onChange={set('volunteer_slots')} />
+                ) : (
+                  <>
+                    <p className="px-3 py-2 text-sm text-gray-900">{selectedVisit.max_volunteers}</p>
+                    <p className="text-xs text-gray-400">To change the number of dogs, please contact your Program Director.</p>
+                  </>
+                )}
               </div>
               <div>
                 <label className={lc}>Expected Visitors</label>
@@ -589,7 +590,7 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
             </div>
           ) : (
             <>
-              <SlotBar confirmed={confirmed} total={selectedVisit.max_volunteers} />
+              <VolunteerSlotBar confirmed={confirmed} min={selectedVisit.min_volunteers} max={selectedVisit.max_volunteers} />
               <div className="mt-2 mb-4 flex flex-wrap gap-4 text-sm text-gray-600">
                 <span><span className="font-semibold text-gray-900">{confirmed}</span> confirmed</span>
                 {waitlisted > 0 && <span><span className="font-semibold text-amber-700">{waitlisted}</span> waitlisted</span>}
@@ -607,7 +608,7 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
               ) : (
                 <>
                   <div className="space-y-2">
-                    {Array.from({ length: selectedVisit.max_volunteers }).map((_, i) => {
+                    {Array.from({ length: Math.max(selectedVisit.max_volunteers, confirmedRegs.length) }).map((_, i) => {
                       const reg = confirmedRegs[i];
                       if (reg) {
                         return (
@@ -903,7 +904,10 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
         <h3 className="font-semibold text-gray-900 truncate mb-1">{visit.title || 'Untitled Visit'}</h3>
         <p className="text-sm text-gray-600">{formatDateShort(visit.visit_date)} · {formatCardTime(visit.start_time)} – {formatCardTime(visit.end_time)}</p>
         <p className="text-sm text-gray-500 truncate mb-3">{visit.address}</p>
-        <SlotBar confirmed={confirmed} total={visit.max_volunteers} />
+        <VolunteerSlotBar confirmed={confirmed} min={visit.min_volunteers} max={visit.max_volunteers} />
+        {visit.status === 'approved' && (
+          <div className="mt-1"><StaffingStatus confirmed={confirmed} min={visit.min_volunteers} max={visit.max_volunteers} audience="org" /></div>
+        )}
         {waitlisted > 0 && <p className="text-xs text-amber-600 mt-1">{waitlisted} on waitlist</p>}
         {visit.admin_note && ['approved', 'declined', 'cancelled'].includes(visit.status) && (
           <div className="bg-amber-50 border border-amber-100 rounded px-2 py-1.5 mt-2">

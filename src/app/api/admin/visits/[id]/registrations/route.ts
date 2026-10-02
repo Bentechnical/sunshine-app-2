@@ -7,6 +7,8 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { getAppUrl } from '@/app/utils/getAppUrl';
 import { addAttendeeToEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
+import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
+import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 
 export async function GET(
   _req: NextRequest,
@@ -157,7 +159,7 @@ export async function POST(
       })().catch(err => console.error('[POST registrations] GCal update failed:', err));
     }
 
-    // Send confirmation email to the assigned volunteer
+    // Email the volunteer: assigned-confirmation, or the standard waitlist email if the visit was full
     const { data: volunteerUser } = await supabase
       .from('users')
       .select('email, first_name')
@@ -167,13 +169,8 @@ export async function POST(
     if (volunteerUser?.email) {
       const v = visit as any;
       const visitTitle = v.title || v.guest_org_name || 'Therapy Dog Visit';
-      const formattedDate = new Date(v.visit_date).toLocaleDateString('en-CA', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      });
-      const formattedTime = [
-        new Date(v.start_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        new Date(v.end_time).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }),
-      ].join(' – ');
+      const formattedDate = formatVisitDate(v.visit_date);
+      const formattedTime = formatTimeRange(v.start_time, v.end_time);
 
       const parkingCoverageLabels: Record<string, string> = {
         free_on_site: 'Free parking on-site',
@@ -187,8 +184,10 @@ export async function POST(
 
       sendTransactionalEmail({
         to: volunteerUser.email,
-        subject: 'You\'ve been registered for a visit — Sunshine Therapy Dogs',
-        templateName: 'visitAdminAssigned',
+        subject: status === 'confirmed'
+          ? 'You\'ve been registered for a visit — Sunshine Therapy Dogs'
+          : 'You\'ve been added to the waitlist — Sunshine Therapy Dogs',
+        templateName: status === 'confirmed' ? 'visitAdminAssigned' : 'visitWaitlisted',
         data: {
           firstName: volunteerUser.first_name || 'there',
           visitTitle,
@@ -210,6 +209,8 @@ export async function POST(
         },
       }).catch(err => console.error('[POST registrations] Failed to send volunteer email:', err));
     }
+
+    if (status === 'confirmed') await recalcVisitStaffing(supabase, visitId);
 
     return NextResponse.json({ success: true, status }, { status: 201 });
   } catch (err: any) {

@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
-import { promoteNextWaitlisted } from '@/utils/promoteNextWaitlisted';
+import { renumberWaitlist } from '@/utils/promoteWaitlisted';
+import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
 
 export async function POST(
   req: NextRequest,
@@ -59,8 +60,7 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to cancel registration' }, { status: 500 });
     }
 
-    // If the cancelled registration was confirmed, notify admin/PD
-    // and check if there are waitlisted volunteers to promote
+    // If the cancelled registration was confirmed, update GCal and staffing state
     if (wasConfirmed) {
       // Get visit details for context
       const { data: visit } = await supabase
@@ -87,11 +87,10 @@ export async function POST(
       // TODO: Notify admin/PD of volunteer cancellation
       // TODO: If within 72h of visit_date, flag as URGENT in notification
 
-      // Promote next waitlisted volunteer (if any)
-      const { promoted } = await promoteNextWaitlisted(supabase, visitId);
-      if (!promoted) {
-        console.log(`[cancel-registration] Visit ${visitId} has an open slot with no waitlist`);
-      }
+      // No auto-promotion — the PD promotes from the waitlist manually (alerted via the visits badge)
+      await recalcVisitStaffing(supabase, visitId);
+    } else {
+      await renumberWaitlist(supabase, visitId);
     }
 
     return NextResponse.json({ success: true });

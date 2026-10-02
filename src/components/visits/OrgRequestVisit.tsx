@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { useSupabaseClient } from '@/utils/supabase/client';
 import { VISIT_TIME_OPTIONS, VISIT_DURATION_OPTIONS, computeEndTime, formatTime } from '@/utils/timeOptions';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
+import { ORG_MAX_DOGS } from '@/utils/visitSlots';
 
 interface Props {
   onSuccess: () => void;
@@ -319,7 +320,7 @@ export default function OrgRequestVisit({ onSuccess }: Props) {
             <input
               type="number"
               min={1}
-              max={4}
+              max={ORG_MAX_DOGS}
               className={inputClass}
               value={form.max_volunteers}
               onChange={e => set('max_volunteers', e.target.value)}

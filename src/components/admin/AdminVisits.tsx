@@ -4,12 +4,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import {
   Calendar, Clock, MapPin, ChevronRight, Building2, PawPrint,
-  ExternalLink, ArrowLeft, Phone, Mail, User, Pencil,
+  ExternalLink, ArrowLeft, ArrowUp, Phone, Mail, User, Pencil,
 } from 'lucide-react';
 import { VISIT_TIME_OPTIONS, VISIT_DURATION_OPTIONS, computeEndTime, formatTime } from '@/utils/timeOptions';
 import { formatCardTime } from '@/utils/timeZone';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
 import VisitMap from '@/components/ui/VisitMap';
+import { VolunteerSlotBar, StaffingStatus } from '@/components/visits/VolunteerSlotBar';
+import { getVisitAlerts } from '@/utils/visitSlots';
+import { formatPhoneDisplay } from '@/utils/formatPhone';
 
 const formatPhoneNumber = (value: string) => {
   const cleaned = value.replace(/\D/g, '').slice(0, 10);
@@ -54,6 +57,7 @@ interface VisitSummary {
   end_time: string;
   address: string;
   volunteer_slots: number;
+  min_volunteers: number;
   confirmed_count: number;
   waitlist_count: number;
   slots_remaining: number;
@@ -112,6 +116,7 @@ interface VisitDetail {
   fee_tier: string | null;
   fee_amount: number | null;
   volunteer_slots: number;
+  min_volunteers: number;
   parking_coverage: string | null;
   parking_instructions: string | null;
   arrival_instructions: string | null;
@@ -133,7 +138,11 @@ interface Props {
   onCountChange?: () => void;
   pdMode?: boolean;
   onSelectOrg?: (orgId: string) => void;
+  // From the ?filter= URL param (home page links): a status tab, or 'unassigned'
+  initialFilter?: string | null;
 }
+
+const STATUS_FILTERS: StatusFilter[] = ['approved', 'pending_completion', 'completed', 'pending_review', 'all'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -154,11 +163,6 @@ function daysUntil(dateStr: string): number {
   today.setHours(0, 0, 0, 0);
   const target = new Date(dateStr + 'T00:00:00');
   return Math.round((target.getTime() - today.getTime()) / 86400000);
-}
-
-function isWithinDays(dateStr: string, days: number) {
-  const d = daysUntil(dateStr);
-  return d >= 0 && d <= days;
 }
 
 function CountdownBadge({ dateStr }: { dateStr: string }) {
@@ -215,24 +219,6 @@ function StatusBadge({ status }: { status: VisitStatus }) {
   );
 }
 
-function SlotBar({ confirmed, total }: { confirmed: number; total: number }) {
-  const pct = total > 0 ? Math.min(100, (confirmed / total) * 100) : 0;
-  const isFull = confirmed >= total;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isFull ? 'bg-green-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-xs text-gray-600 whitespace-nowrap">
-        {confirmed}/{total} volunteers
-      </span>
-    </div>
-  );
-}
-
 // ─── Create Visit Form ────────────────────────────────────────────────────────
 
 function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
@@ -257,6 +243,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     location_lng: null as number | null,
     postal_code: '',
     volunteer_slots: 1,
+    min_volunteers: '',
     requires_vsc: false,
     visitor_count_expected: '',
     approx_space_sqft: '',
@@ -335,6 +322,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       accessibility_notes: org.default_accessibility_notes || f.accessibility_notes,
       approx_space_sqft: org.default_space_sqft != null ? String(org.default_space_sqft) : f.approx_space_sqft,
       volunteer_slots: org.default_dogs_needed ?? f.volunteer_slots,
+      min_volunteers: '',
       requires_vsc: org.default_requires_vsc ?? f.requires_vsc,
     }));
   };
@@ -375,6 +363,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           ...form,
           organization_id: form.organization_id || null,
           volunteer_slots: Number(form.volunteer_slots),
+          min_volunteers: form.min_volunteers ? Number(form.min_volunteers) : Number(form.volunteer_slots),
           visitor_count_expected: form.visitor_count_expected ? Number(form.visitor_count_expected) : null,
           approx_space_sqft: form.approx_space_sqft ? Number(form.approx_space_sqft) : null,
           fee_tier: form.fee_tier || null,
@@ -531,8 +520,12 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Logistics</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
-            <label className={labelClass}>Dogs Needed</label>
-            <input type="number" min={1} max={4} value={form.volunteer_slots} onChange={e => set('volunteer_slots', e.target.value)} className={inputClass} />
+            <label className={labelClass}>Dogs (min – max)</label>
+            <div className="flex items-center gap-1.5">
+              <input type="number" min={1} max={Number(form.volunteer_slots) || undefined} value={form.min_volunteers} placeholder={String(form.volunteer_slots)} onChange={e => set('min_volunteers', e.target.value)} className={inputClass} aria-label="Minimum dogs to go ahead" />
+              <span className="text-gray-400">–</span>
+              <input type="number" min={1} value={form.volunteer_slots} onChange={e => set('volunteer_slots', e.target.value)} className={inputClass} aria-label="Maximum dogs" />
+            </div>
           </div>
           <div>
             <label className={labelClass}>Estimated Participants</label>
@@ -649,8 +642,7 @@ function VisitDetailView({
     guest_org_name: string; guest_contact_name: string; guest_contact_email: string; guest_contact_phone: string;
     visit_date: string; start_time: string; end_time: string;
     address: string; location_place_id: string; location_lat: number | null; location_lng: number | null;
-    volunteer_slots: number; visitor_count_expected: string; approx_space_sqft: string;
-    audience_age_ranges: string[];
+    volunteer_slots: number; min_volunteers: number; visitor_count_expected: string; approx_space_sqft: string;
     requires_vsc: boolean;
     fee_tier: string; fee_amount: string;
     parking_coverage: string; parking_instructions: string;
@@ -812,7 +804,7 @@ function VisitDetailView({
     if (!visit) return;
     setEditForm({
       title: visit.title ?? '',
-      guest_org_name: visit.guest_org_name ?? '',
+      guest_org_name: visit.guest_org_name ?? visit.org?.org_name ?? '',
       guest_contact_name: visit.guest_contact_name ?? '',
       guest_contact_email: visit.guest_contact_email ?? '',
       guest_contact_phone: visit.guest_contact_phone ?? '',
@@ -824,9 +816,9 @@ function VisitDetailView({
       location_lat: visit.location_lat,
       location_lng: visit.location_lng,
       volunteer_slots: visit.volunteer_slots,
+      min_volunteers: visit.min_volunteers ?? visit.volunteer_slots,
       visitor_count_expected: visit.visitor_count_expected != null ? String(visit.visitor_count_expected) : '',
       approx_space_sqft: visit.approx_space_sqft != null ? String(visit.approx_space_sqft) : '',
-      audience_age_ranges: visit.audience_age_ranges ?? [],
       requires_vsc: visit.requires_vsc,
       fee_tier: visit.fee_tier ?? '',
       fee_amount: visit.fee_amount != null ? String(visit.fee_amount) : '',
@@ -849,7 +841,10 @@ function VisitDetailView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: editForm.title || null,
-          guest_org_name: editForm.guest_org_name || null,
+          // Org-requested visits take their name from the org account; only store an override.
+          guest_org_name: !visit?.guest_org_name && editForm.guest_org_name === (visit?.org?.org_name ?? '')
+            ? null
+            : editForm.guest_org_name || null,
           guest_contact_name: editForm.guest_contact_name || null,
           guest_contact_email: editForm.guest_contact_email || null,
           guest_contact_phone: editForm.guest_contact_phone || null,
@@ -861,9 +856,9 @@ function VisitDetailView({
           location_lat: editForm.location_lat,
           location_lng: editForm.location_lng,
           volunteer_slots: editForm.volunteer_slots,
+          min_volunteers: editForm.min_volunteers,
           visitor_count_expected: editForm.visitor_count_expected ? parseInt(editForm.visitor_count_expected) : null,
           approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
-          audience_age_ranges: editForm.audience_age_ranges.length > 0 ? editForm.audience_age_ranges : null,
           requires_vsc: editForm.requires_vsc,
           fee_tier: editForm.fee_tier || null,
           fee_amount: editForm.fee_tier === 'custom' && editForm.fee_amount ? parseFloat(editForm.fee_amount) : null,
@@ -895,14 +890,6 @@ function VisitDetailView({
     } : f);
   };
 
-  const toggleAgeRange = (range: string) => {
-    setEditForm(f => {
-      if (!f) return f;
-      const has = f.audience_age_ranges.includes(range);
-      return { ...f, audience_age_ranges: has ? f.audience_age_ranges.filter(r => r !== range) : [...f.audience_age_ranges, range] };
-    });
-  };
-
   const handleSaveSharedNote = async () => {
     setSavingSharedNote(true);
     try {
@@ -930,6 +917,22 @@ function VisitDetailView({
       const json = await res.json();
       if (!res.ok) { setError(json.error || 'Failed to remove volunteer'); return; }
       await load();
+      onUpdated();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePromote = async (regId: number, name: string) => {
+    if (!confirm(`Move ${name} from the waitlist into an open spot? They'll get an email confirming they're attending.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/visits/${visitId}/registrations/${regId}/promote`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || 'Failed to promote volunteer'); await load(); return; }
+      await load();
+      onUpdated();
     } finally {
       setBusy(false);
     }
@@ -970,7 +973,12 @@ function VisitDetailView({
 
   const orgName = visit.guest_org_name || visit.org?.org_name || '—';
   const confirmedRegs = visit.visit_registrations.filter(r => r.status === 'confirmed');
-  const waitlistedRegs = visit.visit_registrations.filter(r => r.status === 'waitlisted');
+  const waitlistedRegs = visit.visit_registrations
+    .filter(r => r.status === 'waitlisted')
+    .sort((a, b) => (a.waitlist_position ?? Infinity) - (b.waitlist_position ?? Infinity));
+  const minVolunteers = visit.min_volunteers ?? visit.volunteer_slots;
+  const openSpots = Math.max(0, visit.volunteer_slots - confirmedRegs.length);
+  const canPromote = visit.status === 'approved' && openSpots > 0;
   const hasActiveRegs = visit.visit_registrations.some(r => r.status !== 'cancelled');
   const canDelete = !hasActiveRegs;
 
@@ -996,7 +1004,20 @@ function VisitDetailView({
       {/* ── Edit form (shown instead of read-only cards) ── */}
       {editMode && editForm && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4 space-y-5">
-          <p className="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-3">Edit Visit Details</p>
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <p className="text-sm font-semibold text-gray-700">Edit Visit Details</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setEditMode(false); setEditForm(null); }} disabled={savingEdit}
+                className="px-3 py-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-50 transition">
+                Cancel
+              </button>
+              <button onClick={handleEditSave} disabled={savingEdit}
+                className="px-4 py-1.5 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
+                {savingEdit ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>}
 
           {/* Basic info */}
           <div className="space-y-3">
@@ -1073,9 +1094,14 @@ function VisitDetailView({
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Visit Details</p>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Volunteer Slots</label>
-                <input type="number" min={1} value={editForm.volunteer_slots} onChange={e => setEditForm(f => f ? { ...f, volunteer_slots: parseInt(e.target.value) || 1 } : f)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dogs (min – max)</label>
+                <div className="flex items-center gap-1.5">
+                  <input type="number" min={1} max={editForm.volunteer_slots} value={editForm.min_volunteers} onChange={e => setEditForm(f => f ? { ...f, min_volunteers: parseInt(e.target.value) || 1 } : f)}
+                    aria-label="Minimum dogs to go ahead" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-400">–</span>
+                  <input type="number" min={1} value={editForm.volunteer_slots} onChange={e => setEditForm(f => f ? { ...f, volunteer_slots: parseInt(e.target.value) || 1 } : f)}
+                    aria-label="Maximum dogs" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Expected Visitors</label>
@@ -1086,18 +1112,6 @@ function VisitDetailView({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Space (sq ft)</label>
                 <input type="number" min={0} value={editForm.approx_space_sqft} onChange={e => setEditForm(f => f ? { ...f, approx_space_sqft: e.target.value } : f)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Audience Age Ranges</label>
-              <div className="flex flex-wrap gap-2">
-                {['children', 'youth', 'adults', 'seniors'].map(range => (
-                  <label key={range} className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={editForm.audience_age_ranges.includes(range)} onChange={() => toggleAgeRange(range)}
-                      className="rounded accent-[#0e62ae]" />
-                    <span className="text-sm text-gray-700 capitalize">{range}</span>
-                  </label>
-                ))}
               </div>
             </div>
           </div>
@@ -1164,18 +1178,6 @@ function VisitDetailView({
             ))}
           </div>
 
-          {/* Save / Cancel */}
-          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>}
-          <div className="flex gap-3 border-t border-gray-100 pt-4">
-            <button onClick={handleEditSave} disabled={savingEdit}
-              className="px-5 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
-              {savingEdit ? 'Saving…' : 'Save Changes'}
-            </button>
-            <button onClick={() => { setEditMode(false); setEditForm(null); }} disabled={savingEdit}
-              className="px-5 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-50 transition">
-              Cancel
-            </button>
-          </div>
         </div>
       )}
 
@@ -1456,11 +1458,16 @@ function VisitDetailView({
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
           <PawPrint size={14} className="text-gray-400" /> Volunteers
-          <span className="text-gray-400 font-normal">({confirmedRegs.length}/{visit.volunteer_slots})</span>
+          <span className="text-gray-400 font-normal">
+            ({minVolunteers < visit.volunteer_slots ? `${minVolunteers}–${visit.volunteer_slots} dogs` : `${visit.volunteer_slots} ${visit.volunteer_slots === 1 ? 'dog' : 'dogs'}`})
+          </span>
           {waitlistedRegs.length > 0 && <span className="text-amber-600 font-normal">· {waitlistedRegs.length} waitlisted</span>}
+          {visit.status === 'approved' && (
+            <span className="ml-auto"><StaffingStatus confirmed={confirmedRegs.length} min={minVolunteers} max={visit.volunteer_slots} audience="admin" /></span>
+          )}
         </h3>
 
-        <SlotBar confirmed={confirmedRegs.length} total={visit.volunteer_slots} />
+        <VolunteerSlotBar confirmed={confirmedRegs.length} min={minVolunteers} max={visit.volunteer_slots} showMinimum />
 
         <div className="mt-2 mb-4 flex flex-wrap gap-4 text-sm text-gray-600">
           <span><span className="font-semibold text-gray-900">{confirmedRegs.length}</span> confirmed</span>
@@ -1514,7 +1521,7 @@ function VisitDetailView({
 
         {/* Confirmed dog cards */}
         <div className="space-y-2">
-          {Array.from({ length: visit.volunteer_slots }).map((_, i) => {
+          {Array.from({ length: Math.max(visit.volunteer_slots, confirmedRegs.length) }).map((_, i) => {
             const reg = confirmedRegs[i];
             const dog = reg?.users?.dogs?.[0] ?? null;
             if (reg) {
@@ -1561,7 +1568,7 @@ function VisitDetailView({
                   <PawPrint size={22} className="text-gray-200" />
                 </div>
                 <div className="flex-1 px-4 flex items-center">
-                  <p className="text-sm text-gray-300 font-medium">Open Slot</p>
+                  <p className="text-sm text-gray-300 font-medium">{i < minVolunteers ? 'Open Slot' : 'Open Slot (optional)'}</p>
                 </div>
               </div>
             );
@@ -1572,11 +1579,21 @@ function VisitDetailView({
         {waitlistedRegs.length > 0 && (
           <div className="border-t border-gray-100 mt-3 pt-3">
             <p className="text-xs font-semibold text-amber-600 mb-2">Waitlisted</p>
+            {canPromote && (
+              <div className="mb-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-800">
+                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5" />
+                <span>
+                  <span className="font-semibold">{openSpots} {openSpots === 1 ? 'spot is' : 'spots are'} open.</span>
+                  {' '}Waitlisted volunteers aren&apos;t moved up automatically. Contact them, then promote.
+                  {' '}New signups join the waitlist until it&apos;s empty.
+                </span>
+              </div>
+            )}
             <div className="space-y-2">
               {waitlistedRegs.map(reg => {
                 const dog = reg.users?.dogs?.[0] ?? null;
                 return (
-                  <div key={reg.id} className="flex items-stretch rounded-xl overflow-hidden border border-amber-100 bg-amber-50 h-16">
+                  <div key={reg.id} className="flex items-stretch rounded-xl overflow-hidden border border-amber-100 bg-amber-50 min-h-16">
                     <div className="w-16 shrink-0 bg-amber-100">
                       {dog?.dog_picture_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -1587,7 +1604,7 @@ function VisitDetailView({
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 px-4 flex flex-col justify-center gap-0.5 min-w-0">
+                    <div className="flex-1 px-4 py-2 flex flex-col justify-center gap-0.5 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
@@ -1596,16 +1613,34 @@ function VisitDetailView({
                           </div>
                           {dog?.dog_breed && <p className="text-xs text-gray-500">{dog.dog_breed}</p>}
                           <p className="text-xs text-amber-600">Handler: {reg.users?.first_name ?? '—'} {reg.users?.last_name ?? ''}</p>
+                          {(reg.users?.phone_number || reg.users?.email) && (
+                            <p className="text-xs text-gray-500 flex flex-wrap gap-x-3">
+                              {reg.users?.phone_number && (
+                                <a href={`tel:${reg.users.phone_number}`} className="inline-flex items-center gap-1 hover:underline">
+                                  <Phone size={10} /> {formatPhoneDisplay(reg.users.phone_number)}
+                                </a>
+                              )}
+                              {reg.users?.email && (
+                                <a href={`mailto:${reg.users.email}`} className="inline-flex items-center gap-1 hover:underline truncate">
+                                  <Mail size={10} /> {reg.users.email}
+                                </a>
+                              )}
+                            </p>
+                          )}
                         </div>
                         {visit.status === 'approved' && (
                           <div className="flex flex-col items-end gap-1 shrink-0">
+                            {canPromote && (
+                              <button
+                                onClick={() => handlePromote(reg.id, reg.users?.first_name ?? 'this volunteer')}
+                                disabled={busy}
+                                className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2 py-0.5 rounded-md disabled:opacity-50 flex items-center gap-1">
+                                <ArrowUp size={10} /> Promote
+                              </button>
+                            )}
                             <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
                               className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50">
                               Remove
-                            </button>
-                            <button onClick={() => handleSendDetails(reg.volunteer_id)} disabled={sendingDetailsTo === reg.volunteer_id}
-                              className="text-xs text-blue-500 hover:text-blue-700 font-medium disabled:opacity-50 flex items-center gap-1">
-                              <Mail size={10} /> {sendingDetailsTo === reg.volunteer_id ? 'Sending…' : 'Email Details'}
                             </button>
                           </div>
                         )}
@@ -1762,12 +1797,14 @@ function VisitDetailView({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false, onSelectOrg }: Props) {
+export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false, onSelectOrg, initialFilter }: Props) {
   const { user } = useUser();
   const currentUserId = user?.id ?? null;
   const [view, setView] = useState<ViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('approved');
-  const [filterUnassigned, setFilterUnassigned] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    STATUS_FILTERS.includes(initialFilter as StatusFilter) ? initialFilter as StatusFilter : 'approved'
+  );
+  const [filterUnassigned, setFilterUnassigned] = useState(initialFilter === 'unassigned' && !pdMode);
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const regionFilterInitialized = useRef(false);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -1775,6 +1812,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
   const [activeVisitsCount, setActiveVisitsCount] = useState<number | null>(null);
   const [pendingCompletionCount, setPendingCompletionCount] = useState<number | null>(null);
+  const [attentionCount, setAttentionCount] = useState(0);
   const [pdUsers, setPdUsers] = useState<PdUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1816,7 +1854,9 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
       fetch('/api/admin/visits?scope=pending_completion').then(r => r.json()),
       fetch('/api/admin/visits?status=pending_review').then(r => r.json()),
     ]).then(([activeJson, pendingJson, reviewJson]) => {
-      setActiveVisitsCount(pdFilter(activeJson.visits ?? []).length);
+      const active = pdFilter((activeJson.visits ?? []) as VisitSummary[]) as VisitSummary[];
+      setActiveVisitsCount(active.length);
+      setAttentionCount(active.filter((v: VisitSummary) => getVisitAlerts(v).needsAttention).length);
       setPendingCompletionCount(pdFilter(pendingJson.visits ?? []).length);
       setPendingReviewCount(pdFilter(reviewJson.visits ?? []).length);
     }).catch(() => {});
@@ -1888,7 +1928,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
           orgImage={selectedVisitSummary?.org_profile_image ?? null}
           pdUsers={pdUsers}
           onBack={() => onBackFromVisit?.()}
-          onUpdated={() => { fetchVisits(); fetchTabCounts(); }}
+          onUpdated={() => { fetchVisits(); fetchTabCounts(); onCountChange?.(); }}
           onSelectOrg={onSelectOrg}
         />
       </div>
@@ -1937,6 +1977,12 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
                 statusFilter === key ? 'bg-white/30 text-white' : 'bg-gray-400 text-white'
               }`}>
                 {activeVisitsCount}
+              </span>
+            )}
+            {key === 'approved' && attentionCount > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none"
+                title="Visits below their minimum within 14 days, or with an open spot and a waitlist">
+                {attentionCount}
               </span>
             )}
             {key === 'pending_completion' && pendingCompletionCount !== null && pendingCompletionCount > 0 && (
@@ -2014,7 +2060,8 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
         <div className="grid gap-4 sm:grid-cols-2">
           {displayedVisits.map(visit => {
             const orgLabel = visit.guest_org_name || visit.org_name || 'Unknown organization';
-            const isUrgent = visit.status === 'approved' && visit.slots_remaining > 0 && isWithinDays(visit.visit_date, 14);
+            const minVolunteers = visit.min_volunteers ?? visit.volunteer_slots;
+            const { belowMinSoon: isUrgent, waitlistReady } = getVisitAlerts(visit);
             const assignedPd = pdUsers.find(p => p.id === visit.assigned_pd_id);
 
             const isHistorical = statusFilter === 'pending_completion' || statusFilter === 'completed';
@@ -2057,9 +2104,14 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
                 </p>
                 <p className="text-sm text-gray-500 truncate mb-3">{visit.address}</p>
 
-                <SlotBar confirmed={visit.confirmed_count} total={visit.volunteer_slots} />
+                <VolunteerSlotBar confirmed={visit.confirmed_count} min={minVolunteers} max={visit.volunteer_slots} showMinimum />
 
-                {visit.waitlist_count > 0 && (
+                {waitlistReady ? (
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                    Spot open · {visit.waitlist_count} on waitlist. Promote someone
+                  </p>
+                ) : visit.waitlist_count > 0 && (
                   <p className="mt-1 text-xs text-amber-600">{visit.waitlist_count} on waitlist</p>
                 )}
 
