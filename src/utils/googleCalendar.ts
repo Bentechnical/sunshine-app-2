@@ -33,7 +33,9 @@ function getColorId(feeTier: string | null | undefined, parkingCoverage: string 
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-function getCalendarClient() {
+// Exported for scripts/scenario/calendar.ts, which needs raw list/delete access to wipe the
+// test calendar between PD testing sessions. Not used by application code.
+export function getCalendarClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
   const calId = process.env.GOOGLE_CALENDAR_ID;
@@ -59,7 +61,15 @@ function getCalendarClient() {
   return google.calendar({ version: 'v3', auth });
 }
 
-const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID!;
+// Read lazily, not at module scope. ES imports are evaluated before the importing module's
+// body runs, so a top-level constant capturing this env var resolves to undefined in any script
+// that calls dotenv.config() itself. Next.js loads env before modules, so this only ever bit the
+// scenario scripts — and silently, after the auth check had already reported the variable as set.
+function calendarId(): string {
+  const id = process.env.GOOGLE_CALENDAR_ID;
+  if (!id) throw new Error('GOOGLE_CALENDAR_ID is not set');
+  return id;
+}
 
 // ─── Description builder ──────────────────────────────────────────────────────
 
@@ -154,7 +164,7 @@ export async function createVisitEvent(
     parkingCoverage: visit.parking_coverage,
     hasStartTime: !!visit.start_time,
     hasEndTime: !!visit.end_time,
-    calendarId: CALENDAR_ID,
+    calendarId: calendarId(),
   });
   try {
     const calendar = getCalendarClient();
@@ -162,7 +172,7 @@ export async function createVisitEvent(
     // Create event without attendees first (service accounts can't invite
     // attendees directly without Domain-Wide Delegation), then add them via patch.
     const event = await calendar.events.insert({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       sendUpdates: 'none',
       requestBody: {
         summary: buildSummary(visit),
@@ -201,7 +211,7 @@ export async function cancelVisitEvent(googleCalendarEventId: string): Promise<v
   try {
     const calendar = getCalendarClient();
     await calendar.events.patch({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       eventId: googleCalendarEventId,
       sendUpdates: 'none',
       requestBody: { status: 'cancelled' },
@@ -223,7 +233,7 @@ export async function updateVisitEvent(
   try {
     const calendar = getCalendarClient();
     await calendar.events.patch({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       eventId: googleCalendarEventId,
       sendUpdates: 'none',
       requestBody: {
@@ -253,7 +263,7 @@ export async function addAttendeeToEvent(
     const calendar = getCalendarClient();
 
     const existing = await calendar.events.get({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       eventId: googleCalendarEventId,
     });
 
@@ -262,7 +272,7 @@ export async function addAttendeeToEvent(
     if (alreadyAdded) return;
 
     await calendar.events.patch({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       eventId: googleCalendarEventId,
       sendUpdates: 'none',
       requestBody: {
@@ -286,7 +296,7 @@ export async function removeAttendeeFromEvent(
     const calendar = getCalendarClient();
 
     const existing = await calendar.events.get({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       eventId: googleCalendarEventId,
     });
 
@@ -296,7 +306,7 @@ export async function removeAttendeeFromEvent(
     if (filtered.length === currentAttendees.length) return; // wasn't there
 
     await calendar.events.patch({
-      calendarId: CALENDAR_ID,
+      calendarId: calendarId(),
       eventId: googleCalendarEventId,
       sendUpdates: 'none',
       requestBody: { attendees: filtered },

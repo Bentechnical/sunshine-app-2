@@ -43,11 +43,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // the region — and never surface in the admin "unassigned" filter.
     let visitsUnassigned = 0;
     if (orgIds.length > 0) {
+      // Skips pd_assignment_method = 'manual' — a visit deliberately assigned to a specific
+      // PD keeps that PD even when its org's region is retired.
       const { data: clearedVisits, error: visitErr } = await supabase
         .from('visits')
         .update({ assigned_pd_id: null })
         .in('organization_id', orgIds)
         .not('assigned_pd_id', 'is', null)
+        .eq('pd_assignment_method', 'region_auto')
         .select('id');
 
       if (visitErr) {

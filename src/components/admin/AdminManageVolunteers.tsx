@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
+import { formatPhoneDisplay } from '@/utils/formatPhone';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,8 +43,8 @@ interface Volunteer {
 export type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
 
 export interface ComplianceRecord {
-  vsc: { status: ComplianceStatus; date_issued: string | null; renewal_due: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null };
-  vaccine: { status: ComplianceStatus; date_issued: string | null; expiry_date: string | null; dog_name: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null };
+  vsc: { status: ComplianceStatus; date_issued: string | null; renewal_due: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null; rejection_reason: string | null };
+  vaccine: { status: ComplianceStatus; date_issued: string | null; expiry_date: string | null; dog_name: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null; rejection_reason: string | null };
 }
 
 export type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; vaccine_supporting_signed_urls: string[]; dog_name: string | null };
@@ -343,6 +344,14 @@ export function DocumentModal({
                         {status === 'approved' ? 'Approved' : 'Rejected'} {formatDateTime(activeDoc.verified_at)}
                         {activeDoc.verified_by_name && <> by {activeDoc.verified_by_name}</>}
                       </p>
+                    )}
+                    {status === 'rejected' && activeDoc.rejection_reason && (
+                      <div className="mt-2 pt-2 border-t border-red-200">
+                        <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">
+                          Reason for rejection (sent to the volunteer)
+                        </p>
+                        <p className="text-sm text-red-900 italic">&ldquo;{activeDoc.rejection_reason}&rdquo;</p>
+                      </div>
                     )}
                   </div>
                 );
@@ -943,7 +952,7 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
                                 className="w-24 h-24 object-cover rounded-xl"
                               />
                               <div className="space-y-1 text-sm">
-                                <p><span className="font-semibold text-gray-700">Phone:</span> <span className="text-gray-900">{user.phone}</span></p>
+                                <p><span className="font-semibold text-gray-700">Phone:</span> <span className="text-gray-900">{formatPhoneDisplay(user.phone) || '—'}</span></p>
                                 <p><span className="font-semibold text-gray-700">Postal Code:</span> <span className="text-gray-900">{user.postal_code}</span></p>
                                 {user.date_of_birth && (
                                   <p><span className="font-semibold text-gray-700">Date of Birth:</span> <span className="text-gray-900">{formatDate(user.date_of_birth)}</span></p>

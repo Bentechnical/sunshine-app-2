@@ -37,13 +37,13 @@ export async function GET(req: NextRequest) {
     const [volunteersRes, dogsRes] = await Promise.all([
       supabase
         .from('users')
-        .select('id, first_name, last_name, email, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_verified_at, vsc_verified_by, vsc_upload_comment')
+        .select('id, first_name, last_name, email, vsc_document_url, vsc_date_issued, vsc_renewal_due, vsc_verification_status, vsc_verified_at, vsc_verified_by, vsc_upload_comment, vsc_rejection_reason')
         .eq('role', 'volunteer')
         .eq('status', 'approved')
         .order('last_name', { ascending: true }),
       supabase
         .from('dogs')
-        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status, vaccine_verified_at, vaccine_verified_by, vaccine_upload_comment'),
+        .select('volunteer_id, dog_name, dog_breed, vaccine_record_url, vaccine_date_issued, vaccine_expiry_date, vaccine_verification_status, vaccine_verified_at, vaccine_verified_by, vaccine_upload_comment, vaccine_rejection_reason'),
     ]);
 
     if (volunteersRes.error) {
@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
           verified_by: v.vsc_verified_by ?? null,
           verified_by_name: v.vsc_verified_by ? (verifierNames.get(v.vsc_verified_by) ?? null) : null,
           upload_comment: v.vsc_upload_comment ?? null,
+          rejection_reason: v.vsc_rejection_reason ?? null,
         },
         vaccine: {
           status: vaccineStatus,
@@ -107,6 +108,7 @@ export async function GET(req: NextRequest) {
           verified_by: dog?.vaccine_verified_by ?? null,
           verified_by_name: dog?.vaccine_verified_by ? (verifierNames.get(dog.vaccine_verified_by) ?? null) : null,
           upload_comment: dog?.vaccine_upload_comment ?? null,
+          rejection_reason: dog?.vaccine_rejection_reason ?? null,
         },
       };
     });

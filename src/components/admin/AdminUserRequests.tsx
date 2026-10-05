@@ -44,6 +44,7 @@ function buildComplianceRecord(user: VolunteerRequest): ComplianceRecord {
       verified_by: null,
       verified_by_name: null,
       upload_comment: user.vsc_upload_comment ?? null,
+      rejection_reason: null,
     },
     vaccine: {
       status: vaccineStatus,
@@ -56,6 +57,7 @@ function buildComplianceRecord(user: VolunteerRequest): ComplianceRecord {
       verified_by: null,
       verified_by_name: null,
       upload_comment: user.dog?.vaccine_upload_comment ?? null,
+      rejection_reason: null,
     },
   };
 }

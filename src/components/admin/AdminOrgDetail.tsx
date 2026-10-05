@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
 import { VolunteerSlotBar } from '@/components/visits/VolunteerSlotBar';
+import { formatPhoneDisplay } from '@/utils/formatPhone';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -192,7 +193,7 @@ export default function AdminOrgDetail({
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact Phone</p>
-            <p className="text-gray-900">{org.org_contact_phone || '—'}</p>
+            <p className="text-gray-900">{formatPhoneDisplay(org.org_contact_phone) || '—'}</p>
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account Email</p>

@@ -133,6 +133,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // history with the old PD is defensible), a region handover transfers the whole region:
     // all statuses cascade, so the new PD inherits the org's visit history too.
     // Pass cascade_visits: false to opt out.
+    //
+    // Visits with pd_assignment_method = 'manual' are skipped. Those were deliberately
+    // reassigned to a specific PD via the visit detail view, and a region handover must not
+    // silently undo that. Requires scripts/addVisitPdAssignmentMethod.sql (Migration 39).
     let visits_updated: number | null = null;
     const ownerChanged = 'owner_pd_id' in updates && updates.owner_pd_id !== previousOwnerPdId;
     const shouldCascade = ownerChanged && body.cascade_visits !== false;
@@ -159,6 +163,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             .from('visits')
             .update({ assigned_pd_id: newOwnerPdId })
             .in('organization_id', orgIds)
+            .eq('pd_assignment_method', 'region_auto')
             .select('id');
 
           if (visitErr) {

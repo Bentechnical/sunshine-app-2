@@ -156,10 +156,34 @@ export async function PATCH(
     if ('assigned_pd_id' in updates) {
       const { data: oldVisit } = await supabase
         .from('visits')
-        .select('assigned_pd_id')
+        .select('assigned_pd_id, organization_id')
         .eq('id', visitId)
         .single();
       oldPdId = oldVisit?.assigned_pd_id ?? null;
+
+      // Record whether this assignment is a deliberate per-visit override or just agrees
+      // with the org's region owner. The region-handover cascade in
+      // PATCH /api/admin/regions/[id] skips 'manual' rows, so an explicit reassignment here
+      // survives the org's region later changing hands.
+      let regionOwnerPdId: string | null = null;
+      if (oldVisit?.organization_id) {
+        const { data: org } = await supabase
+          .from('users')
+          .select('assigned_region_id')
+          .eq('id', oldVisit.organization_id)
+          .single();
+        if (org?.assigned_region_id) {
+          const { data: region } = await supabase
+            .from('pd_regions')
+            .select('owner_pd_id')
+            .eq('id', org.assigned_region_id)
+            .eq('is_active', true)
+            .single();
+          regionOwnerPdId = region?.owner_pd_id ?? null;
+        }
+      }
+      const incomingPdId = (updates.assigned_pd_id ?? null) as string | null;
+      updates.pd_assignment_method = incomingPdId === regionOwnerPdId ? 'region_auto' : 'manual';
     }
 
     const { error } = await supabase

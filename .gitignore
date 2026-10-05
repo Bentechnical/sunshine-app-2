@@ -43,3 +43,9 @@ next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
 // touch
+
+# PD testing scenario — build artifacts (contains user ids)
+scenario/
+
+# Local DB backups — contain real PII, must never be committed
+supabase/Supabase Backups/

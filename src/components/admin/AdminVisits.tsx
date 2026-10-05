@@ -306,7 +306,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       guest_org_name: org.org_name || f.guest_org_name,
       guest_contact_name: org.org_contact_name || f.guest_contact_name,
       guest_contact_email: org.email || f.guest_contact_email,
-      guest_contact_phone: org.org_contact_phone || f.guest_contact_phone,
+      guest_contact_phone: formatPhoneDisplay(org.org_contact_phone) || f.guest_contact_phone,
       address: org.org_address || f.address,
       location_place_id: org.org_place_id || f.location_place_id,
       location_lat: org.location_lat ?? f.location_lat,
@@ -807,7 +807,7 @@ function VisitDetailView({
       guest_org_name: visit.guest_org_name ?? visit.org?.org_name ?? '',
       guest_contact_name: visit.guest_contact_name ?? '',
       guest_contact_email: visit.guest_contact_email ?? '',
-      guest_contact_phone: visit.guest_contact_phone ?? '',
+      guest_contact_phone: formatPhoneDisplay(visit.guest_contact_phone) ?? '',
       visit_date: visit.visit_date,
       start_time: toEasternHHMM(visit.start_time),
       end_time: toEasternHHMM(visit.end_time),
@@ -988,7 +988,7 @@ function VisitDetailView({
       {/* Top bar */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium transition">
-          <ArrowLeft size={16} /> All Visits
+          <ArrowLeft size={16} /> Back
         </button>
         <div className="flex items-center gap-2">
           <CountdownBadge dateStr={visit.visit_date} />
@@ -1584,8 +1584,8 @@ function VisitDetailView({
                 <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5" />
                 <span>
                   <span className="font-semibold">{openSpots} {openSpots === 1 ? 'spot is' : 'spots are'} open.</span>
-                  {' '}Waitlisted volunteers aren&apos;t moved up automatically. Contact them, then promote.
-                  {' '}New signups join the waitlist until it&apos;s empty.
+                  {' '}Promote someone from the waitlist below — they&apos;ll be emailed.
+                  {' '}New sign-ups keep joining the waitlist until the {openSpots === 1 ? 'spot is' : 'spots are'} filled.
                 </span>
               </div>
             )}
