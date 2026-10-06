@@ -80,7 +80,7 @@ const client = await streamChatManager.connectUser(userId, token, userData);
 
 ## 5. Monitoring Tools
 
-**Script:** `scripts/monitorStreamChat.ts`
+**Script:** `scripts/monitorStreamChat.ts` *(removed Oct 2026 — recover from git history if this feature is revived)*
 
 ```bash
 npm run monitor-chat

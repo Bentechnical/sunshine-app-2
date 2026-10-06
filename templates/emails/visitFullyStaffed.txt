@@ -1,6 +1,6 @@
 Hi {{contactName}},
 
-Great news — enough volunteer handlers and therapy dogs have signed up for your upcoming visit, so it's confirmed to go ahead! Our teams are looking forward to visiting.
+Great news — enough volunteers and therapy dogs have signed up for your upcoming visit, so it's confirmed to go ahead! Our teams are looking forward to visiting.
 
 Here's how your visit details will appear to our volunteers:
 

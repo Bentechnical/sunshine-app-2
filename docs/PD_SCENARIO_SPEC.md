@@ -138,7 +138,8 @@ expect it to be?" — before helping.
 > whether they're actually yours."
 
 - **Anchor:** ErinoakKids Centre, `pending`, sitting in **Toronto's** queue but with a
-  **Mississauga** address.
+  **Mississauga** address, marked `region_assignment_method = 'manual'` — boundary auto-assignment
+  could never produce that pairing, so the honest story is that a human filed it there by hand.
 - **Done when:** approved, and ideally reassigned to the Mississauga region.
 - **Watch:** do they spot the geography at all? The closing clause is the only nudge — if they
   approve it into their own region without noticing, that's the finding.
@@ -167,11 +168,11 @@ expect it to be?" — before helping.
 ### P12 · Approve a new volunteer — priority B
 > "Someone signed up as a volunteer a couple of days ago. Have a look and decide."
 
-- **Anchor:** Leah Brandt, `pending`, dog registered, documents uploaded but unverified, sitting in
-  **Toronto's** queue with an **Oakville** postcode.
-- **Done when:** approved or denied, ideally assigned to the right region.
-- **Watch:** do they review the documents as part of approving, or treat them as separate? Same
-  geography question as P9 — does it land the second time?
+- **Anchor:** Leah Brandt, `pending`, dog registered, documents uploaded but unverified, Toronto
+  postcode, correctly auto-assigned to Toronto. Nothing is wrong with her — this is the clean case.
+- **Done when:** approved or denied.
+- **Watch:** do they review the documents as part of approving, or treat the two as separate jobs?
+  Do they check anything else before approving — location, dog, travel distance?
 
 ### P13 · Update an org's contact — priority B
 > "Nisbet Lodge have had a staff change — Patricia has left and their new activities coordinator is
@@ -286,7 +287,7 @@ All compliance documents point at shared fixtures under
 `compliance-documents/scenario-fixtures/`. Verification state lives in the database, not the file,
 so one plausible certificate serves every volunteer.
 
-### 4.5 Visits — 46 total
+### 4.5 Visits — 45 total
 | Band | Count | Status |
 |---|---|---|
 | Jun – Sep | 14 | `completed` — gives org pages history |
@@ -294,7 +295,7 @@ so one plausible certificate serves every volunteer.
 | 28 Sep – 1 Oct | 3 | one `approved` with end time past (P11), two `completed` |
 | **8 – 10 Oct** | **5** | **this week — two on Thu 8th (one full with a waitlist), two Fri, one Sat** |
 | 12 – 16 Oct | 8 | incl. P1, P4, P8, P14 anchors |
-| 19 – 29 Oct | 8 | incl. P1, P16, P17, plants A and C |
+| 19 – 29 Oct | 7 | incl. P1, P16, plants A and C |
 | Nov | 4 | healthy, approved |
 | scattered | 1 | one `declined` |
 
@@ -303,7 +304,8 @@ are explicit rather than generated, because the weighted org pool spreads across
 too few landed in Toronto. Visits earlier in the week will have passed by a later session and move
 to awaiting completion; that drift is realistic.
 
-Three sit in `pending_review` (P13, P14, and one background), so the waiting queue isn't trivial.
+Two sit in `pending_review` — P1's request to approve and P14's to decline. There is deliberately
+no third: unanchored pending requests were just noise in the queue.
 
 Across **10-12 repeating orgs**, not 36 distinct ones — real orgs book repeatedly, and 36 different
 names reads as fake immediately.
@@ -315,7 +317,10 @@ with none).
 ### 4.6 Hard constraints on the generated data
 1. **Anchor uniqueness.** Each anchor must be unambiguous on the identifiers its prompt uses. No
    other visit for the same org within ±3 days of an anchor, or "their visit next Tuesday" stops
-   resolving.
+   resolving. An anchor can widen that window with `blackoutDaysAfter` when its prompt's premise
+   demands it — P7 says Markham Stouffville is closed to visitors for a month, so it claims 31 days
+   and the generator gives that org nothing else in the window. Without it the board contradicted
+   the prompt.
 2. **No overlapping registrations** for the same volunteer. The app has no double-booking detection
    and that's parked — background noise must not accidentally raise it.
 3. **Suppress both crons.** Set `staffed_notified_at` on every seeded visit and `reminder_sent_at`

@@ -64,7 +64,9 @@ export default function DashboardLayout({
   const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger, role === 'admin');
   const alertCounts = useAdminAlertCounts(role === 'admin' || role === 'pd', role === 'pd', alertCountsRefreshTrigger);
   const tabAlertCounts: Record<string, number> = {
-    'user-requests': alertCounts.userRequests,
+    'volunteer-requests': alertCounts.volunteerRequests,
+    'org-requests': alertCounts.orgRequests,
+    'individual-requests': alertCounts.individualRequests,
     'group-visits': alertCounts.groupVisits + alertCounts.pendingCompletion + alertCounts.visitsNeedingAttention,
     'manage-volunteers': alertCounts.pendingDocReviews,
   };
@@ -75,7 +77,7 @@ export default function DashboardLayout({
     <UnreadCountProvider>
       <div className="flex h-screen relative" data-active-tab={activeTab}>
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex flex-col h-screen w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] p-6 shadow-lg font-sans z-20">
+        <aside className="hidden md:flex flex-col h-screen w-72 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] py-6 px-5 shadow-lg font-sans z-20">
           <div className="mb-8 flex justify-center relative w-full h-16">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -87,7 +89,7 @@ export default function DashboardLayout({
 
           {(role === 'admin' || role === 'pd') ? (
             <>
-              <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-6">
+              <div className="mb-6 py-2 bg-red-600 text-white text-center rounded-lg -mx-5">
                 <span className="text-sm font-medium">{role === 'pd' ? 'Program Director' : 'Admin Mode'}</span>
               </div>
               <DesktopNavAdmin activeTab={activeTab} setActiveTab={adminSetActiveTab!} unreadCount={unreadCount} alertCounts={tabAlertCounts} role={role === 'pd' ? 'pd' : 'admin'} />

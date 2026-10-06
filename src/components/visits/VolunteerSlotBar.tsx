@@ -10,11 +10,20 @@ interface SlotBarProps {
   max: number;
   // Admin/PD views show where the minimum sits; orgs and volunteers never see it.
   showMinimum?: boolean;
+  // The numeric label is redundant wherever a StaffingStatus line already spells the
+  // counts out in words — the segments themselves encode confirmed/min/max.
+  showLabel?: boolean;
+  // Admin/PD only: below the minimum AND close enough to matter, so the bar reads as
+  // an alert rather than as progress.
+  urgent?: boolean;
 }
 
-export function VolunteerSlotBar({ confirmed, min, max, showMinimum = false }: SlotBarProps) {
+export function VolunteerSlotBar({ confirmed, min, max, showMinimum = false, showLabel = true, urgent = false }: SlotBarProps) {
   const state = getStaffingState(confirmed, min, max);
-  const fillClass = state === 'below_min' ? 'bg-blue-500' : 'bg-green-500';
+  const fillClass =
+    state !== 'below_min' ? 'bg-green-500' :
+    urgent               ? 'bg-amber-500' :
+                           'bg-blue-500';
   const hasRange = min < max;
   const total = Math.max(max, confirmed);
 
@@ -54,7 +63,7 @@ export function VolunteerSlotBar({ confirmed, min, max, showMinimum = false }: S
           )}
         </div>
       )}
-      <span className="text-xs text-gray-600 whitespace-nowrap">{label}</span>
+      {showLabel && <span className="text-xs text-gray-600 whitespace-nowrap">{label}</span>}
     </div>
   );
 }
@@ -68,16 +77,57 @@ interface StaffingStatusProps {
   audience: StaffingAudience;
   // Volunteer already on this visit (confirmed or waitlisted): don't prompt them to join the waitlist.
   registered?: boolean;
-  // Volunteers only: while anyone is waitlisted, open spots are held for the waitlist.
+  // Volunteers: while anyone is waitlisted, open spots are held for the waitlist.
+  // Admin/PD: an open spot with anyone waiting is a promotion the PD has to make by hand.
   waitlisted?: number;
+  // Admin/PD: below the minimum and inside the urgent window, so the shortfall needs chasing
+  // now rather than being the normal state of a visit that is still months out.
+  urgent?: boolean;
+  // Bumps the line from supporting text to the card's headline verdict.
+  prominent?: boolean;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+// Admin/PD colour contract: green means nothing to do, amber means the PD has to act,
+// grey means not yet actionable. A card should only ever show one of these.
+const ADMIN_TONE = {
+  ok: 'text-green-700',
+  act: 'text-amber-700',
+  idle: 'text-gray-500',
+};
+
 // Orgs never see the minimum itself, only softer wording around it.
-export function StaffingStatus({ confirmed, min, max, audience, registered = false, waitlisted = 0 }: StaffingStatusProps) {
+export function StaffingStatus({ confirmed, min, max, audience, registered = false, waitlisted = 0, urgent = false, prominent = false }: StaffingStatusProps) {
   const state = getStaffingState(confirmed, min, max);
   const open = max - confirmed;
+  const size = prominent ? 'text-sm' : 'text-xs';
+
+  if (audience === 'admin') {
+    const line = (tone: string, text: string, icon: 'check' | 'dot' | null) => (
+      <span className={`inline-flex items-center gap-1.5 ${size} font-semibold ${tone}`}>
+        {icon === 'check' && <Check size={prominent ? 14 : 12} className="shrink-0" />}
+        {icon === 'dot' && <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />}
+        {text}
+      </span>
+    );
+
+    // A spot open with someone waiting outranks the visit's own health: the visit may well
+    // be going ahead, but there is still a promotion sitting in the PD's queue.
+    if (waitlisted > 0 && state !== 'full') {
+      return line(ADMIN_TONE.act, `Promote from waitlist · ${waitlisted} waiting`, 'dot');
+    }
+    if (state === 'below_min') {
+      const needed = min - confirmed;
+      return urgent
+        ? line(ADMIN_TONE.act, `Needs ${plural(needed, 'more dog')} to go ahead`, 'dot')
+        : line(ADMIN_TONE.idle, `Needs ${plural(needed, 'more dog')} to go ahead`, null);
+    }
+    if (state === 'full') {
+      return line(ADMIN_TONE.ok, waitlisted > 0 ? `Full · ${waitlisted} on waitlist` : `Full · ${plural(confirmed, 'dog')}`, 'check');
+    }
+    return line(ADMIN_TONE.ok, `Going ahead · ${plural(open, 'spot')} open`, 'check');
+  }
 
   if (audience === 'volunteer' && waitlisted > 0 && state !== 'full') {
     return (
@@ -108,7 +158,7 @@ export function StaffingStatus({ confirmed, min, max, audience, registered = fal
     }
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500">
-        {audience === 'volunteer' && !registered ? 'Full · join the waitlist' : 'Full'}
+        {registered ? 'Full' : 'Full · join the waitlist'}
       </span>
     );
   }

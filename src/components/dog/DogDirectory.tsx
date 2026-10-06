@@ -144,7 +144,7 @@ export default function DogDirectory({ onSelectDog }: DogDirectoryProps) {
                 </p>
               )}
 
-              {/* Handler info */}
+              {/* Volunteer info */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-800">

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import {
   Calendar, Clock, MapPin, ChevronRight, Building2, PawPrint,
-  ExternalLink, ArrowLeft, ArrowUp, Phone, Mail, User, Pencil,
+  ExternalLink, ArrowLeft, ArrowUp, Phone, Mail, User, Pencil, Search,
 } from 'lucide-react';
 import { VISIT_TIME_OPTIONS, VISIT_DURATION_OPTIONS, computeEndTime, formatTime } from '@/utils/timeOptions';
 import { formatCardTime } from '@/utils/timeZone';
@@ -32,6 +32,8 @@ const formatPhoneNumber = (value: string) => {
 type VisitStatus = 'pending_review' | 'approved' | 'declined' | 'cancelled' | 'completed';
 type ViewMode = 'list' | 'create';
 type StatusFilter = 'approved' | 'pending_completion' | 'completed' | 'pending_review' | 'all';
+// Clickable alert pills above the list; 'none' means no alert filter is applied.
+type AlertFilter = 'none' | 'below_min' | 'waitlist' | 'unassigned';
 
 interface PdUser {
   id: string;
@@ -169,16 +171,41 @@ function CountdownBadge({ dateStr }: { dateStr: string }) {
   const days = daysUntil(dateStr);
   if (days < 0) return null;
   const label = days === 0 ? 'Today!' : days === 1 ? 'Tomorrow' : `In ${days} days`;
-  const cls =
-    days === 0 ? 'bg-green-100 text-green-700' :
-    days <= 2  ? 'bg-amber-100 text-amber-700' :
-                 'bg-blue-50 text-blue-600';
+  // Everything beyond the next couple of days is plain text. A coloured pill on all twenty
+  // cards spends the eye's attention evenly and leaves nothing to stand out.
+  if (days > 2) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500">
+        <Calendar size={10} />
+        {label}
+      </span>
+    );
+  }
+  const cls = days === 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700';
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>
       <Calendar size={10} />
       {label}
     </span>
   );
+}
+
+// ── Date bucketing for the Upcoming tab's group headers ──────────────────────
+
+const DATE_BUCKETS: { label: string; maxDays: number }[] = [
+  { label: 'This Week', maxDays: 7 },
+  { label: 'This Month', maxDays: 30 },
+  { label: 'Later', maxDays: Infinity },
+];
+
+function groupByDateBucket<T extends { visit_date: string }>(visits: T[]): { label: string; visits: T[] }[] {
+  const groups = DATE_BUCKETS.map(b => ({ label: b.label, visits: [] as T[] }));
+  for (const v of visits) {
+    const days = daysUntil(v.visit_date);
+    const idx = DATE_BUCKETS.findIndex(b => days <= b.maxDays);
+    groups[idx === -1 ? groups.length - 1 : idx].visits.push(v);
+  }
+  return groups.filter(g => g.visits.length > 0);
 }
 
 function OrgLogo({ url, size = 40 }: { url: string | null | undefined; size?: number }) {
@@ -216,6 +243,50 @@ function StatusBadge({ status }: { status: VisitStatus }) {
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>
       {label}
     </span>
+  );
+}
+
+function ContactLinks({ phone, email, tone = 'text-gray-500' }: {
+  phone?: string | null; email?: string | null; tone?: string;
+}) {
+  if (!phone && !email) return null;
+  return (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs ${tone}`}>
+      {phone && (
+        <a href={`tel:${phone}`} className="inline-flex items-center gap-1 hover:underline">
+          <Phone size={10} className="shrink-0" /> {formatPhoneDisplay(phone)}
+        </a>
+      )}
+      {email && (
+        <a href={`mailto:${email}`} className="inline-flex items-center gap-1 hover:underline min-w-0 max-w-full">
+          <Mail size={10} className="shrink-0" /> <span className="truncate">{email}</span>
+        </a>
+      )}
+    </div>
+  );
+}
+
+// Small bordered actions. These sit on a filled card, so a plain text link reads as stray
+// text rather than a control — the border is what makes them look clickable.
+const REG_ACTION_BASE = 'inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md border transition disabled:opacity-50 whitespace-nowrap';
+const REG_ACTION_NEUTRAL = `${REG_ACTION_BASE} border-gray-300 bg-white text-gray-700 hover:bg-gray-100`;
+const REG_ACTION_DANGER = `${REG_ACTION_BASE} border-gray-300 bg-white text-red-600 hover:bg-red-50 hover:border-red-300`;
+
+// Mirrors the compliance pills on Manage Volunteers so the two pages read the same way.
+function AlertPill({ active, onClick, tone, label }: {
+  active: boolean; onClick: () => void; tone: 'amber' | 'red'; label: string;
+}) {
+  const classes = active
+    ? (tone === 'amber' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white')
+    : (tone === 'amber' ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-red-100 text-red-700 hover:bg-red-200');
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition ${classes}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />
+      {label}
+    </button>
   );
 }
 
@@ -625,10 +696,12 @@ function VisitDetailView({
   const [showDeclineForm, setShowDeclineForm] = useState(false);
   const [showApproveForm, setShowApproveForm] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
+  const [showCompleteForm, setShowCompleteForm] = useState(false);
+  const [completionNote, setCompletionNote] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notifyOrg, setNotifyOrg] = useState(false);
-  // Shared note (admin_note — internal only)
+  // visits.admin_note — the single org-visible note. Internal notes live in visit_notes.
   const [editingSharedNote, setEditingSharedNote] = useState(false);
   const [sharedNoteText, setSharedNoteText] = useState('');
   const [savingSharedNote, setSavingSharedNote] = useState(false);
@@ -751,10 +824,15 @@ function VisitDetailView({
       if (!res.ok) { setError(json.error || 'Action failed'); return; }
       await load();
       onUpdated();
+      if (json.note_saved === false) {
+        setError('Visit marked complete, but the note could not be saved. Please add it below.');
+      }
       setActionNote('');
+      setCompletionNote('');
       setShowDeclineForm(false);
       setShowApproveForm(false);
       setShowCancelForm(false);
+      setShowCompleteForm(false);
     } finally {
       setBusy(false);
     }
@@ -1210,9 +1288,12 @@ function VisitDetailView({
               {visit.status === 'approved' && (
                 <>
                   {new Date(visit.end_time) <= new Date() && (
-                    <button onClick={() => doAction('complete')} disabled={busy}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition">
-                      {busy ? '…' : 'Mark as Complete'}
+                    <button
+                      onClick={() => { setShowCompleteForm(v => !v); setShowCancelForm(false); }}
+                      disabled={busy}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg text-white disabled:opacity-50 transition ${showCompleteForm ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}`}
+                    >
+                      Mark as Complete
                     </button>
                   )}
                   <button
@@ -1232,6 +1313,75 @@ function VisitDetailView({
             </div>
           </div>
         </div>
+
+        {/* Inline action forms. These sit directly under the buttons that open them —
+            below the visit details the confirmation would be offscreen on a long record. */}
+        {showApproveForm && (
+          <div className="mb-4 border-b border-gray-100 pb-4 space-y-3">
+            <p className="text-sm font-semibold text-green-800">Approve visit</p>
+            <div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
+                Note to organization
+                <span className="font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Optional</span>
+              </label>
+              <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
+                className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="Included in their approval email…" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => doAction('approve', { admin_note: actionNote })} disabled={busy}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-green-700">
+                {busy ? 'Approving…' : 'Confirm Approval'}
+              </button>
+              <button onClick={() => { setShowApproveForm(false); setActionNote(''); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
+            </div>
+          </div>
+        )}
+        {showCompleteForm && (
+          <div className="mb-4 border-b border-gray-100 pb-4 space-y-3">
+            <p className="text-sm font-semibold text-green-800">Mark visit as complete</p>
+            <div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
+                Internal note
+                <span className="font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Optional</span>
+              </label>
+              <textarea value={completionNote} onChange={e => setCompletionNote(e.target.value)} rows={3}
+                className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="How did the visit go? Any follow-ups, issues, or notes for next time…" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => doAction('complete', { internal_note: completionNote })} disabled={busy}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-green-700">
+                {busy ? 'Completing…' : completionNote.trim() ? 'Complete & Save Note' : 'Mark Complete'}
+              </button>
+              <button onClick={() => { setShowCompleteForm(false); setCompletionNote(''); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
+            </div>
+          </div>
+        )}
+        {showDeclineForm && (
+          <div className="mb-4 border-b border-gray-100 pb-4 space-y-3">
+            <p className="text-sm font-semibold text-red-800">Decline visit</p>
+            <div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
+                Note to organization
+                <span className="font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Optional</span>
+              </label>
+              <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
+                className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                placeholder="Reason for declining — included in their email…" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => doAction('decline', { admin_note: actionNote })} disabled={busy}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-700">
+                {busy ? 'Declining…' : 'Confirm Decline'}
+              </button>
+              <button onClick={() => { setShowDeclineForm(false); setActionNote(''); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
+            </div>
+          </div>
+        )}
 
         {visit.title && (
           <p className="text-xl font-bold text-gray-900 mb-0.5">{visit.title}</p>
@@ -1305,39 +1455,6 @@ function VisitDetailView({
           </div>
         )}
 
-        {/* Inline action forms — inside header card */}
-        {showApproveForm && (
-          <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
-            <p className="text-sm font-semibold text-green-800">Approve visit</p>
-            <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
-              className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-              placeholder="Optional note to the organization (shared with them)…" />
-            <div className="flex gap-2">
-              <button onClick={() => doAction('approve', { admin_note: actionNote })} disabled={busy}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-green-700">
-                {busy ? 'Approving…' : 'Confirm Approval'}
-              </button>
-              <button onClick={() => { setShowApproveForm(false); setActionNote(''); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
-            </div>
-          </div>
-        )}
-        {showDeclineForm && (
-          <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
-            <p className="text-sm font-semibold text-red-800">Decline visit</p>
-            <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
-              className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-              placeholder="Reason for declining (shared with organization)…" />
-            <div className="flex gap-2">
-              <button onClick={() => doAction('decline', { admin_note: actionNote })} disabled={busy}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-red-700">
-                {busy ? 'Declining…' : 'Confirm Decline'}
-              </button>
-              <button onClick={() => { setShowDeclineForm(false); setActionNote(''); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
-            </div>
-          </div>
-        )}
         {/* Cancel/Delete modal */}
         {showCancelForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => { setShowCancelForm(false); setActionNote(''); setShowDeleteConfirm(false); setNotifyOrg(false); }}>
@@ -1373,9 +1490,15 @@ function VisitDetailView({
                   </label>
                 )}
 
-                <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Reason for cancellation — shared with organization (required)" />
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
+                    Reason for cancellation
+                    <span className="font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Required</span>
+                  </label>
+                  <textarea value={actionNote} onChange={e => setActionNote(e.target.value)} rows={2}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Why isn't this visit going ahead?…" />
+                </div>
 
                 {!showDeleteConfirm && (
                   <button onClick={() => doAction('cancel', { admin_note: actionNote, notify_org: notifyOrg })} disabled={busy || deleting || !actionNote.trim()}
@@ -1537,23 +1660,32 @@ function VisitDetailView({
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 px-4 flex flex-col justify-center gap-0.5 min-w-0">
+                  <div className="flex-1 px-4 flex flex-col justify-center min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 leading-tight">{dog?.dog_name ?? 'Unknown Dog'}</p>
-                        {dog?.dog_breed && <p className="text-xs text-gray-500">{dog.dog_breed}</p>}
-                        <p className="text-xs text-gray-400 mt-0.5">Handler: {reg.users?.first_name ?? '—'} {reg.users?.last_name ?? ''}</p>
-                        {reg.users?.email && <p className="text-xs text-gray-400 truncate">{reg.users.email}</p>}
+                        {/* The volunteer leads: they're who you call, email or remove.
+                            The dog is carried by the photo and named on the line below. */}
+                        <p className="text-base font-bold text-gray-900 leading-tight truncate">
+                          {reg.users ? `${reg.users.first_name} ${reg.users.last_name}` : 'Unknown volunteer'}
+                        </p>
+                        <p className="text-sm text-gray-600 truncate flex items-center gap-1 mt-0.5">
+                          <PawPrint size={12} className="text-gray-400 shrink-0" />
+                          <span className="font-semibold text-gray-700">{dog?.dog_name ?? 'Unknown dog'}</span>
+                          {dog?.dog_breed && <span className="text-gray-500 truncate">· {dog.dog_breed}</span>}
+                        </p>
+                        <div className="mt-1.5">
+                          <ContactLinks phone={reg.users?.phone_number} email={reg.users?.email} />
+                        </div>
                       </div>
                       {visit.status === 'approved' && (
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
-                            className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50">
-                            Remove
-                          </button>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                           <button onClick={() => handleSendDetails(reg.volunteer_id)} disabled={sendingDetailsTo === reg.volunteer_id}
-                            className="text-xs text-blue-500 hover:text-blue-700 font-medium disabled:opacity-50 flex items-center gap-1">
-                            <Mail size={10} /> {sendingDetailsTo === reg.volunteer_id ? 'Sending…' : 'Email Details'}
+                            className={REG_ACTION_NEUTRAL}>
+                            <Mail size={11} /> {sendingDetailsTo === reg.volunteer_id ? 'Sending…' : 'Email details'}
+                          </button>
+                          <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
+                            className={REG_ACTION_DANGER}>
+                            Remove
                           </button>
                         </div>
                       )}
@@ -1607,39 +1739,35 @@ function VisitDetailView({
                     <div className="flex-1 px-4 py-2 flex flex-col justify-center gap-0.5 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
+                          {/* Position belongs beside the volunteer — it's their place in the
+                              queue, and they're the one being promoted. */}
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-gray-800">{dog?.dog_name ?? 'Unknown Dog'}</p>
-                            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">#{reg.waitlist_position}</span>
-                          </div>
-                          {dog?.dog_breed && <p className="text-xs text-gray-500">{dog.dog_breed}</p>}
-                          <p className="text-xs text-amber-600">Handler: {reg.users?.first_name ?? '—'} {reg.users?.last_name ?? ''}</p>
-                          {(reg.users?.phone_number || reg.users?.email) && (
-                            <p className="text-xs text-gray-500 flex flex-wrap gap-x-3">
-                              {reg.users?.phone_number && (
-                                <a href={`tel:${reg.users.phone_number}`} className="inline-flex items-center gap-1 hover:underline">
-                                  <Phone size={10} /> {formatPhoneDisplay(reg.users.phone_number)}
-                                </a>
-                              )}
-                              {reg.users?.email && (
-                                <a href={`mailto:${reg.users.email}`} className="inline-flex items-center gap-1 hover:underline truncate">
-                                  <Mail size={10} /> {reg.users.email}
-                                </a>
-                              )}
+                            <p className="text-sm font-bold text-gray-900 truncate">
+                              {reg.users ? `${reg.users.first_name} ${reg.users.last_name}` : 'Unknown volunteer'}
                             </p>
-                          )}
+                            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">#{reg.waitlist_position}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 truncate flex items-center gap-1 mt-0.5">
+                            <PawPrint size={11} className="text-amber-400 shrink-0" />
+                            <span className="font-semibold text-gray-700">{dog?.dog_name ?? 'Unknown dog'}</span>
+                            {dog?.dog_breed && <span className="text-gray-500 truncate">· {dog.dog_breed}</span>}
+                          </p>
+                          <div className="mt-1">
+                            <ContactLinks phone={reg.users?.phone_number} email={reg.users?.email} tone="text-gray-600" />
+                          </div>
                         </div>
                         {visit.status === 'approved' && (
-                          <div className="flex flex-col items-end gap-1 shrink-0">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
                             {canPromote && (
                               <button
                                 onClick={() => handlePromote(reg.id, reg.users?.first_name ?? 'this volunteer')}
                                 disabled={busy}
-                                className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-2 py-0.5 rounded-md disabled:opacity-50 flex items-center gap-1">
-                                <ArrowUp size={10} /> Promote
+                                className={`${REG_ACTION_BASE} border-green-600 bg-green-600 text-white hover:bg-green-700`}>
+                                <ArrowUp size={11} /> Promote
                               </button>
                             )}
                             <button onClick={() => handleRemoveRegistration(reg.id)} disabled={busy}
-                              className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50">
+                              className={REG_ACTION_DANGER}>
                               Remove
                             </button>
                           </div>
@@ -1804,15 +1932,22 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     STATUS_FILTERS.includes(initialFilter as StatusFilter) ? initialFilter as StatusFilter : 'approved'
   );
-  const [filterUnassigned, setFilterUnassigned] = useState(initialFilter === 'unassigned' && !pdMode);
+  // Declared alongside statusFilter so both persist as the user moves between tabs.
+  const [searchQuery, setSearchQuery] = useState('');
+  // The home page's ?filter=unassigned deep link lands straight on the matching pill.
+  const [alertFilter, setAlertFilter] = useState<AlertFilter>(
+    initialFilter === 'unassigned' && !pdMode ? 'unassigned' : 'none'
+  );
   const [regionFilter, setRegionFilter] = useState<string>('all');
   const regionFilterInitialized = useRef(false);
   const [regions, setRegions] = useState<Region[]>([]);
   const [visits, setVisits] = useState<VisitSummary[]>([]);
-  const [pendingReviewCount, setPendingReviewCount] = useState<number | null>(null);
-  const [activeVisitsCount, setActiveVisitsCount] = useState<number | null>(null);
-  const [pendingCompletionCount, setPendingCompletionCount] = useState<number | null>(null);
-  const [attentionCount, setAttentionCount] = useState(0);
+  // The lists behind the tab badges are kept whole rather than pre-counted, so the badges
+  // can be re-derived under the current region filter without three more round trips.
+  // Counting them at fetch time is what previously let the badges disagree with the list.
+  const [countLists, setCountLists] = useState<{
+    active: VisitSummary[]; pendingCompletion: VisitSummary[]; pendingReview: VisitSummary[];
+  } | null>(null);
   const [pdUsers, setPdUsers] = useState<PdUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1846,19 +1981,16 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
   // Fetch tab counts once (independent of which filter tab is selected)
   const fetchTabCounts = useCallback(() => {
     if (pdMode && !currentUserId) return;
-    const pdFilter = (list: { assigned_pd_id: string | null }[]) =>
-      pdMode ? list.filter(v => v.assigned_pd_id === currentUserId) : list;
-
     Promise.all([
       fetch('/api/admin/visits?scope=active').then(r => r.json()),
       fetch('/api/admin/visits?scope=pending_completion').then(r => r.json()),
       fetch('/api/admin/visits?status=pending_review').then(r => r.json()),
     ]).then(([activeJson, pendingJson, reviewJson]) => {
-      const active = pdFilter((activeJson.visits ?? []) as VisitSummary[]) as VisitSummary[];
-      setActiveVisitsCount(active.length);
-      setAttentionCount(active.filter((v: VisitSummary) => getVisitAlerts(v).needsAttention).length);
-      setPendingCompletionCount(pdFilter(pendingJson.visits ?? []).length);
-      setPendingReviewCount(pdFilter(reviewJson.visits ?? []).length);
+      setCountLists({
+        active: (activeJson.visits ?? []) as VisitSummary[],
+        pendingCompletion: (pendingJson.visits ?? []) as VisitSummary[],
+        pendingReview: (reviewJson.visits ?? []) as VisitSummary[],
+      });
     }).catch(() => {});
   }, [currentUserId, pdMode]);
 
@@ -1876,15 +2008,8 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
       const res = await fetch(`/api/admin/visits${params}`);
       const json = await res.json();
       if (!res.ok) { setError(json.error || 'Failed to load visits'); return; }
-      const loaded = json.visits ?? [];
-      setVisits(loaded);
-      if (statusFilter === 'pending_review') {
-        const count = pdMode
-          ? loaded.filter((v: { assigned_pd_id: string | null }) => v.assigned_pd_id === currentUserId).length
-          : loaded.length;
-        setPendingReviewCount(count);
-        onCountChange?.();
-      }
+      setVisits(json.visits ?? []);
+      if (statusFilter === 'pending_review') onCountChange?.();
     } catch {
       setError('Failed to load visits');
     } finally {
@@ -1937,30 +2062,147 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
 
   // ── Derived: apply all active filters ──
   const selectedRegion = regions.find(r => String(r.id) === regionFilter) ?? null;
-  const displayedVisits = visits.filter(v => {
-    if (filterUnassigned && v.assigned_pd_id != null) return false;
-    if (regionFilter !== 'all' && selectedRegion) {
-      if (v.assigned_pd_id !== selectedRegion.owner_pd_id) return false;
+  const query = searchQuery.trim().toLowerCase();
+
+  // The one scoping rule, shared by the list, the alert pills and the tab badges so the
+  // three can never disagree. PD scoping is client-side only (see CLAUDE.md).
+  const inScope = (v: { assigned_pd_id: string | null }) => {
+    if (pdMode && v.assigned_pd_id !== currentUserId) return false;
+    if (regionFilter !== 'all' && selectedRegion && v.assigned_pd_id !== selectedRegion.owner_pd_id) return false;
+    return true;
+  };
+
+  const countInScope = (list: VisitSummary[] | undefined) => (list ?? []).filter(inScope).length;
+  const activeVisitsCount = countLists ? countInScope(countLists.active) : null;
+  const pendingCompletionCount = countLists ? countInScope(countLists.pendingCompletion) : null;
+  const pendingReviewCount = countLists ? countInScope(countLists.pendingReview) : null;
+  const attentionCount = countLists
+    ? countLists.active.filter(v => inScope(v) && getVisitAlerts(v).needsAttention).length
+    : 0;
+
+  // Scoped by region/search but NOT by the alert pills — the pill counts are taken from
+  // here so they always describe the list the user is actually looking at.
+  const scopedVisits = visits.filter(v => {
+    if (!inScope(v)) return false;
+    if (query) {
+      const haystack = [
+        v.guest_org_name, v.org_name, v.guest_contact_name, v.title, v.address,
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (!haystack.includes(query)) return false;
     }
     return true;
   });
+
+  // getVisitAlerts is false for anything not approved, so these pills simply vanish on the
+  // history tabs without needing to special-case the tab.
+  const alertCounts: Record<Exclude<AlertFilter, 'none'>, number> = {
+    below_min:  scopedVisits.filter(v => getVisitAlerts(v).belowMinSoon).length,
+    waitlist:   scopedVisits.filter(v => getVisitAlerts(v).waitlistReady).length,
+    unassigned: pdMode ? 0 : scopedVisits.filter(v => v.assigned_pd_id == null).length,
+  };
+  const showAlertBar = Object.values(alertCounts).some(n => n > 0);
+
+  // A pill with nothing behind it stops filtering. Without this, carrying a filter to a tab
+  // where it has no matches leaves an empty list and no visible control explaining why.
+  const activeAlert: AlertFilter = alertFilter !== 'none' && alertCounts[alertFilter] > 0 ? alertFilter : 'none';
+
+  const displayedVisits = scopedVisits.filter(v => {
+    if (activeAlert === 'none') return true;
+    if (activeAlert === 'below_min') return getVisitAlerts(v).belowMinSoon;
+    if (activeAlert === 'waitlist') return getVisitAlerts(v).waitlistReady;
+    if (activeAlert === 'unassigned') return v.assigned_pd_id == null;
+    return true;
+  });
+
+  // ── Render: a single visit card ──
+  // The bottom of the card is deliberately two elements: the bar (visual) and one
+  // StaffingStatus line (verbal). Waitlist state folds into that line rather than
+  // claiming a row of its own, which is what previously let a card show a green
+  // "going ahead" above a red "promote someone" about the same fact.
+  const renderVisitCard = (visit: VisitSummary) => {
+    const orgLabel = visit.guest_org_name || visit.org_name || 'Unknown organization';
+    const minVolunteers = visit.min_volunteers ?? visit.volunteer_slots;
+    const { belowMinSoon: isUrgent } = getVisitAlerts(visit);
+    const isHistorical = statusFilter === 'pending_completion' || statusFilter === 'completed';
+    // Status only earns a badge where it actually varies — on the Upcoming tab every
+    // visit is approved, so twenty green "Approved" pills carry no information.
+    const showStatusBadge = statusFilter === 'completed' || statusFilter === 'all' || statusFilter === 'pending_review';
+    const unassignedPd = !pdMode && visit.assigned_pd_id == null;
+
+    return (
+      <div
+        key={visit.id}
+        onClick={() => onSelectVisit?.(visit.id)}
+        className={`bg-white rounded-xl border-2 p-4 shadow-sm cursor-pointer transition-all group ${
+          isHistorical
+            ? 'border-gray-200 hover:border-gray-300 hover:shadow-md opacity-90'
+            : 'border-gray-100 hover:border-blue-200 hover:shadow-md'
+        }`}
+      >
+        {/* Badge row — exceptions only, so a healthy card stays quiet here */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <OrgLogo url={visit.org_profile_image} size={36} />
+            {showStatusBadge && <StatusBadge status={visit.status} />}
+            <CountdownBadge dateStr={visit.visit_date} />
+            {unassignedPd && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                No PD
+              </span>
+            )}
+          </div>
+          <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-400 shrink-0 transition-colors" />
+        </div>
+
+        {/* Org name (primary) + event title (secondary) */}
+        <p className="text-base font-bold text-gray-900 truncate mb-0.5">{orgLabel}</p>
+        {visit.title && (
+          <p className="text-sm text-gray-500 truncate mb-0.5">{visit.title}</p>
+        )}
+
+        {/* Date / time / address */}
+        <p className="text-sm text-gray-600 mb-0.5">
+          {formatDateShort(visit.visit_date)} · {formatCardTime(visit.start_time)} – {formatCardTime(visit.end_time)}
+        </p>
+        <p className="text-sm text-gray-500 truncate mb-3">{visit.address}</p>
+
+        <VolunteerSlotBar
+          confirmed={visit.confirmed_count}
+          min={minVolunteers}
+          max={visit.volunteer_slots}
+          showMinimum
+          showLabel={false}
+          urgent={isUrgent}
+        />
+        <div className="mt-1.5">
+          <StaffingStatus
+            confirmed={visit.confirmed_count}
+            min={minVolunteers}
+            max={visit.volunteer_slots}
+            audience="admin"
+            waitlisted={visit.waitlist_count}
+            urgent={isUrgent}
+            prominent
+          />
+        </div>
+      </div>
+    );
+  };
 
   // ── Render: List view ──
   return (
     <div className="px-4 py-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <h1 className="text-xl font-bold text-gray-900">Organization Visits</h1>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setView('create')}
-            className="px-4 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
-            + Create Visit
-          </button>
-        </div>
+        <button onClick={() => setView('create')}
+          className="px-4 py-2 bg-[#0e62ae] text-white text-sm font-semibold rounded-lg hover:bg-blue-700 whitespace-nowrap">
+          + Create Visit
+        </button>
       </div>
 
       {/* Status filter tabs */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         {filterTabs.map(({ key, label }) => (
           <button key={key} onClick={() => setStatusFilter(key)}
             className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${
@@ -1992,29 +2234,79 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
             )}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-3 flex-wrap">
+      </div>
+
+      {/* Scope row: action pills on the left, region on the right. The pills carry no box
+          of their own — they sit in the filter stack rather than interrupting it, and share
+          this row with the region select so showing them costs no extra vertical space. */}
+      <div className="flex items-center gap-2 flex-wrap mb-5 min-h-[34px]">
+        {!loading && showAlertBar && (
+          <>
+            {alertCounts.below_min > 0 && (
+              <AlertPill
+                active={activeAlert === 'below_min'}
+                onClick={() => setAlertFilter(f => f === 'below_min' ? 'none' : 'below_min')}
+                tone="amber"
+                label={`${alertCounts.below_min} need${alertCounts.below_min === 1 ? 's' : ''} volunteers`}
+              />
+            )}
+            {alertCounts.waitlist > 0 && (
+              <AlertPill
+                active={activeAlert === 'waitlist'}
+                onClick={() => setAlertFilter(f => f === 'waitlist' ? 'none' : 'waitlist')}
+                tone="amber"
+                label={`${alertCounts.waitlist} waitlist to promote`}
+              />
+            )}
+            {alertCounts.unassigned > 0 && (
+              <AlertPill
+                active={activeAlert === 'unassigned'}
+                onClick={() => setAlertFilter(f => f === 'unassigned' ? 'none' : 'unassigned')}
+                tone="red"
+                label={`${alertCounts.unassigned} unassigned PD`}
+              />
+            )}
+            {activeAlert !== 'none' && (
+              <button
+                onClick={() => setAlertFilter('none')}
+                className="text-xs text-gray-400 hover:text-gray-600 font-medium whitespace-nowrap"
+              >
+                Show all
+              </button>
+            )}
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-2 min-w-0">
+          <div className="relative flex-1 max-w-60 min-w-40">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search org, contact, address…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full border border-gray-300 pl-9 pr-8 py-1.5 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
           {regions.length > 0 && (
             <select
               value={regionFilter}
               onChange={e => setRegionFilter(e.target.value)}
-              className="border border-gray-300 px-3 py-1.5 rounded-md text-sm bg-white"
+              className="border border-gray-300 px-3 py-1.5 rounded-md text-sm bg-white shrink-0"
             >
               <option value="all">All Regions</option>
               {regions.map(r => (
                 <option key={r.id} value={String(r.id)}>{r.name}</option>
               ))}
             </select>
-          )}
-          {!pdMode && (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={filterUnassigned}
-                onChange={e => setFilterUnassigned(e.target.checked)}
-                className="rounded accent-[#0e62ae]"
-              />
-              <span className="text-sm text-gray-600 whitespace-nowrap">Unassigned only</span>
-            </label>
           )}
         </div>
       </div>
@@ -2055,77 +2347,29 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
         </div>
       )}
 
-      {/* Visit cards — 2-column grid */}
+      {/* Visit cards. Upcoming is grouped by date; every other tab is a flat grid,
+          since their sort orders don't make "this week / this month" meaningful. */}
       {!loading && !error && displayedVisits.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {displayedVisits.map(visit => {
-            const orgLabel = visit.guest_org_name || visit.org_name || 'Unknown organization';
-            const minVolunteers = visit.min_volunteers ?? visit.volunteer_slots;
-            const { belowMinSoon: isUrgent, waitlistReady } = getVisitAlerts(visit);
-            const assignedPd = pdUsers.find(p => p.id === visit.assigned_pd_id);
-
-            const isHistorical = statusFilter === 'pending_completion' || statusFilter === 'completed';
-
-            return (
-              <div
-                key={visit.id}
-                onClick={() => onSelectVisit?.(visit.id)}
-                className={`bg-white rounded-xl border-2 p-4 shadow-sm cursor-pointer transition-all group ${
-                  isHistorical
-                    ? 'border-gray-200 hover:border-gray-300 hover:shadow-md opacity-90'
-                    : 'border-gray-100 hover:border-blue-200 hover:shadow-md'
-                }`}
-              >
-                {/* Status row */}
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <OrgLogo url={visit.org_profile_image} size={36} />
-                    <StatusBadge status={visit.status} />
-                    <CountdownBadge dateStr={visit.visit_date} />
-                    {isUrgent && (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                        Urgent
-                      </span>
-                    )}
-                  </div>
-                  <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-400 shrink-0 transition-colors" />
+        statusFilter === 'approved' ? (
+          <div className="space-y-6">
+            {groupByDateBucket(displayedVisits).map(group => (
+              <div key={group.label}>
+                <div className="sticky top-0 z-10 bg-gray-50 py-2 mb-2 flex items-center gap-2">
+                  <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">{group.label}</h2>
+                  <span className="text-xs font-semibold text-gray-400">{group.visits.length}</span>
+                  <div className="flex-1 h-px bg-gray-200" />
                 </div>
-
-                {/* Org name (primary) + event title (secondary) */}
-                <p className="text-base font-bold text-gray-900 truncate mb-0.5">{orgLabel}</p>
-                {visit.title && (
-                  <p className="text-sm text-gray-500 truncate mb-0.5">{visit.title}</p>
-                )}
-
-                {/* Date / time / address */}
-                <p className="text-sm text-gray-600 mb-0.5">
-                  {formatDateShort(visit.visit_date)} · {formatCardTime(visit.start_time)} – {formatCardTime(visit.end_time)}
-                </p>
-                <p className="text-sm text-gray-500 truncate mb-3">{visit.address}</p>
-
-                <VolunteerSlotBar confirmed={visit.confirmed_count} min={minVolunteers} max={visit.volunteer_slots} showMinimum />
-
-                {waitlistReady ? (
-                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-red-600">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                    Spot open · {visit.waitlist_count} on waitlist. Promote someone
-                  </p>
-                ) : visit.waitlist_count > 0 && (
-                  <p className="mt-1 text-xs text-amber-600">{visit.waitlist_count} on waitlist</p>
-                )}
-
-                <div className="mt-2 flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">PD:</span>
-                  {assignedPd
-                    ? <span className="text-xs font-semibold text-gray-800">{assignedPd.first_name} {assignedPd.last_name}</span>
-                    : <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Unassigned</span>
-                  }
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {group.visits.map(renderVisitCard)}
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {displayedVisits.map(renderVisitCard)}
+          </div>
+        )
       )}
     </div>
   );

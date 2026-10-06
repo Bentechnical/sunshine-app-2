@@ -5,7 +5,9 @@ import { useUser } from '@clerk/nextjs';
 import { getVisitAlerts } from '@/utils/visitSlots';
 
 interface AlertCounts {
-  userRequests: number;
+  volunteerRequests: number;
+  orgRequests: number;
+  individualRequests: number;
   groupVisits: number;
   pendingDocReviews: number;
   pendingCompletion: number;
@@ -14,7 +16,7 @@ interface AlertCounts {
 
 export function useAdminAlertCounts(enabled = true, isPd = false, refreshTrigger = 0) {
   const { user } = useUser();
-  const [counts, setCounts] = useState<AlertCounts>({ userRequests: 0, groupVisits: 0, pendingDocReviews: 0, pendingCompletion: 0, visitsNeedingAttention: 0 });
+  const [counts, setCounts] = useState<AlertCounts>({ volunteerRequests: 0, orgRequests: 0, individualRequests: 0, groupVisits: 0, pendingDocReviews: 0, pendingCompletion: 0, visitsNeedingAttention: 0 });
 
   useEffect(() => {
     if (!enabled || !user) return;
@@ -29,7 +31,9 @@ export function useAdminAlertCounts(enabled = true, isPd = false, refreshTrigger
           fetch('/api/admin/visits?scope=active'),
         ]);
 
-        let userRequests = 0;
+        let volunteerRequests = 0;
+        let orgRequests = 0;
+        let individualRequests = 0;
         let groupVisits = 0;
         let pendingDocReviews = 0;
         let pendingCompletion = 0;
@@ -37,13 +41,12 @@ export function useAdminAlertCounts(enabled = true, isPd = false, refreshTrigger
 
         if (usersRes.ok) {
           const json = await usersRes.json();
-          const pendingUsers = json.users ?? [];
-          // PDs see volunteer + org requests in their region; admins see all
-          userRequests = isPd
-            ? pendingUsers.filter((u: { role: string }) => ['volunteer', 'organization'].includes(u.role)).length
-            : pendingUsers.filter((u: { role: string }) =>
-                ['volunteer', 'individual', 'organization'].includes(u.role)
-              ).length;
+          const pendingUsers: { role: string }[] = json.users ?? [];
+          const countRole = (role: string) => pendingUsers.filter(u => u.role === role).length;
+          volunteerRequests = countRole('volunteer');
+          orgRequests = countRole('organization');
+          // Individual requests are an admin-only tab
+          individualRequests = isPd ? 0 : countRole('individual');
         }
 
         if (visitsRes.ok) {
@@ -77,7 +80,7 @@ export function useAdminAlertCounts(enabled = true, isPd = false, refreshTrigger
           visitsNeedingAttention = active.filter((v: Parameters<typeof getVisitAlerts>[0]) => getVisitAlerts(v).needsAttention).length;
         }
 
-        setCounts({ userRequests, groupVisits, pendingDocReviews, pendingCompletion, visitsNeedingAttention });
+        setCounts({ volunteerRequests, orgRequests, individualRequests, groupVisits, pendingDocReviews, pendingCompletion, visitsNeedingAttention });
       } catch (err) {
         console.error('[useAdminAlertCounts] Error fetching alert counts:', err);
       }

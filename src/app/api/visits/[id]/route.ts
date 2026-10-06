@@ -12,6 +12,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { fromZonedTime } from 'date-fns-tz';
 import { geocodePostalCodeServer } from '@/utils/geocode';
 import { resolveOrgDogCount } from '@/utils/visitSlots';
+import { orgVisibleAdminNote, withoutAdminNote } from '@/utils/visitNoteVisibility';
 
 const EASTERN = 'America/New_York';
 
@@ -71,6 +72,8 @@ export async function GET(
       if (visit.status !== 'approved') {
         return NextResponse.json({ error: 'Visit not found' }, { status: 404 });
       }
+      // admin_note is the note to the organization; volunteers never receive it.
+      return NextResponse.json({ visit: withoutAdminNote(visit as Record<string, unknown>) });
     } else if (caller.role === 'organization') {
       if (visit.organization_id !== userId) {
         return NextResponse.json({ error: 'Visit not found' }, { status: 404 });
@@ -80,6 +83,9 @@ export async function GET(
 
       const filtered = {
         ...visit,
+        // Same gate as /api/visits/my: withhold the note until there's a decision to convey,
+        // so a note drafted while the request is still pending isn't exposed early.
+        admin_note: orgVisibleAdminNote(visit.status as string, visit.admin_note as string | null),
         visit_registrations: activeRegs.map((r: any) => {
           const user = r.users ?? {};
           const dog = Array.isArray(user.dogs) ? user.dogs[0] : (user.dogs ?? null);

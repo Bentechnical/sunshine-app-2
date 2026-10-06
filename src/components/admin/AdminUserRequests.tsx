@@ -165,8 +165,17 @@ interface Region {
   is_active: boolean;
 }
 
-export default function UserRequestsTab({ hideIndividuals = false, onCountChange }: { hideIndividuals?: boolean; onCountChange?: () => void }) {
-  const [activeSubtab, setActiveSubtab] = useState<'individual' | 'volunteer' | 'organization' | 'incomplete'>(hideIndividuals ? 'volunteer' : 'individual');
+export type RequestsView = 'volunteers' | 'orgs' | 'individuals';
+
+export default function UserRequestsTab({ view = 'volunteers', onCountChange }: { view?: RequestsView; onCountChange?: () => void }) {
+  // Only the volunteers view has subtabs (requests vs. incomplete/denied); the
+  // org and individual views are a single list each.
+  const [showIncomplete, setShowIncomplete] = useState(false);
+  const activeSubtab: 'individual' | 'volunteer' | 'organization' | 'incomplete' =
+    view === 'orgs' ? 'organization'
+    : view === 'individuals' ? 'individual'
+    : showIncomplete ? 'incomplete'
+    : 'volunteer';
   const [volunteerRequests, setVolunteerRequests] = useState<VolunteerRequest[]>([]);
   const [individualRequests, setIndividualRequests] = useState<IndividualRequest[]>([]);
   const [organizationRequests, setOrganizationRequests] = useState<OrganizationRequest[]>([]);
@@ -286,23 +295,25 @@ export default function UserRequestsTab({ hideIndividuals = false, onCountChange
 
         processPendingData(json.users);
 
-        // Fetch incomplete signups and denied users in parallel
-        const [incompleteRes, deniedRes] = await Promise.all([
-          fetch('/api/admin/incomplete-signups'),
-          fetch('/api/admin/denied-users'),
-        ]);
-        const incompleteJson = await incompleteRes.json();
-        const deniedJson = await deniedRes.json();
+        // Incomplete signups and denied users only surface in the volunteers view
+        if (view === 'volunteers') {
+          const [incompleteRes, deniedRes] = await Promise.all([
+            fetch('/api/admin/incomplete-signups'),
+            fetch('/api/admin/denied-users'),
+          ]);
+          const incompleteJson = await incompleteRes.json();
+          const deniedJson = await deniedRes.json();
 
-        if (incompleteRes.ok) {
-          setIncompleteSignups(incompleteJson.users || []);
-        } else {
-          console.error('[Admin] Error fetching incomplete signups:', incompleteJson.error);
-        }
-        if (deniedRes.ok) {
-          setDeniedUsers(deniedJson.users || []);
-        } else {
-          console.error('[Admin] Error fetching denied users:', deniedJson.error);
+          if (incompleteRes.ok) {
+            setIncompleteSignups(incompleteJson.users || []);
+          } else {
+            console.error('[Admin] Error fetching incomplete signups:', incompleteJson.error);
+          }
+          if (deniedRes.ok) {
+            setDeniedUsers(deniedJson.users || []);
+          } else {
+            console.error('[Admin] Error fetching denied users:', deniedJson.error);
+          }
         }
 
         // Fetch regions for org approval setup
@@ -320,7 +331,7 @@ export default function UserRequestsTab({ hideIndividuals = false, onCountChange
     };
 
     fetchAll();
-  }, []);
+  }, [view]);
 
   const handleStatusChange = async (userId: string, status: 'approved' | 'denied') => {
     try {
@@ -463,50 +474,28 @@ export default function UserRequestsTab({ hideIndividuals = false, onCountChange
 
   return (
     <div className="px-4 py-4">
-      {/* Tabs */}
-      <div className="flex space-x-4 mb-6">
-        {!hideIndividuals && (
+      {/* Subtabs (volunteers view only) */}
+      {view === 'volunteers' && (
+        <div className="flex space-x-4 mb-6">
           <button
-            onClick={() => setActiveSubtab('individual')}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'individual' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
+            onClick={() => setShowIncomplete(false)}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${!showIncomplete ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
           >
-            Individual Requests
-            {individualRequests.length > 0 && (
+            Volunteer Requests
+            {volunteerRequests.length > 0 && (
               <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
-                {individualRequests.length}
+                {volunteerRequests.length}
               </span>
             )}
           </button>
-        )}
-        <button
-          onClick={() => setActiveSubtab('volunteer')}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'volunteer' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
-        >
-          Volunteer Requests
-          {volunteerRequests.length > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
-              {volunteerRequests.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveSubtab('organization')}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'organization' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
-        >
-          Organization Requests
-          {organizationRequests.length > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
-              {organizationRequests.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveSubtab('incomplete')}
-          className={`px-4 py-2 rounded text-sm font-semibold transition ${activeSubtab === 'incomplete' ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
-        >
-          Incomplete / Denied
-        </button>
-      </div>
+          <button
+            onClick={() => setShowIncomplete(true)}
+            className={`px-4 py-2 rounded text-sm font-semibold transition ${showIncomplete ? 'bg-[#0e62ae] text-white' : 'bg-gray-200 text-gray-800'}`}
+          >
+            Incomplete / Denied
+          </button>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (

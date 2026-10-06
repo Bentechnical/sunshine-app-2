@@ -116,7 +116,7 @@ export default function DogProfile({ dogId, onBack }: DogProfileProps) {
 
             {/* Volunteer info */}
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Handler</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Volunteer</h3>
               <div className="flex items-start gap-4">
                 {/* Avatar */}
                 <div className="relative w-1/4 aspect-square rounded-xl overflow-hidden shrink-0 bg-blue-100">

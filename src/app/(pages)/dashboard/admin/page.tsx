@@ -26,7 +26,10 @@ import AdminEmailTesting from '@/components/admin/AdminEmailTesting';
 const PARAM_TO_TAB: Record<string, ActiveTab> = {
   home:                'dashboard-home',
   'group-visits':      'group-visits',
-  'user-requests':     'user-requests',
+  'volunteer-requests':'volunteer-requests',
+  'org-requests':      'org-requests',
+  'individual-requests':'individual-requests',
+  'user-requests':     'volunteer-requests', // legacy param alias
   'manage-volunteers': 'manage-volunteers',
   'manage-regions':    'manage-regions',
   'manage-orgs':       'manage-orgs',
@@ -40,7 +43,9 @@ const PARAM_TO_TAB: Record<string, ActiveTab> = {
 const TAB_TO_PARAM: Partial<Record<ActiveTab, string>> = {
   'dashboard-home':    'home',
   'group-visits':      'group-visits',
-  'user-requests':     'user-requests',
+  'volunteer-requests':'volunteer-requests',
+  'org-requests':      'org-requests',
+  'individual-requests':'individual-requests',
   'manage-volunteers': 'manage-volunteers',
   'manage-regions':    'manage-regions',
   'manage-orgs':       'manage-orgs',
@@ -132,8 +137,12 @@ function AdminDashboardInner() {
         return <AdminManageRegions />;
       case 'manage-individuals':
         return <AdminManageIndividuals />;
-      case 'user-requests':
-        return <AdminUserRequests onCountChange={handleAlertCountsChange} />;
+      case 'volunteer-requests':
+        return <AdminUserRequests view="volunteers" onCountChange={handleAlertCountsChange} />;
+      case 'org-requests':
+        return <AdminUserRequests view="orgs" onCountChange={handleAlertCountsChange} />;
+      case 'individual-requests':
+        return <AdminUserRequests view="individuals" onCountChange={handleAlertCountsChange} />;
       case 'appointments':
         return <AdminAppointments />;
       case 'chats':

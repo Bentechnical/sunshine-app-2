@@ -18,10 +18,11 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
   // PD sees a flat list of non-admin-only tabs
   const pdTabs: TabDef[] = [
     { key: 'dashboard-home', label: 'Overview' },
-    { key: 'group-visits', label: 'Group Visits' },
-    { key: 'user-requests', label: 'New User Requests' },
+    { key: 'group-visits', label: 'Manage Visits' },
+    { key: 'volunteer-requests', label: 'New Volunteer Requests' },
     { key: 'manage-volunteers', label: 'Manage Volunteers' },
     { key: 'manage-orgs', label: 'Manage Organizations' },
+    { key: 'org-requests', label: 'New Organization Requests' },
   ];
 
   // Admin sees grouped nav
@@ -33,7 +34,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
     {
       label: 'Onboarding',
       items: [
-        { key: 'user-requests', label: 'New User Requests' },
+        { key: 'volunteer-requests', label: 'New Volunteer Requests' },
         { key: 'manage-volunteers', label: 'Manage Volunteers' },
       ],
     },
@@ -43,12 +44,14 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
         { key: 'group-visits', label: 'Group Visits' },
         { key: 'manage-regions', label: 'Regions' },
         { key: 'manage-orgs', label: 'Manage Organizations' },
+        { key: 'org-requests', label: 'New Organization Requests' },
       ],
     },
     {
       label: 'Individual Program',
       items: [
         { key: 'manage-individuals', label: 'Manage Individuals' },
+        { key: 'individual-requests', label: 'New Individual Requests' },
         { key: 'appointments', label: 'Individual Appointments' },
         { key: 'chats', label: 'Chat Management', showAlert: unreadCount > 0 },
       ],
@@ -67,7 +70,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
     <button
       key={tab.key}
       onClick={() => setActiveTab(tab.key)}
-      className={`inline-flex items-center gap-2 whitespace-nowrap text-sm h-9 w-full justify-start rounded-lg px-4 py-2 text-left font-medium transition-colors relative
+      className={`inline-flex items-center gap-2 whitespace-nowrap text-sm h-9 w-full justify-start rounded-lg px-3 py-2 text-left font-medium transition-colors relative
         ${
           activeTab === tab.key
             ? 'bg-card text-primary'
@@ -76,7 +79,7 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
     >
       {tab.label}
       {alertCounts[tab.key] > 0 && (
-        <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-5 text-center leading-none">
+        <span className="ml-auto shrink-0 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-5 text-center leading-none">
           {alertCounts[tab.key]}
         </span>
       )}

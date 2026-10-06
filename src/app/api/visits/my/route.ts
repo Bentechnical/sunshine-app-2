@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { orgVisibleAdminNote } from '@/utils/visitNoteVisibility';
 
 export async function GET() {
   try {
@@ -59,7 +60,7 @@ export async function GET() {
         location_lng: v.location_lng ?? null,
         location_place_id: (v as any).location_place_id ?? null,
         status: v.status,
-        admin_note: ['approved', 'declined', 'cancelled'].includes(v.status as string) ? (v.admin_note ?? null) : null,
+        admin_note: orgVisibleAdminNote(v.status as string, v.admin_note as string | null),
         created_at: v.created_at,
         max_volunteers: v.volunteer_slots,
         min_volunteers: (v as any).min_volunteers ?? v.volunteer_slots,

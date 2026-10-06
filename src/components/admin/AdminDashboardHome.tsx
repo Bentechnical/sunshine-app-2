@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import {
-  AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck,
+  AlertTriangle, Building2, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck,
   FileText, Inbox, MapPin, UserPlus, UserX,
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
@@ -45,7 +45,8 @@ interface Props {
 interface ReviewCounts {
   visitRequests: number;
   pendingCompletion: number;
-  userRequests: number;
+  volunteerRequests: number;
+  orgRequests: number;
   docReviews: number;
   unassigned: number;
 }
@@ -93,12 +94,12 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
 
       // Same role rules as the nav badges (useAdminAlertCounts)
       const pendingUsers: { role: string }[] = usersJson.users ?? [];
-      const userRoles = pdMode ? ['volunteer', 'organization'] : ['volunteer', 'individual', 'organization'];
 
       setCounts({
         visitRequests: mine(reviewJson.visits ?? []).length,
         pendingCompletion: mine(completionJson.visits ?? []).length,
-        userRequests: pendingUsers.filter(u => userRoles.includes(u.role)).length,
+        volunteerRequests: pendingUsers.filter(u => u.role === 'volunteer').length,
+        orgRequests: pendingUsers.filter(u => u.role === 'organization').length,
         docReviews: docsJson.count ?? 0,
         unassigned: pdMode ? 0 : active.filter(v => !v.assigned_pd_id).length,
       });
@@ -121,7 +122,8 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
   const reviewTiles = counts ? [
     { key: 'visit-requests', label: 'Visit requests', count: counts.visitRequests, icon: Inbox, onClick: () => onOpenTab('group-visits', 'pending_review') },
     { key: 'completion', label: 'Mark as complete', count: counts.pendingCompletion, icon: ClipboardCheck, onClick: () => onOpenTab('group-visits', 'pending_completion') },
-    { key: 'users', label: 'User requests', count: counts.userRequests, icon: UserPlus, onClick: () => onOpenTab('user-requests') },
+    { key: 'volunteers', label: 'Volunteer requests', count: counts.volunteerRequests, icon: UserPlus, onClick: () => onOpenTab('volunteer-requests') },
+    { key: 'orgs', label: 'Org requests', count: counts.orgRequests, icon: Building2, onClick: () => onOpenTab('org-requests') },
     { key: 'docs', label: 'Documents to review', count: counts.docReviews, icon: FileText, onClick: () => onOpenTab('manage-volunteers') },
     ...(!pdMode ? [{ key: 'unassigned', label: 'Visits without a PD', count: counts.unassigned, icon: UserX, onClick: () => onOpenTab('group-visits', 'unassigned') }] : []),
   ] : [];
@@ -173,7 +175,7 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="px-5 pt-4 pb-3 flex items-center gap-2">
             <AlertTriangle size={16} className={needsAttention.length > 0 ? 'text-red-500' : 'text-gray-300'} />
-            <h2 className="text-sm font-semibold text-gray-800">Needs attention</h2>
+            <h2 className="text-sm font-semibold text-gray-800">Upcoming visits that need action</h2>
             {needsAttention.length > 0 && (
               <span className="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">{needsAttention.length}</span>
             )}
@@ -197,17 +199,15 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{visitLabel(v)}</p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                          {alerts.belowMinSoon && (
-                            <span className="text-xs font-semibold text-orange-600">
-                              Needs {min - v.confirmed_count} more to go ahead
-                            </span>
-                          )}
-                          {alerts.waitlistReady && (
-                            <span className="text-xs font-semibold text-red-600">
-                              Spot open · {v.waitlist_count} on waitlist. Promote someone
-                            </span>
-                          )}
+                        <div className="mt-0.5">
+                          <StaffingStatus
+                            confirmed={v.confirmed_count}
+                            min={min}
+                            max={v.volunteer_slots}
+                            audience="admin"
+                            waitlisted={v.waitlist_count}
+                            urgent={alerts.belowMinSoon}
+                          />
                         </div>
                       </div>
                       <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-400 shrink-0" />
@@ -219,7 +219,7 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
                 <li>
                   <button onClick={() => onOpenTab('group-visits')}
                     className="w-full px-5 py-2.5 text-sm font-semibold text-[#0e62ae] hover:bg-gray-50 text-left">
-                    View all {needsAttention.length} in Group Visits
+                    View all {needsAttention.length} in {pdMode ? 'Manage Visits' : 'Group Visits'}
                   </button>
                 </li>
               )}
@@ -230,7 +230,13 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
         {/* 2. To review */}
         <section>
           <h2 className="text-sm font-semibold text-gray-800 mb-2">To review</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className={`grid gap-3 ${
+            reviewTiles.length >= 6
+              ? 'grid-cols-2 sm:grid-cols-3'
+              : reviewTiles.length === 5
+                ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+                : 'grid-cols-2 sm:grid-cols-4'
+          }`}>
             {reviewTiles.map(t => {
               const Icon = t.icon;
               const active = t.count > 0;
@@ -280,6 +286,8 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
                         min={v.min_volunteers ?? v.volunteer_slots}
                         max={v.volunteer_slots}
                         audience="admin"
+                        waitlisted={v.waitlist_count}
+                        urgent={getVisitAlerts(v).belowMinSoon}
                       />
                     </div>
                     <span className="text-xs text-gray-500 shrink-0">{v.confirmed_count}/{v.volunteer_slots} dogs</span>

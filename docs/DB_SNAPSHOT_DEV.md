@@ -579,9 +579,8 @@ visits_normalize_min_volunteers() -> trigger
 `users.id` is `text` holding Clerk IDs (`user_31…`), which cannot cast to uuid. No callers in
 `src/` or `scripts/`. Candidate for DROP.
 
-**`get_nearby_dogs_with_availability` is NOT in DevDB**, though
-`scripts/update_get_nearby_dogs_function.sql` creates it. That script is stale — consistent with
-the availability system having been removed.
+**`get_nearby_dogs_with_availability` is NOT in DevDB.** The two scripts that created and patched
+it were deleted in the Oct 2026 cleanup, along with the rest of the availability system.
 
 **PostGIS is installed but unused** — every coordinate column is `double precision`; there are no
 `geometry`/`geography` columns. Distance logic lives in SQL/TS, not PostGIS.

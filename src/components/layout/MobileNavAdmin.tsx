@@ -1,7 +1,7 @@
 // src/components/layout/MobileNavAdmin.tsx
 'use client';
 
-import { Home, Users, MessageCircle, CalendarCheck, Mail, Building2, Map } from 'lucide-react';
+import { Home, Users, UserPlus, MessageCircle, CalendarCheck, Mail, Building2, Map } from 'lucide-react';
 import { ActiveTab } from '@/types/navigation';
 
 interface MobileNavAdminProps {
@@ -31,9 +31,11 @@ export default function MobileNavAdmin({
   }[] = [
     { key: 'dashboard-home', label: 'Overview', icon: <Home size={20} /> },
     { key: 'group-visits', label: 'Visits', icon: <Building2 size={20} /> },
-    { key: 'user-requests', label: 'Requests', icon: <Users size={20} /> },
+    { key: 'volunteer-requests', label: 'Vol. Requests', icon: <UserPlus size={20} /> },
     { key: 'manage-volunteers', label: 'Volunteers', icon: <Users size={20} /> },
     { key: 'manage-orgs', label: 'Orgs', icon: <Building2 size={20} /> },
+    { key: 'org-requests', label: 'Org Requests', icon: <Building2 size={20} /> },
+    { key: 'individual-requests', label: 'Ind. Requests', icon: <UserPlus size={20} />, adminOnly: true },
     { key: 'manage-regions', label: 'Regions', icon: <Map size={20} />, adminOnly: true },
     { key: 'manage-individuals', label: 'Individuals', icon: <Users size={20} />, adminOnly: true },
     { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0, adminOnly: true },

@@ -12,7 +12,9 @@ export type ActiveTab =
   | 'manage-regions' // admin only: region management + manage PDs
   | 'manage-volunteers' // admin + pd: volunteer list with inline compliance
   | 'manage-individuals' // admin: individual user list
-  | 'user-requests' // admin
+  | 'volunteer-requests' // admin + pd: pending volunteer signups (+ incomplete/denied)
+  | 'org-requests' // admin + pd: pending organization signups
+  | 'individual-requests' // admin only: pending individual signups
   | 'appointments' // admin
   | 'chats' // admin
   | 'email-testing' // admin

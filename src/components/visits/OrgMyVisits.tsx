@@ -626,7 +626,7 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
                             <div className="flex-1 px-4 flex flex-col justify-center gap-0.5">
                               <p className="text-sm font-semibold text-gray-900 leading-tight">{reg.dog_name ?? 'Unknown Dog'}</p>
                               {reg.dog_breed && <p className="text-xs text-gray-500">{reg.dog_breed}</p>}
-                              {reg.volunteer_first_name && <p className="text-xs text-gray-400">Handler: {reg.volunteer_first_name}</p>}
+                              {reg.volunteer_first_name && <p className="text-xs text-gray-400">Volunteer: {reg.volunteer_first_name}</p>}
                             </div>
                           </div>
                         );
@@ -663,7 +663,7 @@ export default function OrgMyVisits({ orgProfileImage, selectedVisitId, onSelect
                             <div className="flex-1 px-4 flex flex-col justify-center gap-0.5">
                               <p className="text-sm font-semibold text-gray-800 leading-tight">{reg.dog_name ?? 'Unknown Dog'}</p>
                               {reg.dog_breed && <p className="text-xs text-gray-500">{reg.dog_breed}</p>}
-                              {reg.volunteer_first_name && <p className="text-xs text-amber-600">Handler: {reg.volunteer_first_name}</p>}
+                              {reg.volunteer_first_name && <p className="text-xs text-amber-600">Volunteer: {reg.volunteer_first_name}</p>}
                             </div>
                           </div>
                         ))}
