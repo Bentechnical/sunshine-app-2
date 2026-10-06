@@ -102,6 +102,13 @@ function formatDateTime(dateStr: string | null) {
   return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+export type VerificationResult = {
+  verified_at: string | null;
+  verified_by: string | null;
+  verified_by_name: string | null;
+  rejection_reason: string | null;
+};
+
 export function VerificationActions({
   volunteerId,
   documentType,
@@ -111,7 +118,7 @@ export function VerificationActions({
   documentType: 'vsc' | 'vaccine';
   currentStatus: string | null;
   verifiedAt: string | null;
-  onVerified: (newStatus: 'approved' | 'rejected') => void;
+  onVerified: (newStatus: 'approved' | 'rejected', result: VerificationResult) => void;
 }) {
   const [acting, setActing] = useState<'approve' | 'reject' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -130,7 +137,7 @@ export function VerificationActions({
       });
       const json = await res.json();
       if (!res.ok) { setActionError(json.error || 'Action failed'); return; }
-      onVerified('approved');
+      onVerified('approved', json.verification ?? {});
     } catch {
       setActionError('Action failed. Please try again.');
     } finally {
@@ -151,7 +158,7 @@ export function VerificationActions({
       });
       const json = await res.json();
       if (!res.ok) { setActionError(json.error || 'Action failed'); return; }
-      onVerified('rejected');
+      onVerified('rejected', json.verification ?? {});
       setShowRejectReason(false);
       setRejectionReason('');
     } catch {
@@ -250,16 +257,29 @@ export function DocumentModal({
     fetch_();
   }, [volunteerId, prefetchedDocs]);
 
-  const handleVscVerified = (newStatus: 'approved' | 'rejected') => {
-    const derivedStatus: ComplianceStatus = newStatus === 'rejected' ? 'rejected' : 'approved';
-    const updated = { ...localRecord, vsc: { ...localRecord.vsc, status: derivedStatus, verification_status: newStatus, verified_at: new Date().toISOString() } };
+  const applyVerification = <T extends ComplianceRecord['vsc'] | ComplianceRecord['vaccine']>(
+    doc: T,
+    newStatus: 'approved' | 'rejected',
+    result: VerificationResult,
+  ): T => ({
+    ...doc,
+    status: (newStatus === 'rejected' ? 'rejected' : 'approved') as ComplianceStatus,
+    verification_status: newStatus,
+    // Fall back to a local timestamp only if the server didn't send one.
+    verified_at: result?.verified_at ?? new Date().toISOString(),
+    verified_by: result?.verified_by ?? doc.verified_by,
+    verified_by_name: result?.verified_by_name ?? null,
+    rejection_reason: newStatus === 'rejected' ? (result?.rejection_reason ?? doc.rejection_reason) : null,
+  });
+
+  const handleVscVerified = (newStatus: 'approved' | 'rejected', result: VerificationResult) => {
+    const updated = { ...localRecord, vsc: applyVerification(localRecord.vsc, newStatus, result) };
     setLocalRecord(updated);
     onVerified(updated);
   };
 
-  const handleVaccineVerified = (newStatus: 'approved' | 'rejected') => {
-    const derivedStatus: ComplianceStatus = newStatus === 'rejected' ? 'rejected' : 'approved';
-    const updated = { ...localRecord, vaccine: { ...localRecord.vaccine, status: derivedStatus, verification_status: newStatus, verified_at: new Date().toISOString() } };
+  const handleVaccineVerified = (newStatus: 'approved' | 'rejected', result: VerificationResult) => {
+    const updated = { ...localRecord, vaccine: applyVerification(localRecord.vaccine, newStatus, result) };
     setLocalRecord(updated);
     onVerified(updated);
   };

@@ -323,15 +323,20 @@ with none).
    the prompt.
 2. **No overlapping registrations** for the same volunteer. The app has no double-booking detection
    and that's parked — background noise must not accidentally raise it.
-3. **Suppress both crons.** Set `staffed_notified_at` on every seeded visit and `reminder_sent_at`
+3. **Calendar events only for approved and completed visits.** The app creates an event on
+   approval, never on submission — `/api/visits` makes no calendar call at all, and admin create is
+   gated on `status === 'approved'`. Cancelling patches the event to `cancelled`. So a seeded
+   `pending_review`, `cancelled` or `declined` visit must have no event, or the calendar shows
+   things the app would never have put there.
+4. **Suppress both crons.** Set `staffed_notified_at` on every seeded visit and `reminder_sent_at`
    on every seeded confirmed registration. Otherwise the hourly and 6-hourly crons dump mail into
    the PD's forwarded inbox and bury the emails their own actions caused. Suppression also stops the
    staffed cron nulling `min_reached_at` and drifting the seed between sessions.
-4. **Every email ends `@sunshinedogs.app`.** Asserted, not assumed — one stray external address
+5. **Every email ends `@sunshinedogs.app`.** Asserted, not assumed — one stray external address
    means real mail to a real person, repeatedly, every cron cycle.
-5. **Let sequences assign ids.** Don't insert with explicit ids, or the first visit a PD creates in
+6. **Let sequences assign ids.** Don't insert with explicit ids, or the first visit a PD creates in
    the UI fails on a primary-key collision.
-6. **Dates relative to a fixed reference (Mon 5 Oct).** Frozen by the snapshot, so all action
+7. **Dates relative to a fixed reference (Mon 5 Oct).** Frozen by the snapshot, so all action
    anchors sit ≥3 days out even for a Friday session.
 
 ---

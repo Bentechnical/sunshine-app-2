@@ -145,7 +145,28 @@ export async function PATCH(
         }
       }
 
-      return NextResponse.json({ success: true, action, new_status: newStatus });
+      // Return the verification metadata so the caller can render the result immediately
+      // instead of synthesising a timestamp and waiting for a refresh to learn the verifier.
+      const { data: verifier } = await supabase
+        .from('users')
+        .select('first_name, last_name')
+        .eq('id', adminId)
+        .maybeSingle();
+      const verifierName = verifier
+        ? `${verifier.first_name ?? ''} ${verifier.last_name ?? ''}`.trim() || null
+        : null;
+
+      return NextResponse.json({
+        success: true,
+        action,
+        new_status: newStatus,
+        verification: {
+          verified_at: now,
+          verified_by: adminId,
+          verified_by_name: verifierName,
+          rejection_reason: isApprove ? null : (rejection_reason || null),
+        },
+      });
     }
 
     // ── Mode 2: Manual field update ──────────────────────────────────────────
