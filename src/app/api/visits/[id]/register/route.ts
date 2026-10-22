@@ -10,6 +10,7 @@ import { getAppUrl } from '@/app/utils/getAppUrl';
 import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
 import { isWaitlistOnly } from '@/utils/visitSlots';
 import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
+import { checkVisitEligibility } from '@/utils/visitEligibility';
 
 export async function POST(
   req: NextRequest,
@@ -32,7 +33,7 @@ export async function POST(
     // Verify caller is an approved volunteer
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('role, status, vsc_document_url, vsc_verification_status')
+      .select('role, status')
       .eq('id', userId)
       .single();
 
@@ -60,62 +61,11 @@ export async function POST(
       return NextResponse.json({ error: 'This visit is not open for registration' }, { status: 400 });
     }
 
-    // Check VSC compliance (per-visit requirement) — must be uploaded and verified
-    if (visit.requires_vsc) {
-      if (!volunteer.vsc_document_url) {
-        return NextResponse.json(
-          { error: 'This visit requires a VSC document. Please upload your VSC before signing up.' },
-          { status: 403 }
-        );
-      }
-      if (volunteer.vsc_verification_status === 'rejected') {
-        return NextResponse.json(
-          { error: 'Your VSC document was not approved. Please upload a new copy from your dashboard and allow time for review.' },
-          { status: 403 }
-        );
-      }
-      if (volunteer.vsc_verification_status !== 'approved') {
-        return NextResponse.json(
-          { error: 'This visit requires a verified VSC document. Your VSC is awaiting review by Sunshine staff — please allow up to 48 hours for approval.' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Rabies vaccine record is always required for all visits — must exist, be verified, and not expired
-    const { data: dog } = await supabase
-      .from('dogs')
-      .select('vaccine_record_url, vaccine_expiry_date, vaccine_verification_status')
-      .eq('volunteer_id', userId)
-      .neq('status', 'archived')
-      .maybeSingle();
-
-    if (!dog?.vaccine_record_url) {
-      return NextResponse.json(
-        { error: "A current rabies vaccine record is required to sign up for visits. Please upload your dog's vaccine record before signing up." },
-        { status: 403 }
-      );
-    }
-
-    if (dog.vaccine_verification_status === 'rejected') {
-      return NextResponse.json(
-        { error: "Your dog's vaccine record was not approved. Please upload a new copy from your dashboard and allow time for review." },
-        { status: 403 }
-      );
-    }
-
-    if (dog.vaccine_verification_status !== 'approved') {
-      return NextResponse.json(
-        { error: "Your dog's vaccine record is awaiting review by Sunshine staff — please allow up to 48 hours for approval." },
-        { status: 403 }
-      );
-    }
-
-    if (dog.vaccine_expiry_date && new Date(dog.vaccine_expiry_date) < new Date()) {
-      return NextResponse.json(
-        { error: "Your dog's rabies vaccine record has expired. Please upload a current vaccine record before signing up." },
-        { status: 403 }
-      );
+    // VSC, rabies vaccine, and — for candidates — whether this visit has support available.
+    // Shared with the waitlist-promote path so the two can't drift; messages are unchanged.
+    const eligibility = await checkVisitEligibility(supabase, visitId, userId);
+    if (!eligibility.ok) {
+      return NextResponse.json({ error: eligibility.volunteerMessage }, { status: 403 });
     }
 
     // Check if already registered (any non-cancelled status)

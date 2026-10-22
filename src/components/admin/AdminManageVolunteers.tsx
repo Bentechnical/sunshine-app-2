@@ -2,19 +2,19 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { CheckCircle, ChevronUp } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
-import { formatPhoneDisplay } from '@/utils/formatPhone';
+import { ComplianceBadge } from '@/components/admin/compliance/ComplianceBadge';
+import { DocumentModal } from '@/components/admin/compliance/DocumentModal';
+import AdminVolunteerDetail from '@/components/admin/AdminVolunteerDetail';
+import { TIER_BADGE, type VolunteerTier } from '@/components/admin/volunteerTiers';
+import type {
+  ComplianceRecord,
+  DogProfile,
+  SignedDocs,
+} from '@/components/admin/compliance/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DogProfile {
-  dog_name: string;
-  dog_breed: string;
-  dog_bio: string;
-  dog_picture_url: string;
-  dog_age?: number;
-}
 
 interface Region {
   id: number;
@@ -38,16 +38,8 @@ interface Volunteer {
   is_browsable: boolean;
   assigned_region_id: number | null;
   region_assignment_method: string | null;
+  volunteer_tier: VolunteerTier | null;
 }
-
-export type ComplianceStatus = 'missing' | 'pending_review' | 'approved' | 'expiring' | 'expired' | 'rejected';
-
-export interface ComplianceRecord {
-  vsc: { status: ComplianceStatus; date_issued: string | null; renewal_due: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null; rejection_reason: string | null };
-  vaccine: { status: ComplianceStatus; date_issued: string | null; expiry_date: string | null; dog_name: string | null; document_url: string | null; verification_status: string | null; verified_at: string | null; verified_by: string | null; verified_by_name: string | null; upload_comment: string | null; rejection_reason: string | null };
-}
-
-export type SignedDocs = { vsc_signed_url: string | null; vaccine_signed_url: string | null; vaccine_supporting_signed_urls: string[]; dog_name: string | null };
 
 interface ArchivedVolunteer {
   id: string;
@@ -59,434 +51,44 @@ interface ArchivedVolunteer {
   archived_at: string;
 }
 
-interface ActiveAppointment {
-  id: number;
-  start_time: string;
-  status: 'pending' | 'confirmed';
-  other_user_name: string;
-  dog_name?: string;
-}
+type SortKey = 'name' | 'email' | 'city' | 'region' | 'tier' | 'vsc' | 'vaccine';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+/** Tier sorts by progression (candidate → regular → mentor), not alphabetically. */
+const TIER_ORDER: Record<string, number> = { candidate: 0, regular: 1, mentor: 2 };
 
-export const statusConfig: Record<ComplianceStatus, { label: string; classes: string }> = {
-  missing:        { label: 'Missing',       classes: 'bg-red-100 text-red-700' },
-  pending_review: { label: 'Needs Review',  classes: 'bg-amber-100 text-amber-800' },
-  approved:       { label: 'Compliant',     classes: 'bg-green-100 text-green-700' },
-  expiring:       { label: 'Expiring Soon', classes: 'bg-amber-100 text-amber-700' },
-  expired:        { label: 'Expired',       classes: 'bg-red-100 text-red-800' },
-  rejected:       { label: 'Rejected',      classes: 'bg-red-100 text-red-700' },
+/** Compliance sorts worst-first, so one click surfaces whatever needs attention. */
+const COMPLIANCE_ORDER: Record<string, number> = {
+  missing: 0, expired: 1, rejected: 2, pending_review: 3, expiring: 4, approved: 5,
 };
 
-export function ComplianceBadge({ status }: { status: ComplianceStatus | undefined }) {
-  if (!status) return <span className="text-xs text-gray-400">—</span>;
-  const { label, classes } = statusConfig[status];
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${classes}`}>
-      {label}
-    </span>
-  );
-}
-
-export function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—';
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-CA', {
-    year: 'numeric', month: 'short', day: 'numeric',
-  });
-}
-
-// ─── Document Review Modal ────────────────────────────────────────────────────
-
-function formatDateTime(dateStr: string | null) {
-  if (!dateStr) return null;
-  return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
-export type VerificationResult = {
-  verified_at: string | null;
-  verified_by: string | null;
-  verified_by_name: string | null;
-  rejection_reason: string | null;
-};
-
-export function VerificationActions({
-  volunteerId,
-  documentType,
-  onVerified,
+function SortableHeader({
+  label, column, sortKey, sortAsc, onSort, className = '',
 }: {
-  volunteerId: string;
-  documentType: 'vsc' | 'vaccine';
-  currentStatus: string | null;
-  verifiedAt: string | null;
-  onVerified: (newStatus: 'approved' | 'rejected', result: VerificationResult) => void;
+  label: string;
+  column: SortKey;
+  sortKey: SortKey;
+  sortAsc: boolean;
+  onSort: (k: SortKey) => void;
+  className?: string;
 }) {
-  const [acting, setActing] = useState<'approve' | 'reject' | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [showRejectReason, setShowRejectReason] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-
-  const handleApprove = async () => {
-    setActing('approve');
-    setActionError(null);
-    const apiAction = documentType === 'vsc' ? 'approve_vsc' : 'approve_vaccine';
-    try {
-      const res = await fetch(`/api/admin/compliance/${volunteerId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: apiAction }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setActionError(json.error || 'Action failed'); return; }
-      onVerified('approved', json.verification ?? {});
-    } catch {
-      setActionError('Action failed. Please try again.');
-    } finally {
-      setActing(null);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!rejectionReason.trim()) return;
-    setActing('reject');
-    setActionError(null);
-    const apiAction = documentType === 'vsc' ? 'reject_vsc' : 'reject_vaccine';
-    try {
-      const res = await fetch(`/api/admin/compliance/${volunteerId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: apiAction, rejection_reason: rejectionReason.trim() }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setActionError(json.error || 'Action failed'); return; }
-      onVerified('rejected', json.verification ?? {});
-      setShowRejectReason(false);
-      setRejectionReason('');
-    } catch {
-      setActionError('Action failed. Please try again.');
-    } finally {
-      setActing(null);
-    }
-  };
-
-  if (showRejectReason) {
-    return (
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-700">Reason for rejection</p>
-        <textarea
-          value={rejectionReason}
-          onChange={e => setRejectionReason(e.target.value)}
-          placeholder="e.g. Document is expired, wrong document type…"
-          rows={3}
-          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
-          autoFocus
+  const active = sortKey === column;
+  return (
+    <th className={`px-4 py-2 ${className}`}>
+      <button
+        onClick={() => onSort(column)}
+        className={`inline-flex items-center gap-1 font-semibold transition ${
+          active ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
+        }`}
+      >
+        {label}
+        <ChevronUp
+          size={12}
+          className={`transition-transform ${
+            active ? (sortAsc ? '' : 'rotate-180') : 'opacity-0 group-hover:opacity-40'
+          }`}
         />
-        <div className="flex gap-2">
-          <button onClick={handleReject} disabled={!rejectionReason.trim() || !!acting}
-            className="flex-1 px-3 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition">
-            {acting === 'reject' ? 'Rejecting…' : 'Confirm Reject'}
-          </button>
-          <button onClick={() => { setShowRejectReason(false); setRejectionReason(''); }}
-            className="px-3 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-            Cancel
-          </button>
-        </div>
-        {actionError && <p className="text-xs text-red-600">{actionError}</p>}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <button onClick={handleApprove} disabled={!!acting}
-          className="flex-1 px-3 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
-          {acting === 'approve' ? 'Approving…' : 'Approve'}
-        </button>
-        <button onClick={() => setShowRejectReason(true)} disabled={!!acting}
-          className="flex-1 px-3 py-2 text-sm font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition">
-          Reject
-        </button>
-      </div>
-      {actionError && <p className="text-xs text-red-600">{actionError}</p>}
-    </div>
-  );
-}
-
-export function DocumentModal({
-  volunteerId,
-  volunteerName,
-  record,
-  prefetchedDocs,
-  dog,
-  onClose,
-  onVerified,
-}: {
-  volunteerId: string;
-  volunteerName: string;
-  record: ComplianceRecord;
-  prefetchedDocs?: SignedDocs | null;
-  dog?: DogProfile | null;
-  onClose: () => void;
-  onVerified: (updated: ComplianceRecord) => void;
-}) {
-  const [loading, setLoading] = useState(!prefetchedDocs);
-  const [docs, setDocs] = useState<SignedDocs | null>(prefetchedDocs ?? null);
-  const [error, setError] = useState<string | null>(null);
-  const [localRecord, setLocalRecord] = useState(record);
-
-  const vscHasDoc = !!(docs?.vsc_signed_url);
-  const vaccineHasDoc = !!(docs?.vaccine_signed_url);
-  const showTabs = vscHasDoc && vaccineHasDoc;
-  const defaultTab = record.vsc.verification_status === 'pending_review' && record.vsc.document_url ? 'vsc' : 'vaccine';
-  const [activeTab, setActiveTab] = useState<'vsc' | 'vaccine'>(defaultTab);
-
-  useEffect(() => {
-    if (prefetchedDocs) return;
-    const fetch_ = async () => {
-      try {
-        const res = await fetch(`/api/admin/compliance/${volunteerId}/documents`);
-        const json = await res.json();
-        if (!res.ok) { setError(json.error || 'Failed to load documents'); return; }
-        setDocs(json.documents ? { ...json.documents, dog_name: json.dog_name, vaccine_supporting_signed_urls: json.vaccine_supporting_signed_urls ?? [] } : null);
-      } catch {
-        setError('Failed to load documents');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch_();
-  }, [volunteerId, prefetchedDocs]);
-
-  const applyVerification = <T extends ComplianceRecord['vsc'] | ComplianceRecord['vaccine']>(
-    doc: T,
-    newStatus: 'approved' | 'rejected',
-    result: VerificationResult,
-  ): T => ({
-    ...doc,
-    status: (newStatus === 'rejected' ? 'rejected' : 'approved') as ComplianceStatus,
-    verification_status: newStatus,
-    // Fall back to a local timestamp only if the server didn't send one.
-    verified_at: result?.verified_at ?? new Date().toISOString(),
-    verified_by: result?.verified_by ?? doc.verified_by,
-    verified_by_name: result?.verified_by_name ?? null,
-    rejection_reason: newStatus === 'rejected' ? (result?.rejection_reason ?? doc.rejection_reason) : null,
-  });
-
-  const handleVscVerified = (newStatus: 'approved' | 'rejected', result: VerificationResult) => {
-    const updated = { ...localRecord, vsc: applyVerification(localRecord.vsc, newStatus, result) };
-    setLocalRecord(updated);
-    onVerified(updated);
-  };
-
-  const handleVaccineVerified = (newStatus: 'approved' | 'rejected', result: VerificationResult) => {
-    const updated = { ...localRecord, vaccine: applyVerification(localRecord.vaccine, newStatus, result) };
-    setLocalRecord(updated);
-    onVerified(updated);
-  };
-
-  const rawUrl = docs ? (activeTab === 'vsc' ? docs.vsc_signed_url : docs.vaccine_signed_url) : null;
-  const activeUrl = rawUrl ? `${rawUrl}#toolbar=0&navpanes=0` : null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 pl-70">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style={{ height: '85vh' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">{volunteerName}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Review compliance documents and approve or reject submissions</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-6">&times;</button>
-        </div>
-
-        {/* Tabs */}
-        {!loading && !error && showTabs && (
-          <div className="flex border-b border-gray-100 px-6 shrink-0">
-            {(['vsc', 'vaccine'] as const).map(tab => {
-              const isPending = tab === 'vsc'
-                ? localRecord.vsc.verification_status === 'pending_review'
-                : localRecord.vaccine.verification_status === 'pending_review';
-              const label = tab === 'vsc' ? 'VSC Document' : `Rabies Vaccine${docs?.dog_name ? ` — ${docs.dog_name}` : ''}`;
-              return (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${activeTab === tab ? 'border-[#0e62ae] text-[#0e62ae]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                  {label}
-                  {isPending && <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Needs Review</span>}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Body */}
-        {loading && (
-          <div className="flex-1 flex items-center justify-center gap-2">
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-gray-600">Loading document…</span>
-          </div>
-        )}
-        {error && <div className="flex-1 flex items-center justify-center"><p className="text-sm text-red-600">{error}</p></div>}
-
-        {!loading && !error && docs && (
-          <div className="flex flex-1 min-h-0">
-            {/* Document preview */}
-            <div className="flex-1 bg-gray-100 min-h-0">
-              {activeUrl ? (
-                <iframe key={activeUrl} src={activeUrl} className="w-full h-full border-0" title="Compliance document preview" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <p className="text-sm text-gray-400 italic">No document uploaded</p>
-                </div>
-              )}
-            </div>
-
-            {/* Metadata + actions */}
-            <div className="w-72 shrink-0 border-l border-gray-100 flex flex-col p-5 overflow-y-auto">
-              {/* Document type heading (when no tabs) */}
-              {!showTabs && (
-                <p className="text-sm font-bold text-gray-800 mb-4">
-                  {activeTab === 'vsc' ? 'Volunteer Screening Check' : `Rabies Vaccine Record${docs.dog_name ? ` — ${docs.dog_name}` : ''}`}
-                </p>
-              )}
-
-              {/* Prominent verification status */}
-              {(() => {
-                const activeDoc = activeTab === 'vsc' ? localRecord.vsc : localRecord.vaccine;
-                const status = activeDoc.verification_status;
-                const bgClass = status === 'approved' ? 'bg-green-50 border-green-200' : status === 'rejected' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200';
-                const textClass = status === 'approved' ? 'text-green-800' : status === 'rejected' ? 'text-red-800' : 'text-amber-800';
-                const label = status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Pending Review';
-                return (
-                  <div className={`rounded-lg border px-3 py-2.5 mb-5 ${bgClass}`}>
-                    <p className={`text-sm font-bold ${textClass}`}>{label}</p>
-                    {(status === 'approved' || status === 'rejected') && activeDoc.verified_at && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {status === 'approved' ? 'Approved' : 'Rejected'} {formatDateTime(activeDoc.verified_at)}
-                        {activeDoc.verified_by_name && <> by {activeDoc.verified_by_name}</>}
-                      </p>
-                    )}
-                    {status === 'rejected' && activeDoc.rejection_reason && (
-                      <div className="mt-2 pt-2 border-t border-red-200">
-                        <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">
-                          Reason for rejection (sent to the volunteer)
-                        </p>
-                        <p className="text-sm text-red-900 italic">&ldquo;{activeDoc.rejection_reason}&rdquo;</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* VSC metadata */}
-              {activeTab === 'vsc' && (
-                <div className="space-y-3 mb-5">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date Issued</p>
-                    <p className="text-sm text-gray-900">{formatDate(localRecord.vsc.date_issued)}</p>
-                  </div>
-                  {localRecord.vsc.renewal_due && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Renewal Due</p>
-                      <p className="text-sm text-gray-900">{formatDate(localRecord.vsc.renewal_due)}</p>
-                    </div>
-                  )}
-                  {localRecord.vsc.upload_comment && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Volunteer Comment</p>
-                      <p className="text-sm text-gray-900 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vsc.upload_comment}&rdquo;</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Vaccine metadata + dog info */}
-              {activeTab === 'vaccine' && (
-                <div className="space-y-3 mb-5">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date Issued</p>
-                    <p className="text-sm text-gray-900">{formatDate(localRecord.vaccine.date_issued)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Expiry Date</p>
-                    <p className="text-sm text-gray-900">{formatDate(localRecord.vaccine.expiry_date)}</p>
-                  </div>
-                  {localRecord.vaccine.upload_comment && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Volunteer Comment</p>
-                      <p className="text-sm text-gray-900 italic border-l-2 border-gray-300 pl-3">&ldquo;{localRecord.vaccine.upload_comment}&rdquo;</p>
-                    </div>
-                  )}
-                  {dog && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Dog</p>
-                      <p className="text-sm text-gray-900">{dog.dog_name} <span className="text-gray-500">· {dog.dog_breed}{dog.dog_age ? ` · ${dog.dog_age} yr${dog.dog_age !== 1 ? 's' : ''} old` : ''}</span></p>
-                    </div>
-                  )}
-                  {docs.vaccine_supporting_signed_urls.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                        Supporting Documents ({docs.vaccine_supporting_signed_urls.length})
-                      </p>
-                      <div className="space-y-1.5">
-                        {docs.vaccine_supporting_signed_urls.map((url, i) => (
-                          <button
-                            key={i}
-                            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-                            className="w-full text-left text-xs text-[#0e62ae] bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-100 transition"
-                          >
-                            View supporting document {i + 1}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Download button */}
-              {rawUrl && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(rawUrl);
-                      const blob = await res.blob();
-                      const ext = blob.type === 'application/pdf' ? 'pdf' : 'doc';
-                      const filename = `${volunteerName.replace(/\s+/g, '_')}_${activeTab === 'vsc' ? 'VSC' : 'Vaccine'}.${ext}`;
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = filename;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch {
-                      window.open(rawUrl, '_blank');
-                    }
-                  }}
-                  className="w-full text-center text-sm font-semibold text-[#0e62ae] bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-100 transition mb-5"
-                >
-                  Download Document
-                </button>
-              )}
-
-              {/* Approve / Reject actions */}
-              <div className="mt-auto space-y-3 pt-4 border-t border-gray-100">
-                {activeTab === 'vsc' && docs.vsc_signed_url && (
-                  <VerificationActions volunteerId={volunteerId} documentType="vsc"
-                    currentStatus={localRecord.vsc.verification_status} verifiedAt={localRecord.vsc.verified_at}
-                    onVerified={handleVscVerified} />
-                )}
-                {activeTab === 'vaccine' && docs.vaccine_signed_url && (
-                  <VerificationActions volunteerId={volunteerId} documentType="vaccine"
-                    currentStatus={localRecord.vaccine.verification_status} verifiedAt={localRecord.vaccine.verified_at}
-                    onVerified={handleVaccineVerified} />
-                )}
-                <p className="text-xs text-gray-400 text-center">Document links expire after 1 hour.</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+      </button>
+    </th>
   );
 }
 
@@ -495,9 +97,24 @@ export function DocumentModal({
 interface Props {
   role?: 'admin' | 'pd';
   onDocReviewChange?: () => void;
+  /**
+   * When set, the detail view for this volunteer replaces the list — mirroring how
+   * AdminGroupVisits swaps in AdminOrgDetail. Driven by the `volunteer` URL param.
+   */
+  selectedVolunteerId?: string | null;
+  onSelectVolunteer?: (volunteerId: string) => void;
+  onBackFromVolunteer?: () => void;
+  onSelectVisit?: (visitId: number) => void;
 }
 
-export default function AdminManageVolunteers({ role = 'admin', onDocReviewChange }: Props) {
+export default function AdminManageVolunteers({
+  role = 'admin',
+  onDocReviewChange,
+  selectedVolunteerId = null,
+  onSelectVolunteer,
+  onBackFromVolunteer,
+  onSelectVisit,
+}: Props) {
   const { user: clerkUser } = useUser();
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [complianceMap, setComplianceMap] = useState<Map<string, ComplianceRecord>>(new Map());
@@ -508,25 +125,20 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
   const [loading, setLoading] = useState(true);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedUserIds, setExpandedUserIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [regionFilter, setRegionFilter] = useState<string>('all'); // 'all' | 'unassigned' | region id
   const [complianceFilter, setComplianceFilter] = useState<'none' | 'review' | 'issues'>('none');
+  // Sorting is purely client-side: the list already holds every approved volunteer and filters
+  // in memory, so this is a comparator over an array that's present either way.
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortAsc, setSortAsc] = useState(true);
   const [selectedDocVolunteer, setSelectedDocVolunteer] = useState<{ id: string; name: string; record: ComplianceRecord; dog?: DogProfile | null } | null>(null);
   const [signedUrlCache, setSignedUrlCache] = useState<Map<string, SignedDocs>>(new Map());
-  const [reassigningId, setReassigningId] = useState<string | null>(null);
-
-  // Archive modal
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
-  const [userToArchive, setUserToArchive] = useState<{ id: string; name: string } | null>(null);
-  const [archiveWarning, setArchiveWarning] = useState<{ appointments: ActiveAppointment[] } | null>(null);
-  const [archiving, setArchiving] = useState(false);
 
   // ── Data fetching ─────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  const loadData = React.useCallback(async (opts?: { quiet?: boolean }) => {
+      if (!opts?.quiet) setLoading(true);
       setError(null);
       try {
         const [usersRes, complianceRes, regionsRes] = await Promise.all([
@@ -568,6 +180,7 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
             is_browsable: u.is_browsable ?? true,
             assigned_region_id: u.assigned_region_id ?? null,
             region_assignment_method: u.region_assignment_method ?? null,
+            volunteer_tier: u.volunteer_tier ?? null,
           }))
           .sort((a: Volunteer, b: Volunteer) => a.last_name.localeCompare(b.last_name));
 
@@ -589,9 +202,9 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
       } finally {
         setLoading(false);
       }
-    };
-    fetchData();
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   // Pre-fetch signed URLs for pending_review volunteers in the background
   useEffect(() => {
@@ -645,57 +258,6 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
     fetchArchived();
   }, [viewMode]);
 
-  // ── Archive handlers ──────────────────────────────────────────────────────────
-
-  const handleArchiveUser = async (userId: string, userName: string) => {
-    setUserToArchive({ id: userId, name: userName });
-    setArchiving(false);
-    try {
-      const res = await fetch('/api/admin/archive-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId }),
-      });
-      const result = await res.json();
-      if (result.requires_confirmation) {
-        setArchiveWarning({ appointments: result.active_appointments });
-        setArchiveModalOpen(true);
-      } else if (result.success) {
-        setVolunteers(prev => prev.filter(u => u.id !== userId));
-        alert('Volunteer archived successfully');
-      } else {
-        alert(`Failed to archive: ${result.error}`);
-      }
-    } catch {
-      alert('Failed to archive volunteer');
-    }
-  };
-
-  const confirmArchive = async () => {
-    if (!userToArchive) return;
-    setArchiving(true);
-    try {
-      const res = await fetch('/api/admin/archive-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userToArchive.id, confirmed: true }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        setVolunteers(prev => prev.filter(u => u.id !== userToArchive.id));
-        setArchiveModalOpen(false);
-        setUserToArchive(null);
-        setArchiveWarning(null);
-      } else {
-        alert(`Failed to archive: ${result.error}`);
-      }
-    } catch {
-      alert('Failed to archive volunteer');
-    } finally {
-      setArchiving(false);
-    }
-  };
-
   const handleUnarchiveUser = async (userId: string, userName: string) => {
     if (!confirm(`Restore ${userName}'s account? They will be able to access the platform again.`)) return;
     try {
@@ -713,27 +275,6 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
       }
     } catch {
       alert('Failed to unarchive volunteer');
-    }
-  };
-
-  // ── Other handlers ────────────────────────────────────────────────────────────
-
-  const toggleExpand = (userId: string) => {
-    setExpandedUserIds(prev =>
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const handleToggleBrowsable = async (userId: string, current: boolean) => {
-    setVolunteers(prev => prev.map(u => u.id === userId ? { ...u, is_browsable: !current } : u));
-    const res = await fetch('/api/admin/set-browsable', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, is_browsable: !current }),
-    });
-    if (!res.ok) {
-      setVolunteers(prev => prev.map(u => u.id === userId ? { ...u, is_browsable: current } : u));
-      alert('Failed to update visibility');
     }
   };
 
@@ -755,27 +296,6 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
   const issueCount = volunteers.filter(v => hasComplianceIssue(v.id)).length;
   const reviewCount = volunteers.filter(v => hasNeedsReview(v.id)).length;
 
-  const handleReassignRegion = async (volunteerId: string, newRegionId: number | null) => {
-    setReassigningId(volunteerId);
-    try {
-      const res = await fetch('/api/admin/assign-volunteer-region', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volunteer_id: volunteerId, region_id: newRegionId }),
-      });
-      if (!res.ok) { alert('Failed to update region'); return; }
-      setVolunteers(prev => prev.map(v =>
-        v.id === volunteerId
-          ? { ...v, assigned_region_id: newRegionId, region_assignment_method: 'manual' }
-          : v
-      ));
-    } catch {
-      alert('Failed to update region');
-    } finally {
-      setReassigningId(null);
-    }
-  };
-
   // For PD: default region filter to their region once regions load
   React.useEffect(() => {
     if (role !== 'pd' || !clerkUser?.id || regions.length === 0 || regionFilterInitialized.current) return;
@@ -796,12 +316,59 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
       regionFilter === 'unassigned' ? v.assigned_region_id === null :
       v.assigned_region_id === parseInt(regionFilter, 10);
     return matchesSearch && matchesCompliance && matchesRegion;
+  }).sort((a, b) => {
+    const regionName = (v: Volunteer) =>
+      v.assigned_region_id ? (regions.find(r => r.id === v.assigned_region_id)?.name ?? '') : '';
+    let cmp = 0;
+    switch (sortKey) {
+      case 'name':   cmp = `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`); break;
+      case 'email':  cmp = (a.email ?? '').localeCompare(b.email ?? ''); break;
+      case 'city':   cmp = (a.city ?? '').localeCompare(b.city ?? ''); break;
+      // Unassigned sorts last ascending — an empty region name would otherwise float to the top.
+      case 'region': cmp = (regionName(a) || '\uffff').localeCompare(regionName(b) || '\uffff'); break;
+      case 'tier':   cmp = (TIER_ORDER[a.volunteer_tier ?? 'regular'] ?? 1) - (TIER_ORDER[b.volunteer_tier ?? 'regular'] ?? 1); break;
+      case 'vsc':
+      case 'vaccine': {
+        const status = (v: Volunteer) => {
+          const c = complianceMap.get(v.id);
+          const s = sortKey === 'vsc' ? c?.vsc.status : c?.vaccine.status;
+          return COMPLIANCE_ORDER[s ?? ''] ?? 99;
+        };
+        cmp = status(a) - status(b);
+        break;
+      }
+    }
+    // Stable tiebreak, so rows with equal keys keep a predictable order between clicks.
+    if (cmp === 0) cmp = `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
+    return sortAsc ? cmp : -cmp;
   });
+
+  /** Click a column to sort by it; click the active column again to reverse. */
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) { setSortAsc(a => !a); return; }
+    setSortKey(key);
+    // Compliance columns are most useful worst-first, which is what ascending already gives.
+    setSortAsc(true);
+  };
 
   const filteredArchived = archivedVolunteers.filter(v =>
     `${v.first_name} ${v.last_name} ${v.email} ${v.city}`
       .toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Detail view takes over the whole pane. Placed after every hook so the hook order is stable.
+  // The detail component fetches its own data, so this doesn't depend on the list having loaded.
+  if (selectedVolunteerId && onBackFromVolunteer) {
+    return (
+      <AdminVolunteerDetail
+        volunteerId={selectedVolunteerId}
+        onBack={onBackFromVolunteer}
+        onSelectVisit={onSelectVisit ?? (() => {})}
+        role={role}
+        onVolunteerChanged={() => loadData({ quiet: true })}
+      />
+    );
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -916,189 +483,85 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
         {!loading && !error && viewMode === 'active' && (
           <table className="w-full text-sm border border-gray-200 rounded-md">
             <thead className="bg-gray-100 text-left">
-              <tr>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">City</th>
-                <th className="px-4 py-2">Region</th>
-                <th className="px-4 py-2">VSC</th>
-                <th className="px-4 py-2">Vaccine</th>
-                <th className="px-2 py-2 w-6" />
+              <tr className="group">
+                {([
+                  ['Name', 'name'], ['Email', 'email'], ['City', 'city'],
+                  ['Region', 'region'], ['Tier', 'tier'], ['VSC', 'vsc'], ['Vaccine', 'vaccine'],
+                ] as [string, SortKey][]).map(([label, column]) => (
+                  <SortableHeader
+                    key={column}
+                    label={label}
+                    column={column}
+                    sortKey={sortKey}
+                    sortAsc={sortAsc}
+                    onSort={handleSort}
+                  />
+                ))}
+                <th className="px-2 py-2 w-20" />
               </tr>
             </thead>
             <tbody>
               {filteredVolunteers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     {complianceFilter !== 'none' ? 'No volunteers match this filter.' : 'No volunteers found.'}
                   </td>
                 </tr>
               ) : filteredVolunteers.map(user => {
-                const isExpanded = expandedUserIds.includes(user.id);
                 const compliance = complianceMap.get(user.id);
                 const rowHasIssue = hasComplianceIssue(user.id);
+                const needsReview = compliance?.vsc.verification_status === 'pending_review'
+                  || compliance?.vaccine.verification_status === 'pending_review';
+                const tierBadge = TIER_BADGE[(user.volunteer_tier ?? 'regular') as VolunteerTier];
                 return (
-                  <React.Fragment key={user.id}>
-                    <tr
-                      className={`border-t hover:bg-gray-50 cursor-pointer ${rowHasIssue ? 'bg-red-50/30' : ''}`}
-                      onClick={() => toggleExpand(user.id)}
-                    >
-                      <td className="px-4 py-2">{user.first_name} {user.last_name}</td>
-                      <td className="px-4 py-2">{user.email}</td>
-                      <td className="px-4 py-2">{user.city}</td>
-                      <td className="px-4 py-2">
-                        {user.assigned_region_id
-                          ? <span className="text-sm text-gray-800">{regions.find(r => r.id === user.assigned_region_id)?.name ?? '—'}</span>
-                          : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Unassigned</span>
-                        }
-                      </td>
-                      <td className="px-4 py-2"><ComplianceBadge status={compliance?.vsc.status} /></td>
-                      <td className="px-4 py-2"><ComplianceBadge status={compliance?.vaccine.status} /></td>
-                      <td className="px-2 py-2">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
-                    </tr>
-                    {isExpanded && (
-                      <tr className="bg-gray-50 border-t">
-                        <td colSpan={7} className="px-6 py-4">
-                          {/* Name heading */}
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">{user.first_name} {user.last_name}</h3>
-
-                          {/* Two-column profiles */}
-                          <div className="flex flex-col lg:flex-row gap-6">
-                            {/* Volunteer profile */}
-                            <div className="flex gap-4 items-start w-full lg:w-1/2">
-                              <img
-                                src={user.profile_picture_url}
-                                alt={`${user.first_name} ${user.last_name}`}
-                                className="w-24 h-24 object-cover rounded-xl"
-                              />
-                              <div className="space-y-1 text-sm">
-                                <p><span className="font-semibold text-gray-700">Phone:</span> <span className="text-gray-900">{formatPhoneDisplay(user.phone) || '—'}</span></p>
-                                <p><span className="font-semibold text-gray-700">Postal Code:</span> <span className="text-gray-900">{user.postal_code}</span></p>
-                                {user.date_of_birth && (
-                                  <p><span className="font-semibold text-gray-700">Date of Birth:</span> <span className="text-gray-900">{formatDate(user.date_of_birth)}</span></p>
-                                )}
-                                <p><span className="font-semibold text-gray-700">Bio:</span></p>
-                                <p className="text-gray-900 italic">&ldquo;{user.bio}&rdquo;</p>
-                              </div>
-                            </div>
-
-                            {/* Dog profile */}
-                            {user.dog && (
-                              <div className="flex gap-4 items-start w-full lg:w-1/2">
-                                <img
-                                  src={user.dog.dog_picture_url}
-                                  alt={user.dog.dog_name}
-                                  className="w-24 h-24 object-cover rounded-xl"
-                                />
-                                <div className="space-y-1 text-sm">
-                                  <p className="font-bold text-base text-gray-900">{user.dog.dog_name}</p>
-                                  <p><span className="font-semibold text-gray-700">Breed:</span> <span className="text-gray-900">{user.dog.dog_breed}</span></p>
-                                  {user.dog.dog_age && <p><span className="font-semibold text-gray-700">Age:</span> <span className="text-gray-900">{user.dog.dog_age} years</span></p>}
-                                  <p><span className="font-semibold text-gray-700">Bio:</span></p>
-                                  <p className="text-gray-900 italic">&ldquo;{user.dog.dog_bio}&rdquo;</p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Compliance + Region + Controls */}
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                              {/* VSC dot indicator */}
-                              {(() => {
-                                const s = compliance?.vsc.status;
-                                const dotColor = s === 'approved' ? 'bg-green-500' : s === 'missing' ? 'bg-red-400' : s === 'pending_review' ? 'bg-amber-500' : s === 'rejected' ? 'bg-red-500' : s === 'expired' ? 'bg-red-500' : s === 'expiring' ? 'bg-amber-400' : 'bg-gray-300';
-                                const label = s === 'approved' ? 'Approved' : s === 'missing' ? 'Missing' : s === 'pending_review' ? 'Needs Review' : s === 'rejected' ? 'Rejected' : s === 'expired' ? 'Expired' : s === 'expiring' ? 'Expiring Soon' : '—';
-                                const textColor = s === 'approved' ? 'text-green-700' : s === 'missing' || s === 'expired' || s === 'rejected' ? 'text-red-700' : s === 'pending_review' || s === 'expiring' ? 'text-amber-700' : 'text-gray-500';
-                                return (
-                                  <span className="inline-flex items-center gap-2 text-sm">
-                                    <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
-                                    <span className="font-semibold text-gray-700">VSC</span>
-                                    <span className={`font-medium ${textColor}`}>{label}</span>
-                                  </span>
-                                );
-                              })()}
-
-                              {/* Vaccine dot indicator */}
-                              {(() => {
-                                const s = compliance?.vaccine.status;
-                                const dotColor = s === 'approved' ? 'bg-green-500' : s === 'missing' ? 'bg-red-400' : s === 'pending_review' ? 'bg-amber-500' : s === 'rejected' ? 'bg-red-500' : s === 'expired' ? 'bg-red-500' : s === 'expiring' ? 'bg-amber-400' : 'bg-gray-300';
-                                const label = s === 'approved' ? 'Approved' : s === 'missing' ? 'Missing' : s === 'pending_review' ? 'Needs Review' : s === 'rejected' ? 'Rejected' : s === 'expired' ? 'Expired' : s === 'expiring' ? 'Expiring Soon' : '—';
-                                const textColor = s === 'approved' ? 'text-green-700' : s === 'missing' || s === 'expired' || s === 'rejected' ? 'text-red-700' : s === 'pending_review' || s === 'expiring' ? 'text-amber-700' : 'text-gray-500';
-                                return (
-                                  <span className="inline-flex items-center gap-2 text-sm">
-                                    <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
-                                    <span className="font-semibold text-gray-700">Vaccine</span>
-                                    <span className={`font-medium ${textColor}`}>{label}</span>
-                                  </span>
-                                );
-                              })()}
-
-                              {/* View/Review Documents button */}
-                              {compliance && (compliance.vsc.status !== 'missing' || compliance.vaccine.status !== 'missing') && (
-                                <button
-                                  onClick={e => { e.stopPropagation(); setSelectedDocVolunteer({ id: user.id, name: `${user.first_name} ${user.last_name}`, record: compliance, dog: user.dog }); }}
-                                  className={`text-sm font-semibold rounded-lg px-4 py-1.5 transition ${
-                                    compliance.vsc.verification_status === 'pending_review' || compliance.vaccine.verification_status === 'pending_review'
-                                      ? 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100'
-                                      : 'bg-blue-50 text-[#0e62ae] border border-blue-200 hover:bg-blue-100'
-                                  }`}
-                                >
-                                  {compliance.vsc.verification_status === 'pending_review' || compliance.vaccine.verification_status === 'pending_review' ? 'Review Documents' : 'View Documents'}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Admin Controls */}
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                              {/* Region */}
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-700 shrink-0">Region:</span>
-                                <select
-                                  value={user.assigned_region_id ?? ''}
-                                  onChange={e => handleReassignRegion(user.id, e.target.value ? parseInt(e.target.value, 10) : null)}
-                                  onClick={e => e.stopPropagation()}
-                                  disabled={reassigningId === user.id}
-                                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                                >
-                                  <option value="">— Unassigned —</option>
-                                  {regions.filter(r => r.is_active).map(r => (
-                                    <option key={r.id} value={r.id}>{r.name}</option>
-                                  ))}
-                                </select>
-                                {user.region_assignment_method && (
-                                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
-                                    {user.region_assignment_method === 'manual' ? 'Manual' : 'Auto-assigned'}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Visible to individual search */}
-                              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={user.is_browsable}
-                                  onChange={() => handleToggleBrowsable(user.id, user.is_browsable)}
-                                  onClick={e => e.stopPropagation()}
-                                />
-                                <span className="font-medium text-gray-700">Visible to individual search</span>
-                              </label>
-
-                              {/* Archive — pushed right */}
-                              <button
-                                onClick={() => handleArchiveUser(user.id, `${user.first_name} ${user.last_name}`)}
-                                className="ml-auto px-4 py-1.5 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium rounded-lg transition"
-                              >
-                                Archive Volunteer
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                  <tr
+                    key={user.id}
+                    className={`border-t hover:bg-gray-50 ${onSelectVolunteer ? 'cursor-pointer' : ''} ${rowHasIssue ? 'bg-red-50/30' : ''}`}
+                    onClick={() => onSelectVolunteer?.(user.id)}
+                  >
+                    <td className="px-4 py-2">
+                      <span className={onSelectVolunteer ? 'font-medium text-[#0e62ae]' : ''}>
+                        {user.first_name} {user.last_name}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">{user.email}</td>
+                    <td className="px-4 py-2">{user.city}</td>
+                    <td className="px-4 py-2">
+                      {user.assigned_region_id
+                        ? <span className="text-sm text-gray-800">{regions.find(r => r.id === user.assigned_region_id)?.name ?? '—'}</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Unassigned</span>
+                      }
+                    </td>
+                    <td className="px-4 py-2">
+                      {tierBadge
+                        ? <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${tierBadge.classes}`}>{tierBadge.label}</span>
+                        : <span className="text-xs text-gray-400">—</span>
+                      }
+                    </td>
+                    <td className="px-4 py-2"><ComplianceBadge status={compliance?.vsc.status} /></td>
+                    <td className="px-4 py-2"><ComplianceBadge status={compliance?.vaccine.status} /></td>
+                    <td className="px-2 py-2 text-right">
+                      {/* Review stays on the list so the "N awaiting review" banner remains a
+                          workable queue — filter, review, move on — rather than forcing a detour
+                          through each profile. Everything else now lives on the detail view. */}
+                      {needsReview && compliance && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setSelectedDocVolunteer({
+                              id: user.id,
+                              name: `${user.first_name} ${user.last_name}`,
+                              record: compliance,
+                              dog: user.dog,
+                            });
+                          }}
+                          className="px-3 py-1 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-100 transition whitespace-nowrap"
+                        >
+                          Review
+                        </button>
+                      )}
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -1142,90 +605,6 @@ export default function AdminManageVolunteers({ role = 'admin', onDocReviewChang
           </table>
         )}
       </div>
-
-      {/* Archive Confirmation Modal */}
-      {archiveModalOpen && userToArchive && archiveWarning && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              {archiveWarning.appointments.length === 0 ? (
-                <>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Archive Volunteer</h3>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Are you sure you want to archive <span className="font-semibold">{userToArchive.name}</span>?
-                  </p>
-                  <p className="text-sm text-gray-600 mb-6">They will no longer be able to access the platform or book appointments.</p>
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => { setArchiveModalOpen(false); setUserToArchive(null); setArchiveWarning(null); }}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      disabled={archiving}
-                    >
-                      Cancel
-                    </button>
-                    <button onClick={confirmArchive} disabled={archiving}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md disabled:opacity-50">
-                      {archiving ? 'Archiving...' : 'Archive Volunteer'}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Warning: {archiveWarning.appointments.length} active appointment{archiveWarning.appointments.length !== 1 ? 's' : ''}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">Archiving this volunteer will automatically cancel the following appointments:</p>
-                  {archiveWarning.appointments.filter(a => a.status === 'confirmed').length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-red-700 mb-2">Confirmed ({archiveWarning.appointments.filter(a => a.status === 'confirmed').length}):</h4>
-                      <ul className="space-y-2 ml-4">
-                        {archiveWarning.appointments.filter(a => a.status === 'confirmed').map(appt => (
-                          <li key={appt.id} className="text-sm text-gray-700">
-                            • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
-                            {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {archiveWarning.appointments.filter(a => a.status === 'pending').length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-orange-700 mb-2">Pending ({archiveWarning.appointments.filter(a => a.status === 'pending').length}):</h4>
-                      <ul className="space-y-2 ml-4">
-                        {archiveWarning.appointments.filter(a => a.status === 'pending').map(appt => (
-                          <li key={appt.id} className="text-sm text-gray-700">
-                            • {new Date(appt.start_time).toLocaleString()} with <span className="font-medium">{appt.other_user_name}</span>
-                            {appt.dog_name && <span className="text-gray-500"> ({appt.dog_name})</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                    <p className="text-sm text-yellow-800">The other parties will be notified via email that their appointments were canceled by a Sunshine administrator.</p>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-6">
-                    Are you sure you want to archive <span className="font-semibold">{userToArchive.name}</span> and cancel their appointments?
-                  </p>
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => { setArchiveModalOpen(false); setUserToArchive(null); setArchiveWarning(null); }}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      disabled={archiving}
-                    >
-                      Cancel
-                    </button>
-                    <button onClick={confirmArchive} disabled={archiving}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md disabled:opacity-50">
-                      {archiving ? 'Archiving...' : 'Archive & Cancel Appointments'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Document Modal */}
       {selectedDocVolunteer && (

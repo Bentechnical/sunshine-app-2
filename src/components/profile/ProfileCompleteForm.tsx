@@ -14,7 +14,6 @@ import IndividualVisitDetails from './steps/IndividualVisitDetails';
 import IndividualLiabilityWaiver from './steps/IndividualLiabilityWaiver';
 import VolunteerBasicInfo from './steps/VolunteerBasicInfo';
 import VolunteerDogProfile from './steps/VolunteerDogProfile';
-import VolunteerAudiencePrefs from './steps/VolunteerAudiencePrefs';
 import VolunteerCompliance from './steps/VolunteerCompliance';
 import OrgDetails from './steps/OrgDetails';
 
@@ -41,7 +40,7 @@ type Role = 'individual' | 'volunteer' | 'organization';
 
 function getTotalSteps(role: Role | '') {
   if (role === 'individual') return 4;
-  if (role === 'volunteer') return 5;
+  if (role === 'volunteer') return 4;
   if (role === 'organization') return 2;
   return 1;
 }
@@ -52,7 +51,7 @@ function getStepTitle(role: Role | '', step: number): string {
     return ['', '', 'Basic Information', 'Visit Details', 'Terms & Conditions'][step] ?? '';
   }
   if (role === 'volunteer') {
-    return ['', '', 'About You', 'Your Dog', 'Individual Visits', 'Compliance Documents'][step] ?? '';
+    return ['', '', 'About You', 'Your Dog', 'Compliance Documents'][step] ?? '';
   }
   if (role === 'organization') {
     return ['', '', 'Organization Details'][step] ?? '';
@@ -102,15 +101,12 @@ export default function ProfileCompleteForm() {
   const [liabilityWaiverAccepted, setLiabilityWaiverAccepted] = useState(false);
 
   // Volunteer fields
-  const [openToIndividualVisits, setOpenToIndividualVisits] = useState(true);
   const [travelDistance, setTravelDistance] = useState('25');
   const [dogName, setDogName] = useState('');
   const [dogBreed, setDogBreed] = useState('');
   const [dogAge, setDogAge] = useState('');
   const [dogBio, setDogBio] = useState('');
   const [dogPhotoUrl, setDogPhotoUrl] = useState('');
-  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [vscDocumentUrl, setVscDocumentUrl] = useState('');
   const [vscDate, setVscDate] = useState('');
   const [vscComment, setVscComment] = useState('');
@@ -160,7 +156,6 @@ export default function ProfileCompleteForm() {
         setPostalCode(userData.postal_code || '');
         setProfilePictureUrl(userData.profile_image || '');
         if (userData.travel_distance_km) setTravelDistance(userData.travel_distance_km.toString());
-        setOpenToIndividualVisits(userData.open_to_individual_visits ?? true);
 
         setVisitRecipientType(userData.visit_recipient_type || '');
         setRelationshipToRecipient(userData.relationship_to_recipient || '');
@@ -188,17 +183,6 @@ export default function ProfileCompleteForm() {
         setVscDate(userData.vsc_date_issued || '');
 
         if (role === 'volunteer') {
-          const { data: audienceData } = await supabase
-            .from('volunteer_audience_preferences')
-            .select('category_id, audience_categories (name)')
-            .eq('volunteer_id', user.id);
-
-          if (audienceData) {
-            setSelectedCategories(
-              audienceData.map((item: any) => item.audience_categories?.name).filter(Boolean)
-            );
-          }
-
           const { data: dogData } = await supabase
             .from('dogs')
             .select('*')
@@ -224,31 +208,6 @@ export default function ProfileCompleteForm() {
 
     fetchUserProfile();
   }, [user, isLoaded, hasPrefilled, supabase]);
-
-  // Fetch audience categories whenever role becomes volunteer (covers both manual selection and prefill)
-  useEffect(() => {
-    if (selectedRole !== 'volunteer' || availableCategories.length > 0) return;
-    let cancelled = false;
-    const fetchCategories = async (retries = 2) => {
-      try {
-        const r = await fetch('/api/audience-categories');
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        if (!cancelled && data?.categories) {
-          setAvailableCategories(data.categories.map((cat: any) => cat.name));
-        }
-      } catch (err) {
-        if (!cancelled && retries > 0) {
-          await new Promise(res => setTimeout(res, 1500));
-          await fetchCategories(retries - 1);
-        } else {
-          console.error('[ProfileCompleteForm] Failed to load audience categories:', err);
-        }
-      }
-    };
-    fetchCategories();
-    return () => { cancelled = true; };
-  }, [selectedRole, availableCategories.length]);
 
   const handleOrgPlaceSelect = (result: PlaceResult) => {
     setOrgAddress(result.formatted_address);
@@ -325,7 +284,7 @@ export default function ProfileCompleteForm() {
           return false;
         }
       }
-      if (currentStep === 5) {
+      if (currentStep === 4) {
         if (vscDocumentUrl && !vscDate) {
           setSubmitError('Please enter the VSC issue date.');
           return false;
@@ -408,8 +367,7 @@ export default function ProfileCompleteForm() {
           profile_image: profilePictureUrl,
           pronouns,
           date_of_birth: dateOfBirth || null,
-          open_to_individual_visits: openToIndividualVisits,
-          travel_distance_km: openToIndividualVisits ? Number(travelDistance) : 25,
+          travel_distance_km: Number(travelDistance),
           vsc_document_url: vscDocumentUrl || null,
           vsc_date_issued: vscDate || null,
           vsc_upload_comment: vscComment || null,
@@ -461,7 +419,7 @@ export default function ProfileCompleteForm() {
         });
       }
 
-      // Volunteer-specific: dog + audience preferences
+      // Volunteer-specific: dog profile
       if (selectedRole === 'volunteer') {
         const { data: existingDog } = await supabase
           .from('dogs')
@@ -490,28 +448,6 @@ export default function ProfileCompleteForm() {
         } else {
           const { error: dogError } = await supabase.from('dogs').insert(dogPayload);
           if (dogError) throw new Error(dogError.message);
-        }
-
-        // If not opted into individual visits or no categories selected, treat as "open to all"
-        const categoriesToSave = (openToIndividualVisits && selectedCategories.length > 0)
-          ? selectedCategories
-          : availableCategories;
-
-        if (categoriesToSave.length > 0) {
-          await supabase.from('volunteer_audience_preferences').delete().eq('volunteer_id', user.id);
-
-          const { data: categories } = await supabase
-            .from('audience_categories')
-            .select('id, name')
-            .in('name', categoriesToSave);
-
-          if (categories && categories.length > 0) {
-            const { error: audienceError } = await supabase
-              .from('volunteer_audience_preferences')
-              .insert(categories.map((cat) => ({ volunteer_id: user.id, category_id: cat.id })));
-
-            if (audienceError) throw new Error(audienceError.message);
-          }
         }
 
         await geocodePostalCode(normalizePostalCode(postalCode), user.id);
@@ -632,18 +568,6 @@ export default function ProfileCompleteForm() {
         />
       );
       if (currentStep === 4) return (
-        <VolunteerAudiencePrefs
-          openToIndividualVisits={openToIndividualVisits}
-          setOpenToIndividualVisits={setOpenToIndividualVisits}
-          travelDistance={travelDistance}
-          setTravelDistance={setTravelDistance}
-          availableCategories={availableCategories}
-          selectedCategories={selectedCategories}
-          setSelectedCategories={setSelectedCategories}
-          isLoading={isLoading}
-        />
-      );
-      if (currentStep === 5) return (
         <VolunteerCompliance
           userId={user!.id}
           vscDocumentUrl={vscDocumentUrl} setVscDocumentUrl={setVscDocumentUrl}

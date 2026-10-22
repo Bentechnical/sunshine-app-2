@@ -1,32 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import {
-  ComplianceBadge,
-  ComplianceRecord,
-  ComplianceStatus,
-  DocumentModal,
-  formatDate,
-} from '@/components/admin/AdminManageVolunteers';
-
-// ─── Compliance status derivation (matches API logic) ─────────────────────────
-
-function getComplianceStatus(
-  documentUrl: string | null,
-  expiryDate: string | null,
-  verificationStatus: string | null,
-): ComplianceStatus {
-  if (!documentUrl) return 'missing';
-  if (verificationStatus === 'rejected') return 'rejected';
-  if (!verificationStatus || verificationStatus === 'pending_review') return 'pending_review';
-  // approved
-  if (!expiryDate) return 'approved';
-  const expiry = new Date(expiryDate);
-  const daysUntil = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-  if (daysUntil < 0) return 'expired';
-  if (daysUntil <= 30) return 'expiring';
-  return 'approved';
-}
+import { ComplianceBadge, formatDate } from '@/components/admin/compliance/ComplianceBadge';
+import { DocumentModal } from '@/components/admin/compliance/DocumentModal';
+import type { ComplianceRecord, ComplianceStatus } from '@/components/admin/compliance/types';
+import { getComplianceStatus } from '@/utils/compliance';
 
 function buildComplianceRecord(user: VolunteerRequest): ComplianceRecord {
   const vscStatus = getComplianceStatus(user.vsc_document_url, user.vsc_renewal_due, user.vsc_verification_status);
@@ -184,6 +162,10 @@ export default function UserRequestsTab({ view = 'volunteers', onCountChange }: 
   const [regions, setRegions] = useState<Region[]>([]);
   const [orgSetupDraft, setOrgSetupDraft] = useState<Record<string, { feeTier: string; regionId: string }>>({});
   const [volRegionDraft, setVolRegionDraft] = useState<Record<string, string>>({});
+  // Tier chosen at approval. Blank leaves the column default ('candidate'), which is the
+  // right outcome for a genuinely new volunteer — this is for the case where the PD already
+  // knows the person and doesn't want them gated.
+  const [volTierDraft, setVolTierDraft] = useState<Record<string, string>>({});
   const [complianceRecords, setComplianceRecords] = useState<Record<string, ComplianceRecord>>({});
   const [docModal, setDocModal] = useState<{ id: string; name: string; record: ComplianceRecord; dog: VolunteerRequest['dog'] } | null>(null);
   const [approveGate, setApproveGate] = useState<string | null>(null); // volunteerId being gate-prompted
@@ -456,6 +438,15 @@ export default function UserRequestsTab({ view = 'volunteers', onCountChange }: 
         }).catch(e => console.error('[Admin] Volunteer region assignment failed:', e));
       }
 
+      const tier = volTierDraft[volId];
+      if (tier) {
+        fetch(`/api/admin/volunteers/${volId}/tier`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volunteer_tier: tier }),
+        }).catch(e => console.error('[Admin] Volunteer tier assignment failed:', e));
+      }
+
       setVolunteerRequests(prev => prev.filter(v => v.id !== volId));
     } catch (err) {
       console.error('[Admin] Error approving volunteer', err);
@@ -646,8 +637,19 @@ export default function UserRequestsTab({ view = 'volunteers', onCountChange }: 
                             </button>
                           )}
 
-                          {/* Region — pushed right */}
+                          {/* Tier + Region — pushed right */}
                           <div className="ml-auto flex items-center gap-2">
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Tier:</label>
+                            <select
+                              value={volTierDraft[user.id] ?? ''}
+                              onChange={e => setVolTierDraft(prev => ({ ...prev, [user.id]: e.target.value }))}
+                              className="border border-gray-300 rounded pl-2 pr-7 py-1 text-sm bg-white"
+                              title="Leave as Candidate unless you already know this volunteer"
+                            >
+                              <option value="">Candidate</option>
+                              <option value="regular">Regular</option>
+                              <option value="mentor">Mentor</option>
+                            </select>
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Region:</label>
                             <select
                               value={volRegionDraft[user.id] ?? ''}

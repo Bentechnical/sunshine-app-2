@@ -35,6 +35,8 @@ interface Visit {
   confirmed_count: number;
   waitlisted_count: number;
   requires_vsc: boolean;
+  supported_visit: boolean;
+  has_confirmed_mentor: boolean;
   parking_coverage: string | null;
   parking_instructions: string | null;
   arrival_instructions: string | null;
@@ -62,6 +64,7 @@ interface VolunteerReg {
 interface VolunteerMeta {
   volunteer_has_vsc: boolean;
   volunteer_has_vaccine: boolean;
+  volunteer_tier: 'candidate' | 'regular' | 'mentor';
   volunteer_location_set: boolean;
 }
 
@@ -196,10 +199,20 @@ function CountdownBadge({ dateStr }: { dateStr: string }) {
   );
 }
 
+function needsSupport(visit: Visit, meta: VolunteerMeta | null): boolean {
+  return !!meta
+    && meta.volunteer_tier === 'candidate'
+    && !visit.supported_visit
+    && !visit.has_confirmed_mentor;
+}
+
 function getLockReason(visit: Visit, meta: VolunteerMeta | null): string | null {
   if (!meta) return null;
   if (visit.requires_vsc && !meta.volunteer_has_vsc) return 'VSC document';
   if (!meta.volunteer_has_vaccine) return 'current rabies vaccine record';
+  // Listed last on purpose: a missing document is something the volunteer can fix themselves,
+  // so it should always be the message they see first.
+  if (needsSupport(visit, meta)) return 'supported visit';
   return null;
 }
 
@@ -207,8 +220,14 @@ function getLockLabel(visit: Visit, meta: VolunteerMeta | null): string | null {
   if (!meta) return null;
   if (visit.requires_vsc && !meta.volunteer_has_vsc) return 'VSC Required';
   if (!meta.volunteer_has_vaccine) return 'Rabies Vaccine Record Required';
+  if (needsSupport(visit, meta)) return 'Supported visits only';
   return null;
 }
+
+/** Shown in place of the generic "you need a X" line, which doesn't fit this case. */
+const SUPPORTED_VISIT_MESSAGE =
+  "This visit isn't open to you yet. New volunteers can join supported visits, which are " +
+  'attended by your program director or another experienced volunteer.';
 
 function parseRegs(rawRegs: any[]): VolunteerReg[] {
   return (rawRegs ?? [])
@@ -322,6 +341,7 @@ export default function BrowseOrgVisits({
         setMeta({
           volunteer_has_vsc: json.volunteer_has_vsc ?? false,
           volunteer_has_vaccine: json.volunteer_has_vaccine ?? false,
+          volunteer_tier: json.volunteer_tier ?? 'regular',
           volunteer_location_set: json.volunteer_location_set ?? false,
         });
       } catch {
@@ -697,16 +717,24 @@ export default function BrowseOrgVisits({
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
               <div className="flex items-start gap-2">
                 <Lock size={15} className="text-amber-600 mt-0.5 shrink-0" />
-                <p className="text-sm text-amber-800">
-                  This visit requires a <strong>{lockReason}</strong>. Upload it in your profile to sign up.
-                </p>
+                {needsSupport(selectedVisit, meta) ? (
+                  // Nothing for the volunteer to upload here, so no action button — this one
+                  // resolves by a PD marking the visit supported or a mentor joining it.
+                  <p className="text-sm text-amber-800">{SUPPORTED_VISIT_MESSAGE}</p>
+                ) : (
+                  <p className="text-sm text-amber-800">
+                    This visit requires a <strong>{lockReason}</strong>. Upload it in your profile to sign up.
+                  </p>
+                )}
               </div>
-              <a
-                href="/dashboard"
-                className="mt-3 inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Upload Documents
-              </a>
+              {!needsSupport(selectedVisit, meta) && (
+                <a
+                  href="/dashboard"
+                  className="mt-3 inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Upload Documents
+                </a>
+              )}
             </div>
           ) : myStatus === 'confirmed' ? (
             <div className="space-y-3">

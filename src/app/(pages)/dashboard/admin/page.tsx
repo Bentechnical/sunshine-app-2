@@ -71,6 +71,7 @@ function AdminDashboardInner() {
   const visitParam = searchParams.get('visit');
   const selectedVisitId = visitParam ? parseInt(visitParam, 10) : null;
   const orgParam = searchParams.get('org');
+  const volunteerParam = searchParams.get('volunteer');
   const filterParam = searchParams.get('filter');
   const profileImage = user?.imageUrl ?? '';
 
@@ -115,6 +116,7 @@ function AdminDashboardInner() {
             onCountChange={handleAlertCountsChange}
             role="admin"
             onSelectOrg={(orgId) => router.push(`/dashboard/admin?tab=manage-orgs&org=${orgId}`)}
+            onSelectVolunteer={(id) => router.push(`/dashboard/admin?tab=manage-volunteers&volunteer=${id}`)}
           />
         );
       case 'manage-orgs':
@@ -132,7 +134,15 @@ function AdminDashboardInner() {
           />
         );
       case 'manage-volunteers':
-        return <AdminManageVolunteers onDocReviewChange={handleAlertCountsChange} />;
+        return (
+          <AdminManageVolunteers
+            onDocReviewChange={handleAlertCountsChange}
+            selectedVolunteerId={volunteerParam}
+            onSelectVolunteer={(id) => router.push(`/dashboard/admin?tab=manage-volunteers&volunteer=${id}`)}
+            onBackFromVolunteer={() => router.back()}
+            onSelectVisit={(id) => router.push(`/dashboard/admin?tab=group-visits&visit=${id}`)}
+          />
+        );
       case 'manage-regions':
         return <AdminManageRegions />;
       case 'manage-individuals':

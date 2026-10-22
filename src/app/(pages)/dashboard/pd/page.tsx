@@ -45,6 +45,7 @@ function PDDashboardInner() {
   const visitParam = searchParams.get('visit');
   const selectedVisitId = visitParam ? parseInt(visitParam, 10) : null;
   const orgParam = searchParams.get('org');
+  const volunteerParam = searchParams.get('volunteer');
   const filterParam = searchParams.get('filter');
 
   const profileImage = user?.imageUrl ?? '';
@@ -86,10 +87,20 @@ function PDDashboardInner() {
             onCountChange={handleAlertCountsChange}
             role="pd"
             onSelectOrg={(orgId) => router.push(`/dashboard/pd?tab=manage-orgs&org=${orgId}`)}
+            onSelectVolunteer={(id) => router.push(`/dashboard/pd?tab=manage-volunteers&volunteer=${id}`)}
           />
         );
       case 'manage-volunteers':
-        return <AdminManageVolunteers role="pd" onDocReviewChange={handleAlertCountsChange} />;
+        return (
+          <AdminManageVolunteers
+            role="pd"
+            onDocReviewChange={handleAlertCountsChange}
+            selectedVolunteerId={volunteerParam}
+            onSelectVolunteer={(id) => router.push(`/dashboard/pd?tab=manage-volunteers&volunteer=${id}`)}
+            onBackFromVolunteer={() => router.back()}
+            onSelectVisit={(id) => router.push(`/dashboard/pd?tab=group-visits&visit=${id}`)}
+          />
+        );
       case 'manage-orgs':
         return (
           <AdminGroupVisits

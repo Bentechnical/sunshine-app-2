@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     // Verify caller is an approved volunteer
     const { data: volunteer, error: volunteerError } = await supabase
       .from('users')
-      .select('role, status, location_lat, location_lng, vsc_document_url, vsc_verification_status')
+      .select('role, status, location_lat, location_lng, vsc_document_url, vsc_verification_status, volunteer_tier')
       .eq('id', userId)
       .single();
 
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
         organization_id, guest_org_name,
         location_lat, location_lng, location_place_id, audience_age_ranges,
         visitor_count_expected, event_description,
-        volunteer_slots, min_volunteers, requires_vsc, requires_vaccine_record,
+        volunteer_slots, min_volunteers, requires_vsc, requires_vaccine_record, supported_visit,
         parking_coverage, parking_instructions, arrival_instructions,
         accessibility_notes, status,
         visit_registrations(id, volunteer_id, status, waitlist_position)
@@ -104,6 +104,30 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Which visits already have a confirmed mentor? Only relevant to candidates, but resolved
+    // for everyone in a single query — one round trip for the whole board beats one per visit.
+    const mentorVisitIds = new Set<number>();
+    if (volunteer.volunteer_tier === 'candidate') {
+      const confirmedByVisit = filtered.flatMap(v =>
+        ((v.visit_registrations as any[]) ?? [])
+          .filter(r => r.status === 'confirmed' && r.volunteer_id)
+          .map(r => ({ visitId: v.id as number, volunteerId: r.volunteer_id as string }))
+      );
+      const uniqueVolunteerIds = [...new Set(confirmedByVisit.map(r => r.volunteerId))];
+
+      if (uniqueVolunteerIds.length > 0) {
+        const { data: mentors } = await supabase
+          .from('users')
+          .select('id')
+          .in('id', uniqueVolunteerIds)
+          .eq('volunteer_tier', 'mentor');
+        const mentorIds = new Set((mentors ?? []).map(m => m.id));
+        for (const row of confirmedByVisit) {
+          if (mentorIds.has(row.volunteerId)) mentorVisitIds.add(row.visitId);
+        }
+      }
+    }
+
     const annotated = filtered.map(v => {
       const regs = (v.visit_registrations as any[]) ?? [];
       const confirmedCount = regs.filter((r: any) => r.status === 'confirmed').length;
@@ -141,6 +165,8 @@ export async function GET(req: NextRequest) {
         waitlisted_count: waitlistedCount,
         requires_vsc: v.requires_vsc,
         requires_vaccine_record: v.requires_vaccine_record,
+        supported_visit: (v as any).supported_visit ?? false,
+        has_confirmed_mentor: mentorVisitIds.has(v.id as number),
         parking_coverage: v.parking_coverage,
         parking_instructions: v.parking_instructions,
         arrival_instructions: v.arrival_instructions,
@@ -159,6 +185,7 @@ export async function GET(req: NextRequest) {
       visits: annotated,
       volunteer_has_vsc: !!(volunteer.vsc_document_url) && volunteer.vsc_verification_status !== 'rejected',
       volunteer_has_vaccine: volunteerHasVaccine,
+      volunteer_tier: volunteer.volunteer_tier ?? 'regular',
       volunteer_location_set: volunteerLat !== null && volunteerLng !== null,
     });
   } catch (err: any) {

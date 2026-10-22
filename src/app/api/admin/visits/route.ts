@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       .select(`
         id, title, organization_id, guest_org_name, guest_contact_name, guest_contact_email,
         visit_date, start_time, end_time, address, volunteer_slots, min_volunteers,
-        requires_vsc, requires_vaccine_record, status, admin_note,
+        requires_vsc, requires_vaccine_record, supported_visit, status, admin_note,
         assigned_pd_id,
         created_at, updated_at,
         org:organization_id(profile_image, org_name),
@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
       arrival_instructions,
       accessibility_notes,
       requires_vsc,
+      supported_visit,
       status,
       assigned_pd_id,
     } = body;
@@ -198,6 +199,7 @@ export async function POST(req: NextRequest) {
         arrival_instructions: arrival_instructions ?? null,
         accessibility_notes: accessibility_notes ?? null,
         requires_vsc: requires_vsc ?? false,
+        supported_visit: supported_visit ?? false,
         requires_vaccine_record: true, // always required for all visits
         status: status ?? 'pending_review',
         assigned_pd_id: assigned_pd_id ?? null,

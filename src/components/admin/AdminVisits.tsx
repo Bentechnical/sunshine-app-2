@@ -64,6 +64,7 @@ interface VisitSummary {
   waitlist_count: number;
   slots_remaining: number;
   requires_vsc: boolean;
+  supported_visit: boolean;
 
   status: VisitStatus;
   admin_note: string | null;
@@ -124,6 +125,7 @@ interface VisitDetail {
   arrival_instructions: string | null;
   accessibility_notes: string | null;
   requires_vsc: boolean;
+  supported_visit: boolean;
 
   status: VisitStatus;
   admin_note: string | null;
@@ -140,6 +142,8 @@ interface Props {
   onCountChange?: () => void;
   pdMode?: boolean;
   onSelectOrg?: (orgId: string) => void;
+  /** Opens a volunteer's profile from the registration lists. */
+  onSelectVolunteer?: (volunteerId: string) => void;
   // From the ?filter= URL param (home page links): a status tab, or 'unassigned'
   initialFilter?: string | null;
 }
@@ -316,6 +320,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     volunteer_slots: 1,
     min_volunteers: '',
     requires_vsc: false,
+    supported_visit: false,
     visitor_count_expected: '',
     approx_space_sqft: '',
     fee_tier: '',
@@ -630,6 +635,10 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
             <input type="checkbox" checked={form.requires_vsc} onChange={e => set('requires_vsc', e.target.checked)} className="w-4 h-4 rounded" />
             <span className="text-sm text-gray-700">Requires VSC</span>
           </label>
+          <label className="flex items-center gap-2 cursor-pointer" title="Opens this visit to candidate volunteers — you are available to support them if needed">
+            <input type="checkbox" checked={form.supported_visit} onChange={e => set('supported_visit', e.target.checked)} className="w-4 h-4 rounded" />
+            <span className="text-sm text-gray-700">Supported visit</span>
+          </label>
           <div className="flex items-center gap-2 ml-auto">
             <label className="text-sm text-gray-700 whitespace-nowrap">Initial status:</label>
             <select value={form.status} onChange={e => set('status', e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -679,6 +688,7 @@ function VisitDetailView({
   onBack,
   onUpdated,
   onSelectOrg,
+  onSelectVolunteer,
 }: {
   visitId: number;
   orgImage: string | null;
@@ -686,6 +696,7 @@ function VisitDetailView({
   onBack: () => void;
   onUpdated: () => void;
   onSelectOrg?: (orgId: string) => void;
+  onSelectVolunteer?: (volunteerId: string) => void;
 }) {
   const [visit, setVisit] = useState<VisitDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -717,6 +728,7 @@ function VisitDetailView({
     address: string; location_place_id: string; location_lat: number | null; location_lng: number | null;
     volunteer_slots: number; min_volunteers: number; visitor_count_expected: string; approx_space_sqft: string;
     requires_vsc: boolean;
+    supported_visit: boolean;
     fee_tier: string; fee_amount: string;
     parking_coverage: string; parking_instructions: string;
     arrival_instructions: string; accessibility_notes: string; event_description: string;
@@ -898,6 +910,7 @@ function VisitDetailView({
       visitor_count_expected: visit.visitor_count_expected != null ? String(visit.visitor_count_expected) : '',
       approx_space_sqft: visit.approx_space_sqft != null ? String(visit.approx_space_sqft) : '',
       requires_vsc: visit.requires_vsc,
+      supported_visit: visit.supported_visit ?? false,
       fee_tier: visit.fee_tier ?? '',
       fee_amount: visit.fee_amount != null ? String(visit.fee_amount) : '',
       parking_coverage: visit.parking_coverage ?? '',
@@ -938,6 +951,7 @@ function VisitDetailView({
           visitor_count_expected: editForm.visitor_count_expected ? parseInt(editForm.visitor_count_expected) : null,
           approx_space_sqft: editForm.approx_space_sqft ? parseInt(editForm.approx_space_sqft) : null,
           requires_vsc: editForm.requires_vsc,
+          supported_visit: editForm.supported_visit,
           fee_tier: editForm.fee_tier || null,
           fee_amount: editForm.fee_tier === 'custom' && editForm.fee_amount ? parseFloat(editForm.fee_amount) : null,
           parking_coverage: editForm.parking_coverage || null,
@@ -1203,7 +1217,16 @@ function VisitDetailView({
                   className="rounded accent-[#0e62ae]" />
                 <span className="text-sm text-gray-700">VSC Required</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editForm.supported_visit} onChange={e => setEditForm(f => f ? { ...f, supported_visit: e.target.checked } : f)}
+                  className="rounded accent-[#0e62ae]" />
+                <span className="text-sm text-gray-700">Supported visit</span>
+              </label>
             </div>
+            <p className="text-xs text-gray-400 -mt-1">
+              A supported visit is open to candidate volunteers. Candidates can otherwise only join
+              a visit where a mentor is already confirmed.
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fee Tier</label>
@@ -1665,9 +1688,19 @@ function VisitDetailView({
                       <div className="min-w-0">
                         {/* The volunteer leads: they're who you call, email or remove.
                             The dog is carried by the photo and named on the line below. */}
-                        <p className="text-base font-bold text-gray-900 leading-tight truncate">
-                          {reg.users ? `${reg.users.first_name} ${reg.users.last_name}` : 'Unknown volunteer'}
-                        </p>
+                        {reg.users && onSelectVolunteer ? (
+                          <button
+                            onClick={() => onSelectVolunteer(reg.volunteer_id)}
+                            className="text-base font-bold text-[#0e62ae] hover:underline leading-tight truncate text-left block max-w-full"
+                            title="View volunteer profile"
+                          >
+                            {reg.users.first_name} {reg.users.last_name}
+                          </button>
+                        ) : (
+                          <p className="text-base font-bold text-gray-900 leading-tight truncate">
+                            {reg.users ? `${reg.users.first_name} ${reg.users.last_name}` : 'Unknown volunteer'}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-600 truncate flex items-center gap-1 mt-0.5">
                           <PawPrint size={12} className="text-gray-400 shrink-0" />
                           <span className="font-semibold text-gray-700">{dog?.dog_name ?? 'Unknown dog'}</span>
@@ -1742,9 +1775,19 @@ function VisitDetailView({
                           {/* Position belongs beside the volunteer — it's their place in the
                               queue, and they're the one being promoted. */}
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-gray-900 truncate">
-                              {reg.users ? `${reg.users.first_name} ${reg.users.last_name}` : 'Unknown volunteer'}
-                            </p>
+                            {reg.users && onSelectVolunteer ? (
+                              <button
+                                onClick={() => onSelectVolunteer(reg.volunteer_id)}
+                                className="text-sm font-bold text-[#0e62ae] hover:underline truncate text-left"
+                                title="View volunteer profile"
+                              >
+                                {reg.users.first_name} {reg.users.last_name}
+                              </button>
+                            ) : (
+                              <p className="text-sm font-bold text-gray-900 truncate">
+                                {reg.users ? `${reg.users.first_name} ${reg.users.last_name}` : 'Unknown volunteer'}
+                              </p>
+                            )}
                             <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">#{reg.waitlist_position}</span>
                           </div>
                           <p className="text-xs text-gray-600 truncate flex items-center gap-1 mt-0.5">
@@ -1793,6 +1836,11 @@ function VisitDetailView({
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
             Rabies Vaccine Record Required
           </span>
+          {visit.supported_visit && (
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+              Supported Visit
+            </span>
+          )}
         </div>
         {visit.fee_tier && (
           <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-sm text-gray-700">
@@ -1925,7 +1973,7 @@ function VisitDetailView({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false, onSelectOrg, initialFilter }: Props) {
+export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFromVisit, onCountChange, pdMode = false, onSelectOrg, onSelectVolunteer, initialFilter }: Props) {
   const { user } = useUser();
   const currentUserId = user?.id ?? null;
   const [view, setView] = useState<ViewMode>('list');
@@ -2055,6 +2103,7 @@ export default function AdminVisits({ selectedVisitId, onSelectVisit, onBackFrom
           onBack={() => onBackFromVisit?.()}
           onUpdated={() => { fetchVisits(); fetchTabCounts(); onCountChange?.(); }}
           onSelectOrg={onSelectOrg}
+          onSelectVolunteer={onSelectVolunteer}
         />
       </div>
     );

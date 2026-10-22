@@ -106,7 +106,7 @@ export async function PATCH(
       'visitor_count_expected', 'event_description', 'approx_space_sqft',
       'fee_tier', 'fee_amount', 'volunteer_slots', 'min_volunteers', 'parking_coverage',
       'parking_instructions', 'arrival_instructions', 'accessibility_notes',
-      'requires_vsc', 'organization_id',
+      'requires_vsc', 'supported_visit', 'organization_id',
       'guest_org_name', 'guest_contact_name', 'guest_contact_email', 'guest_contact_phone',
       'admin_note', 'assigned_pd_id',
     ];

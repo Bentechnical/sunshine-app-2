@@ -62,6 +62,7 @@ export async function GET() {
         default_requires_vsc,
         assigned_region_id,
         region_assignment_method,
+        volunteer_tier,
         pd_postal_code,
         profile_complete,
         dogs!volunteer_id (
@@ -155,6 +156,7 @@ export async function GET() {
         default_requires_vsc: user.default_requires_vsc ?? null,
         assigned_region_id: user.assigned_region_id ?? null,
         region_assignment_method: user.region_assignment_method ?? null,
+        volunteer_tier: user.volunteer_tier ?? null,
         pd_postal_code: user.pd_postal_code ?? null,
         profile_complete: user.profile_complete ?? false,
       };

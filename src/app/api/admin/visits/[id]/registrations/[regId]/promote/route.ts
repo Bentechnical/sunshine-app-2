@@ -6,6 +6,7 @@ import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { promoteWaitlistedRegistration } from '@/utils/promoteWaitlisted';
 import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
+import { checkVisitEligibility } from '@/utils/visitEligibility';
 
 export async function POST(
   _req: NextRequest,
@@ -39,7 +40,7 @@ export async function POST(
 
     const { data: registration } = await supabase
       .from('visit_registrations')
-      .select('id, status')
+      .select('id, status, volunteer_id')
       .eq('id', registrationId)
       .eq('visit_id', visitId)
       .maybeSingle();
@@ -49,6 +50,21 @@ export async function POST(
     }
     if (registration.status !== 'waitlisted') {
       return NextResponse.json({ error: 'This volunteer is no longer on the waitlist' }, { status: 409 });
+    }
+
+    // Re-check eligibility. Someone can sit on a waitlist for weeks, and until now this route
+    // checked only capacity — so a volunteer whose VSC or vaccine lapsed in the meantime could be
+    // promoted onto a visit requiring it, with nothing shown to the PD.
+    //
+    // This blocks rather than warns. The deliberate override already exists: adding the volunteer
+    // directly via POST /api/admin/visits/[id]/registrations skips every gate, which is what the
+    // staff-facing message points at.
+    const eligibility = await checkVisitEligibility(supabase, visitId, registration.volunteer_id);
+    if (!eligibility.ok) {
+      return NextResponse.json(
+        { error: `Cannot promote: ${eligibility.staffMessage}`, code: eligibility.code },
+        { status: 409 }
+      );
     }
 
     const { count: confirmedCount } = await supabase
