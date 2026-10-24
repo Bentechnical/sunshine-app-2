@@ -345,6 +345,7 @@ export default function AdminManageVolunteers({
         onSelectVisit={onSelectVisit ?? (() => {})}
         role={role}
         regions={regions}
+        onDocReviewed={onDocReviewChange}
         onVolunteerChanged={(patch) => {
           // A patch updates the single row in place; without one (document verification, where
           // several fields move at once) fall back to refetching the list.

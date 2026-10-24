@@ -135,6 +135,8 @@ interface Props {
    * given nothing, it refetches — which is what document verification needs.
    */
   onVolunteerChanged?: (patch?: Record<string, unknown>) => void;
+  /** Fires when a compliance document is approved or rejected, so nav badges can refresh. */
+  onDocReviewed?: () => void;
 }
 
 type HistoryFilter = 'all' | 'upcoming' | 'past' | 'cancelled';
@@ -200,7 +202,7 @@ const FIELD_LABEL = 'text-xs font-semibold text-gray-500 uppercase tracking-wide
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminVolunteerDetail({
-  volunteerId, onBack, onSelectVisit, role = 'admin', regions, onVolunteerChanged,
+  volunteerId, onBack, onSelectVisit, role = 'admin', regions, onVolunteerChanged, onDocReviewed,
 }: Props) {
   const { user: clerkUser } = useUser();
 
@@ -880,7 +882,14 @@ export default function AdminVolunteerDetail({
           record={compliance}
           dog={dog}
           onClose={() => setDocModalOpen(false)}
-          onVerified={() => { load({ quiet: true }); onVolunteerChanged?.(); }}
+          onVerified={() => {
+            // No patch: a verification moves several fields at once, so refetch. onDocReviewed
+            // additionally refreshes the nav badge, which approving a document changes — the
+            // list's own review modal already did this, and this path was missing it.
+            load({ quiet: true });
+            onVolunteerChanged?.();
+            onDocReviewed?.();
+          }}
         />
       )}
 

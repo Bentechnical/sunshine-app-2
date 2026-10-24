@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { streamChatManager } from '@/utils/stream-chat-client';
+import { CHAT_ENABLED } from '@/config/features';
 import { StreamChat } from 'stream-chat';
 
 interface UnreadCountContextType {
@@ -29,6 +30,30 @@ interface UnreadCountProviderProps {
 }
 
 export function UnreadCountProvider({ children }: UnreadCountProviderProps) {
+  // Chat is switched off (src/config/features.ts). Render an inert provider rather than skipping
+  // it: every useUnreadCount() consumer keeps working against a stable, empty value, and no Stream
+  // token or channel request is made. Returning early here is safe because no hooks run above it.
+  if (!CHAT_ENABLED) {
+    return (
+      <UnreadCountContext.Provider
+        value={{
+          hasUnreadMessages: false,
+          loading: false,
+          connectionStatus: 'disconnected',
+          client: null,
+          updateUnreadFromChannels: () => {},
+          refreshChannelData: async () => [],
+        }}
+      >
+        {children}
+      </UnreadCountContext.Provider>
+    );
+  }
+
+  return <UnreadCountProviderLive>{children}</UnreadCountProviderLive>;
+}
+
+function UnreadCountProviderLive({ children }: UnreadCountProviderProps) {
   const { user } = useUser();
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [loading, setLoading] = useState(true);

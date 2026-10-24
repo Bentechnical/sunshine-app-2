@@ -132,7 +132,10 @@ const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(({
 
       const { error } = await supabase.storage
         .from('sunshine-pics')
-        .upload(filePath, croppedFile);
+        // Without this, objects are stored with `private, no-cache` and every view re-downloads
+        // them. Safe to cache for a year because `filePath` is timestamped above: a replacement
+        // avatar gets a new URL, so there is no stale-image case to worry about.
+        .upload(filePath, croppedFile, { cacheControl: '31536000' });
 
       if (error) {
         console.error('Upload error:', error.message);

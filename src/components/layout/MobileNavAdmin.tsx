@@ -1,7 +1,8 @@
 // src/components/layout/MobileNavAdmin.tsx
 'use client';
 
-import { Home, Users, UserPlus, MessageCircle, CalendarCheck, Mail, Building2, Map } from 'lucide-react';
+import { Home, Users, UserPlus, CalendarCheck, Mail, Building2, Map } from 'lucide-react';
+// 'Chats' is omitted here while chat is switched off — see src/config/features.ts
 import { ActiveTab } from '@/types/navigation';
 
 interface MobileNavAdminProps {
@@ -38,7 +39,6 @@ export default function MobileNavAdmin({
     { key: 'individual-requests', label: 'Ind. Requests', icon: <UserPlus size={20} />, adminOnly: true },
     { key: 'manage-regions', label: 'Regions', icon: <Map size={20} />, adminOnly: true },
     { key: 'manage-individuals', label: 'Individuals', icon: <Users size={20} />, adminOnly: true },
-    { key: 'chats', label: 'Chats', icon: <MessageCircle size={20} />, showAlert: unreadCount > 0, adminOnly: true },
     { key: 'appointments', label: 'Appts', icon: <CalendarCheck size={20} />, adminOnly: true },
     { key: 'email-testing', label: 'Settings', icon: <Mail size={20} />, adminOnly: true },
   ];

@@ -13,13 +13,19 @@ export interface CroppedArea {
  * Creates a cropped image from the original image and crop data
  * @param imageSrc - The source image URL
  * @param pixelCrop - The crop area in pixels from react-easy-crop
- * @param maxWidth - Maximum width for the output image (default: 1000px)
+ * @param maxWidth - Maximum width for the output image (default: 800px)
+ *
+ * 800px is the smallest safe cap: the largest place these appear is an `aspect-square w-full`
+ * card, roughly 400px across on a desktop column, which needs 800px to stay sharp on a 2x
+ * display. Going lower (600px was considered) would soften those cards on retina screens.
+ * Quality 0.82 is visually indistinguishable from 0.92 at every size these are rendered at,
+ * and roughly halves the file.
  * @returns A promise that resolves to a File object
  */
 export async function getCroppedImg(
   imageSrc: string,
   pixelCrop: CroppedArea,
-  maxWidth: number = 1000
+  maxWidth: number = 800
 ): Promise<File> {
   try {
     const image = await createImage(imageSrc);
@@ -74,7 +80,7 @@ export async function getCroppedImg(
           resolve(file);
         },
         'image/jpeg',
-        0.92 // Quality
+        0.82 // Quality — see maxWidth note above
       );
     });
   } catch (error) {

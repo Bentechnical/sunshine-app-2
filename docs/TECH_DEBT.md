@@ -219,6 +219,23 @@ row**, and a PD's own-region load went from ~910 KB to ~9 KB at a projected 300 
 region default — but the principle holds: filter server-side, select narrowly, and don't make every
 row pay for what a handful need. *Size: M.*
 
+**Images bypass `next/image` across most of the app.** 20 files use a plain `<img>`; 11 use
+`next/image`. `remotePatterns` in `next.config.ts` is already configured for both Supabase hosts, so
+the plumbing exists — the components just don't use it. The cost is that a 800px avatar is
+downloaded in full to render in a 64–96px box, with no WebP/AVIF conversion and no edge caching
+near the viewer.
+
+**Deliberately deferred for the beta** (24 Oct). Measured against a real trace from a high-latency
+connection, a 340 kB image took 168 ms while a 2 kB API response took 1.18 s — images are not the
+bottleneck, distance is. Converting would save perhaps 80–120 ms per image, against a real risk of
+layout shifts: `<Image>` needs explicit dimensions or a positioned parent, and 27 of these render
+`w-full h-full` inside containers whose size varies.
+
+Where it will actually pay, and so where to start: screens that render **many** images at once —
+a visit's registration list (up to six dogs) and the volunteer browse view — and **volunteers on
+cellular data**, who are the ones paying for the megabytes. The admin profile screens, which show
+two images, are the weakest case and should be done last. *Size: M, best done screen by screen.*
+
 **Responsive layout at lower resolutions.** Every PD in the October testing sessions was on a
 smaller display than assumed; the UI squished more than expected. *Size: M.*
 

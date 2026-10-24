@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { CHAT_ENABLED } from '@/config/features';
 
 export function useAdminUnreadCount(activeTab?: string, refreshTrigger?: number, enabled = true) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -7,7 +8,7 @@ export function useAdminUnreadCount(activeTab?: string, refreshTrigger?: number,
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !CHAT_ENABLED) return;
     try {
       setLoading(true);
       setError(null);

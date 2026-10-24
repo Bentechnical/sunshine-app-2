@@ -1,5 +1,6 @@
 // src/components/layout/DesktopNavAdmin.tsx
 import { Dispatch, SetStateAction } from 'react';
+import { CHAT_ENABLED } from '@/config/features';
 import { ActiveTab } from '@/types/navigation';
 
 interface Props {
@@ -53,7 +54,8 @@ export default function DesktopNavAdmin({ activeTab, setActiveTab, unreadCount, 
         { key: 'manage-individuals', label: 'Manage Individuals' },
         { key: 'individual-requests', label: 'New Individual Requests' },
         { key: 'appointments', label: 'Individual Appointments' },
-        { key: 'chats', label: 'Chat Management', showAlert: unreadCount > 0 },
+        // Hidden while chat is switched off — see src/config/features.ts
+        ...(CHAT_ENABLED ? [{ key: 'chats' as const, label: 'Chat Management', showAlert: unreadCount > 0 }] : []),
       ],
     },
     {

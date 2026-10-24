@@ -12,6 +12,7 @@ import { SignOutButton } from '@clerk/clerk-react';
 import { UnreadCountProvider } from '@/contexts/UnreadCountContext';
 import { useAdminUnreadCount } from '@/hooks/useAdminUnreadCount';
 import { useAdminAlertCounts } from '@/hooks/useAdminAlertCounts';
+import { AdminDataProvider } from '@/contexts/AdminDataContext';
 
 // Maps URL pathnames to ActiveTab keys (used by admin nav and layout styling)
 export function pathnameToActiveTab(pathname: string): ActiveTab {
@@ -62,7 +63,7 @@ export default function DashboardLayout({
   const activeTab = adminActiveTab ?? pathnameToActiveTab(pathname);
 
   const { unreadCount } = useAdminUnreadCount(activeTab, refreshTrigger, role === 'admin');
-  const alertCounts = useAdminAlertCounts(role === 'admin' || role === 'pd', role === 'pd', alertCountsRefreshTrigger);
+  const { counts: alertCounts, raw: adminRaw } = useAdminAlertCounts(role === 'admin' || role === 'pd', role === 'pd', alertCountsRefreshTrigger);
   const tabAlertCounts: Record<string, number> = {
     'volunteer-requests': alertCounts.volunteerRequests,
     'org-requests': alertCounts.orgRequests,
@@ -74,6 +75,9 @@ export default function DashboardLayout({
   const isNative = typeof window !== 'undefined' && !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
 
   return (
+    // The payloads behind the badges are shared with the page below, so the dashboard home
+    // doesn't refetch the same five endpoints.
+    <AdminDataProvider value={adminRaw}>
     <UnreadCountProvider>
       <div className="flex h-screen relative" data-active-tab={activeTab}>
         {/* Desktop sidebar */}
@@ -156,5 +160,6 @@ export default function DashboardLayout({
         )}
       </div>
     </UnreadCountProvider>
+    </AdminDataProvider>
   );
 }

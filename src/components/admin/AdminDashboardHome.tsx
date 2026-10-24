@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAdminData } from '@/contexts/AdminDataContext';
 import { useUser } from '@clerk/nextjs';
 import {
   AlertTriangle, Building2, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck,
@@ -74,13 +75,57 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
   const [regions, setRegions] = useState<Region[]>([]);
   const [regionFilter, setRegionFilter] = useState('all');
   const [error, setError] = useState(false);
+  const shared = useAdminData();
 
+  // These five payloads are already fetched by DashboardLayout to build the nav badges, so take
+  // them from there rather than asking for the same five endpoints again — that duplication cost
+  // five extra round trips on every landing. Regions is still fetched here because the badges
+  // don't need it (and it's ~400 bytes since boundaries became opt-in).
+  //
+  // The derivation below is unchanged from when this component did its own fetching, including
+  // the PD filtering rules, so the cards show exactly what they showed before.
   useEffect(() => {
     if (!user?.id) return;
     const mine = <T extends { assigned_pd_id: string | null }>(list: T[]) =>
       pdMode ? list.filter(v => v.assigned_pd_id === user.id) : list;
     const json = (url: string): Promise<any> => fetch(url).then(r => (r.ok ? r.json() : {}));
 
+    const derive = (
+      activeRows: any[],
+      reviewRows: any[],
+      completionRows: any[],
+      pendingUsers: { role: string }[],
+      docReviews: number,
+      regionRows: (Region & { is_active: boolean })[],
+    ) => {
+      const active = mine(activeRows as HomeVisit[]);
+      setActiveVisits(active);
+      setCounts({
+        visitRequests: mine(reviewRows).length,
+        pendingCompletion: mine(completionRows).length,
+        volunteerRequests: pendingUsers.filter(u => u.role === 'volunteer').length,
+        orgRequests: pendingUsers.filter(u => u.role === 'organization').length,
+        docReviews,
+        unassigned: pdMode ? 0 : active.filter(v => !v.assigned_pd_id).length,
+      });
+      setRegions(regionRows.filter(r => r.is_active));
+    };
+
+    if (shared) {
+      json('/api/admin/regions')
+        .then(regionsJson => derive(
+          shared.activeVisits,
+          shared.pendingReviewVisits,
+          shared.pendingCompletionVisits,
+          shared.pendingUsers,
+          shared.docReviewCount,
+          (regionsJson.regions ?? []) as (Region & { is_active: boolean })[],
+        ))
+        .catch(() => setError(true));
+      return;
+    }
+
+    // Fallback for being rendered outside DashboardLayout, or before the shared fetch resolves.
     Promise.all([
       json('/api/admin/visits?scope=active'),
       json('/api/admin/visits?status=pending_review'),
@@ -88,25 +133,15 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
       json('/api/admin/pending-users'),
       json('/api/admin/pending-doc-reviews-count'),
       json('/api/admin/regions'),
-    ]).then(([activeJson, reviewJson, completionJson, usersJson, docsJson, regionsJson]) => {
-      const active = mine((activeJson.visits ?? []) as HomeVisit[]);
-      setActiveVisits(active);
-
-      // Same role rules as the nav badges (useAdminAlertCounts)
-      const pendingUsers: { role: string }[] = usersJson.users ?? [];
-
-      setCounts({
-        visitRequests: mine(reviewJson.visits ?? []).length,
-        pendingCompletion: mine(completionJson.visits ?? []).length,
-        volunteerRequests: pendingUsers.filter(u => u.role === 'volunteer').length,
-        orgRequests: pendingUsers.filter(u => u.role === 'organization').length,
-        docReviews: docsJson.count ?? 0,
-        unassigned: pdMode ? 0 : active.filter(v => !v.assigned_pd_id).length,
-      });
-
-      setRegions(((regionsJson.regions ?? []) as (Region & { is_active: boolean })[]).filter(r => r.is_active));
-    }).catch(() => setError(true));
-  }, [pdMode, user?.id]);
+    ]).then(([activeJson, reviewJson, completionJson, usersJson, docsJson, regionsJson]) => derive(
+      activeJson.visits ?? [],
+      reviewJson.visits ?? [],
+      completionJson.visits ?? [],
+      usersJson.users ?? [],
+      docsJson.count ?? 0,
+      (regionsJson.regions ?? []) as (Region & { is_active: boolean })[],
+    )).catch(() => setError(true));
+  }, [pdMode, user?.id, shared]);
 
   const myRegion = pdMode ? regions.find(r => r.owner_pd_id === user?.id) ?? null : null;
   const selectedRegion = regions.find(r => String(r.id) === regionFilter) ?? null;
