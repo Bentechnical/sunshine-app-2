@@ -128,8 +128,13 @@ interface Props {
   onSelectVisit: (visitId: number) => void;
   /** Drives who may edit or delete notes: PDs their own, admins anyone's. */
   role?: 'admin' | 'pd';
-  /** Lets the list behind this view refresh after a tier, region or archive change. */
-  onVolunteerChanged?: () => void;
+  /** Passed down from the list, which has already loaded them — saves a duplicate request. */
+  regions: Region[];
+  /**
+   * Keeps the list behind this view in step. Given a patch, the list updates that one row;
+   * given nothing, it refetches — which is what document verification needs.
+   */
+  onVolunteerChanged?: (patch?: Record<string, unknown>) => void;
 }
 
 type HistoryFilter = 'all' | 'upcoming' | 'past' | 'cancelled';
@@ -195,12 +200,11 @@ const FIELD_LABEL = 'text-xs font-semibold text-gray-500 uppercase tracking-wide
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminVolunteerDetail({
-  volunteerId, onBack, onSelectVisit, role = 'admin', onVolunteerChanged,
+  volunteerId, onBack, onSelectVisit, role = 'admin', regions, onVolunteerChanged,
 }: Props) {
   const { user: clerkUser } = useUser();
 
   const [data, setData] = useState<Payload | null>(null);
-  const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
@@ -239,15 +243,28 @@ export default function AdminVolunteerDetail({
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    fetch('/api/admin/regions')
-      .then(r => r.ok ? r.json() : null)
-      .then(j => { if (j?.regions) setRegions(j.regions); })
-      .catch(() => { /* region list is non-essential; the dropdown just stays empty */ });
-  }, []);
-
-  /** Run a mutation, then refresh in place. `key` drives the per-control disabled state. */
-  const mutate = async (key: string, run: () => Promise<Response>, onDone?: () => void) => {
+  /**
+   * Run a mutation and reflect the result. `key` drives the per-control disabled state.
+   *
+   * Every control here auto-saves, and this used to refetch the entire profile afterwards —
+   * volunteer, dog, compliance, conditions, notes, stats and the whole visit history — then ask
+   * the list to reload as well. Four round trips for one dropdown change. That's invisible at
+   * 15ms and painful at 1.1s, which is what a PD on a slow or distant connection actually sees.
+   *
+   * So `apply` patches local state from what the server returned, and `listPatch` updates the one
+   * row behind this view. Omitting `apply` falls back to the full refetch, which is still the
+   * right call where a write changes more than the caller can predict — document verification,
+   * for instance.
+   */
+  const mutate = async (
+    key: string,
+    run: () => Promise<Response>,
+    opts?: {
+      apply?: (prev: Payload, json: any) => Payload;
+      listPatch?: Record<string, unknown>;
+      then?: () => void;
+    },
+  ) => {
     setSaving(key);
     setActionError(null);
     try {
@@ -257,9 +274,13 @@ export default function AdminVolunteerDetail({
         setActionError(json.error || 'That didn\'t save. Please try again.');
         return false;
       }
-      await load({ quiet: true });
-      onVolunteerChanged?.();
-      onDone?.();
+      if (opts?.apply) {
+        setData(prev => (prev ? opts.apply!(prev, json) : prev));
+      } else {
+        await load({ quiet: true });
+      }
+      onVolunteerChanged?.(opts?.listPatch);
+      opts?.then?.();
       return true;
     } catch {
       setActionError('That didn\'t save. Please try again.');
@@ -274,27 +295,55 @@ export default function AdminVolunteerDetail({
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ volunteer_tier: tier }),
-    }));
+    }), {
+      apply: prev => ({ ...prev, volunteer: { ...prev.volunteer, volunteer_tier: tier } }),
+      listPatch: { volunteer_tier: tier },
+    });
 
   const handleRegionChange = (regionId: number | null) =>
     mutate('region', () => fetch('/api/admin/assign-volunteer-region', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ volunteer_id: volunteerId, region_id: regionId }),
-    }));
+    }), {
+      apply: prev => ({
+        ...prev,
+        volunteer: {
+          ...prev.volunteer,
+          assigned_region_id: regionId,
+          // The endpoint always records a hand-picked region as 'manual'.
+          region_assignment_method: regionId === null ? null : 'manual',
+          region_name: regions.find(r => r.id === regionId)?.name ?? null,
+        },
+      }),
+      listPatch: {
+        assigned_region_id: regionId,
+        region_assignment_method: regionId === null ? null : 'manual',
+      },
+    });
 
   const handleAddExclusion = (groupId: number) =>
     mutate('condition-add', () => fetch(`/api/admin/volunteers/${volunteerId}/exclusions`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ group_id: groupId }),
-    }), () => setAddingCondition(false));
+    }), {
+      apply: (prev, json) => json?.exclusion
+        ? { ...prev, exclusions: [...prev.exclusions, json.exclusion] }
+        : prev,
+      then: () => setAddingCondition(false),
+    });
 
   const handleRemoveExclusion = (groupId: number) =>
     mutate(`condition-${groupId}`, () => fetch(
       `/api/admin/volunteers/${volunteerId}/exclusions?group_id=${groupId}`,
       { method: 'DELETE' },
-    ));
+    ), {
+      apply: prev => ({
+        ...prev,
+        exclusions: prev.exclusions.filter(e => e.group_id !== groupId),
+      }),
+    });
 
   const handleAddNote = () => {
     if (!noteDraft.trim()) return;
@@ -302,19 +351,32 @@ export default function AdminVolunteerDetail({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note_text: noteDraft }),
-    }), () => setNoteDraft(''));
+    }), {
+      // Newest first, matching the order the endpoint returns them in.
+      apply: (prev, json) => json?.note
+        ? { ...prev, notes: [json.note, ...prev.notes] }
+        : prev,
+      then: () => setNoteDraft(''),
+    });
   };
 
   const handleSaveEdit = (noteId: number) => {
     if (!editDraft.trim()) return;
+    const text = editDraft.trim();
     return mutate(`note-${noteId}`, () => fetch(
       `/api/admin/volunteers/${volunteerId}/notes/${noteId}`,
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note_text: editDraft }),
+        body: JSON.stringify({ note_text: text }),
       },
-    ), () => { setEditingNoteId(null); setEditDraft(''); });
+    ), {
+      apply: prev => ({
+        ...prev,
+        notes: prev.notes.map(n => (n.id === noteId ? { ...n, note_text: text } : n)),
+      }),
+      then: () => { setEditingNoteId(null); setEditDraft(''); },
+    });
   };
 
   const handleDeleteNote = (noteId: number) => {
@@ -322,7 +384,9 @@ export default function AdminVolunteerDetail({
     return mutate(`note-${noteId}`, () => fetch(
       `/api/admin/volunteers/${volunteerId}/notes/${noteId}`,
       { method: 'DELETE' },
-    ));
+    ), {
+      apply: prev => ({ ...prev, notes: prev.notes.filter(n => n.id !== noteId) }),
+    });
   };
 
   /**

@@ -78,7 +78,34 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to save condition' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, created: !existing });
+    // Return the row as the client will render it, so the condition can be shown without
+    // refetching the whole profile. The label and the setter's name both live elsewhere, which is
+    // exactly why the client can't assemble this itself.
+    const { data: row } = await supabase
+      .from('volunteer_audience_exclusions')
+      .select('group_id, note, created_at, created_by, audience_groups(label)')
+      .eq('volunteer_id', volunteerId)
+      .eq('group_id', groupId)
+      .maybeSingle();
+
+    let createdByName: string | null = null;
+    if (row?.created_by) {
+      const { data: author } = await supabase
+        .from('users').select('first_name, last_name').eq('id', row.created_by).maybeSingle();
+      createdByName = author ? `${author.first_name} ${author.last_name}` : null;
+    }
+
+    return NextResponse.json({
+      success: true,
+      created: !existing,
+      exclusion: row ? {
+        group_id: row.group_id,
+        label: (row.audience_groups as any)?.label ?? null,
+        note: row.note ?? null,
+        created_at: row.created_at,
+        created_by_name: createdByName,
+      } : null,
+    });
   } catch (err: any) {
     console.error('[PUT volunteer exclusion] Unexpected error:', err.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

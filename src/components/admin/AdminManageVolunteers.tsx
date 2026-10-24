@@ -344,7 +344,18 @@ export default function AdminManageVolunteers({
         onBack={onBackFromVolunteer}
         onSelectVisit={onSelectVisit ?? (() => {})}
         role={role}
-        onVolunteerChanged={() => loadData({ quiet: true })}
+        regions={regions}
+        onVolunteerChanged={(patch) => {
+          // A patch updates the single row in place; without one (document verification, where
+          // several fields move at once) fall back to refetching the list.
+          if (patch) {
+            setVolunteers(prev => prev.map(v =>
+              v.id === selectedVolunteerId ? { ...v, ...patch } as Volunteer : v
+            ));
+          } else {
+            loadData({ quiet: true });
+          }
+        }}
       />
     );
   }

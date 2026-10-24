@@ -3,13 +3,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const check = await requireAdminOrPd();
   if ('error' in check) return check.error;
 
   const supabase = createSupabaseAdminClient();
 
+  // Places carry `boundary_json` — the OSM polygons used to draw region maps. Measured at
+  // ~160 kB raw for the current regions, against ~430 bytes for the regions themselves, so they
+  // are opt-in rather than always-on.
+  //
+  // Of the eight components that call this endpoint, only AdminManageRegions renders a map and
+  // needs them; the rest populate a dropdown or a filter. Boundaries aren't needed for *assigning*
+  // a user to a region either — autoAssignRegion does that server-side against the database, so
+  // the browser only ever needs polygons to draw them.
+  const includePlaces = req.nextUrl.searchParams.get('include') === 'places';
+
   try {
+    if (!includePlaces) {
+      const { data, error } = await supabase
+        .from('pd_regions')
+        .select('id, name, owner_pd_id, is_active')
+        .order('name');
+
+      if (error) {
+        console.error('[regions GET] Error fetching regions:', error.message);
+        return NextResponse.json({ error: 'Failed to fetch regions' }, { status: 500 });
+      }
+      return NextResponse.json({ regions: data ?? [] });
+    }
+
     const [{ data: regions, error: regErr }, { data: userCounts, error: countErr }] = await Promise.all([
       supabase
         .from('pd_regions')

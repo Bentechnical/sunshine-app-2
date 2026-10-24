@@ -471,7 +471,8 @@ export default function AdminManageRegions() {
     setError(null);
     try {
       const [regRes, usersRes] = await Promise.all([
-        fetch('/api/admin/regions'),
+        // The only caller that needs boundary polygons — this screen draws them on a map.
+        fetch('/api/admin/regions?include=places'),
         fetch('/api/admin/approved-users'),
       ]);
       const [regJson, usersJson] = await Promise.all([regRes.json(), usersRes.json()]);
