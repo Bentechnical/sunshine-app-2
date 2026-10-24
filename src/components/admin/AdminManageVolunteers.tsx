@@ -10,6 +10,7 @@ import AdminVolunteerDetail from '@/components/admin/AdminVolunteerDetail';
 import { TIER_BADGE, type VolunteerTier } from '@/components/admin/volunteerTiers';
 import type {
   ComplianceRecord,
+  ComplianceStatus,
   DogProfile,
   SignedDocs,
 } from '@/components/admin/compliance/types';
@@ -23,22 +24,20 @@ interface Region {
   owner_pd_id: string | null;
 }
 
+/** Exactly what the table renders — see GET /api/admin/volunteers?scope=list. */
 interface Volunteer {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
-  phone: string;
   city: string;
-  postal_code: string;
-  date_of_birth: string | null;
-  bio: string;
-  profile_picture_url: string;
-  dog?: DogProfile | null;
-  is_browsable: boolean;
   assigned_region_id: number | null;
   region_assignment_method: string | null;
   volunteer_tier: VolunteerTier | null;
+  vsc_status: ComplianceStatus;
+  vaccine_status: ComplianceStatus;
+  vsc_verification_status: string | null;
+  vaccine_verification_status: string | null;
 }
 
 interface ArchivedVolunteer {
@@ -121,12 +120,12 @@ export default function AdminManageVolunteers({
   const [archivedVolunteers, setArchivedVolunteers] = useState<ArchivedVolunteer[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
-  const regionFilterInitialized = React.useRef(false);
   const [loading, setLoading] = useState(true);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [regionFilter, setRegionFilter] = useState<string>('all'); // 'all' | 'unassigned' | region id
+  // null on first load = let the server choose (a PD's own region, an admin's 'all').
+  const [regionFilter, setRegionFilter] = useState<string | null>(null); // 'all' | 'unassigned' | region id
   const [complianceFilter, setComplianceFilter] = useState<'none' | 'review' | 'issues'>('none');
   // Sorting is purely client-side: the list already holds every approved volunteer and filters
   // in memory, so this is a comparator over an array that's present either way.
@@ -134,74 +133,66 @@ export default function AdminManageVolunteers({
   const [sortAsc, setSortAsc] = useState(true);
   const [selectedDocVolunteer, setSelectedDocVolunteer] = useState<{ id: string; name: string; record: ComplianceRecord; dog?: DogProfile | null } | null>(null);
   const [signedUrlCache, setSignedUrlCache] = useState<Map<string, SignedDocs>>(new Map());
+  const [pendingDogs, setPendingDogs] = useState<Map<string, DogProfile | null>>(new Map());
 
   // ── Data fetching ─────────────────────────────────────────────────────────────
 
-  const loadData = React.useCallback(async (opts?: { quiet?: boolean }) => {
+  /**
+   * The table's rows. Region is filtered server-side, so switching region refetches rather than
+   * narrowing an already-downloaded list — a PD no longer pays for every volunteer in the
+   * organisation to see their own thirty.
+   *
+   * On the very first load `regionFilter` is null: the server picks (a PD's own region, or
+   * everything for an admin) and echoes the choice back, which saves a round trip that would
+   * otherwise be needed just to discover which region the caller owns.
+   */
+  const loadData = React.useCallback(async (opts?: { quiet?: boolean; region?: string | null }) => {
       if (!opts?.quiet) setLoading(true);
       setError(null);
       try {
-        const [usersRes, complianceRes, regionsRes] = await Promise.all([
-          fetch('/api/admin/approved-users'),
-          fetch('/api/admin/compliance'),
+        const region = opts?.region !== undefined ? opts.region : regionFilter;
+        const url = region
+          ? `/api/admin/volunteers?scope=list&region=${encodeURIComponent(region)}`
+          : '/api/admin/volunteers?scope=list';
+
+        const [listRes, regionsRes] = await Promise.all([
+          fetch(url),
           fetch('/api/admin/regions'),
         ]);
-        const [usersJson, complianceJson, regionsJson] = await Promise.all([
-          usersRes.json(),
-          complianceRes.json(),
-          regionsRes.json(),
-        ]);
+        const [listJson, regionsJson] = await Promise.all([listRes.json(), regionsRes.json()]);
 
-        if (!usersRes.ok) {
-          setError(usersJson.error || 'Failed to load volunteers');
+        if (!listRes.ok) {
+          setError(listJson.error || 'Failed to load volunteers');
           return;
         }
 
-        const sorted: Volunteer[] = usersJson.users
-          .filter((u: any) => u.role === 'volunteer')
-          .map((u: any) => ({
-            id: u.id,
-            first_name: u.first_name,
-            last_name: u.last_name,
-            email: u.email,
-            phone: u.phone_number,
-            city: u.city,
-            postal_code: u.postal_code,
-            date_of_birth: u.date_of_birth ?? null,
-            bio: u.bio,
-            profile_picture_url: u.profile_image,
-            dog: u.dogs ? {
-              dog_name: u.dogs.dog_name,
-              dog_breed: u.dogs.dog_breed,
-              dog_bio: u.dogs.dog_bio,
-              dog_picture_url: u.dogs.dog_picture_url,
-              dog_age: u.dogs.dog_age,
-            } : null,
-            is_browsable: u.is_browsable ?? true,
-            assigned_region_id: u.assigned_region_id ?? null,
-            region_assignment_method: u.region_assignment_method ?? null,
-            volunteer_tier: u.volunteer_tier ?? null,
-          }))
-          .sort((a: Volunteer, b: Volunteer) => a.last_name.localeCompare(b.last_name));
+        setVolunteers(listJson.volunteers ?? []);
+        if (regionsRes.ok && regionsJson.regions) setRegions(regionsJson.regions);
 
-        setVolunteers(sorted);
-        if (regionsRes.ok && regionsJson.regions) {
-          setRegions(regionsJson.regions);
-        }
+        // Adopt whatever the server applied, so the dropdown agrees with what was fetched.
+        if (listJson.applied_region) setRegionFilter(listJson.applied_region);
 
-        if (complianceRes.ok && complianceJson.volunteers) {
-          const map = new Map<string, ComplianceRecord>();
-          for (const v of complianceJson.volunteers) {
-            map.set(v.id, { vsc: v.vsc, vaccine: v.vaccine });
-          }
-          setComplianceMap(map);
+        // Statuses arrive on every row; the reviewable detail only for those awaiting review.
+        const map = new Map<string, ComplianceRecord>();
+        for (const [id, d] of Object.entries(listJson.details ?? {})) {
+          map.set(id, (d as any).compliance);
         }
+        setComplianceMap(map);
+
+        const dogs = new Map<string, DogProfile | null>();
+        for (const [id, d] of Object.entries(listJson.details ?? {})) {
+          dogs.set(id, (d as any).dog ?? null);
+        }
+        setPendingDogs(dogs);
       } catch (err) {
         console.error('[AdminManageVolunteers] Error:', err);
         setError('Failed to load data');
       } finally {
         setLoading(false);
       }
+  // regionFilter is read through the opts override on every call that cares, so it is
+  // deliberately not a dependency — including it would refetch on every dropdown change twice.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -280,29 +271,23 @@ export default function AdminManageVolunteers({
 
   // ── Derived state ─────────────────────────────────────────────────────────────
 
+  const byId = (id: string) => volunteers.find(v => v.id === id);
+
   const hasComplianceIssue = (volunteerId: string) => {
-    const c = complianceMap.get(volunteerId);
-    if (!c) return false;
-    return ['missing', 'expiring', 'expired'].includes(c.vsc.status) ||
-           ['missing', 'expiring', 'expired'].includes(c.vaccine.status);
+    const v = byId(volunteerId);
+    if (!v) return false;
+    return ['missing', 'expiring', 'expired'].includes(v.vsc_status) ||
+           ['missing', 'expiring', 'expired'].includes(v.vaccine_status);
   };
 
   const hasNeedsReview = (volunteerId: string) => {
-    const c = complianceMap.get(volunteerId);
-    if (!c) return false;
-    return c.vsc.status === 'pending_review' || c.vaccine.status === 'pending_review';
+    const v = byId(volunteerId);
+    if (!v) return false;
+    return v.vsc_status === 'pending_review' || v.vaccine_status === 'pending_review';
   };
 
   const issueCount = volunteers.filter(v => hasComplianceIssue(v.id)).length;
   const reviewCount = volunteers.filter(v => hasNeedsReview(v.id)).length;
-
-  // For PD: default region filter to their region once regions load
-  React.useEffect(() => {
-    if (role !== 'pd' || !clerkUser?.id || regions.length === 0 || regionFilterInitialized.current) return;
-    const myRegion = regions.find(r => r.is_active && r.owner_pd_id === clerkUser.id);
-    if (myRegion) setRegionFilter(String(myRegion.id));
-    regionFilterInitialized.current = true;
-  }, [regions, clerkUser?.id, role]);
 
   const filteredVolunteers = volunteers.filter(v => {
     const matchesSearch = `${v.first_name} ${v.last_name} ${v.email} ${v.city}`
@@ -311,11 +296,8 @@ export default function AdminManageVolunteers({
       complianceFilter === 'none' ? true :
       complianceFilter === 'review' ? hasNeedsReview(v.id) :
       hasComplianceIssue(v.id);
-    const matchesRegion =
-      regionFilter === 'all' ? true :
-      regionFilter === 'unassigned' ? v.assigned_region_id === null :
-      v.assigned_region_id === parseInt(regionFilter, 10);
-    return matchesSearch && matchesCompliance && matchesRegion;
+    // No region check here — the server returned only this region's volunteers.
+    return matchesSearch && matchesCompliance;
   }).sort((a, b) => {
     const regionName = (v: Volunteer) =>
       v.assigned_region_id ? (regions.find(r => r.id === v.assigned_region_id)?.name ?? '') : '';
@@ -329,11 +311,8 @@ export default function AdminManageVolunteers({
       case 'tier':   cmp = (TIER_ORDER[a.volunteer_tier ?? 'regular'] ?? 1) - (TIER_ORDER[b.volunteer_tier ?? 'regular'] ?? 1); break;
       case 'vsc':
       case 'vaccine': {
-        const status = (v: Volunteer) => {
-          const c = complianceMap.get(v.id);
-          const s = sortKey === 'vsc' ? c?.vsc.status : c?.vaccine.status;
-          return COMPLIANCE_ORDER[s ?? ''] ?? 99;
-        };
+        const status = (v: Volunteer) =>
+          COMPLIANCE_ORDER[sortKey === 'vsc' ? v.vsc_status : v.vaccine_status] ?? 99;
         cmp = status(a) - status(b);
         break;
       }
@@ -446,8 +425,13 @@ export default function AdminManageVolunteers({
           </div>
           <div className="flex gap-2 items-center">
             <select
-              value={regionFilter}
-              onChange={e => setRegionFilter(e.target.value)}
+              value={regionFilter ?? 'all'}
+              onChange={e => {
+                // Region is a server filter now, so changing it refetches rather than
+                // narrowing a list that's already in memory.
+                setRegionFilter(e.target.value);
+                loadData({ region: e.target.value });
+              }}
               className="border border-gray-300 px-3 py-1.5 rounded-md text-sm"
             >
               <option value="all">All Regions</option>
@@ -510,8 +494,8 @@ export default function AdminManageVolunteers({
               ) : filteredVolunteers.map(user => {
                 const compliance = complianceMap.get(user.id);
                 const rowHasIssue = hasComplianceIssue(user.id);
-                const needsReview = compliance?.vsc.verification_status === 'pending_review'
-                  || compliance?.vaccine.verification_status === 'pending_review';
+                const needsReview = user.vsc_verification_status === 'pending_review'
+                  || user.vaccine_verification_status === 'pending_review';
                 const tierBadge = TIER_BADGE[(user.volunteer_tier ?? 'regular') as VolunteerTier];
                 return (
                   <tr
@@ -538,8 +522,8 @@ export default function AdminManageVolunteers({
                         : <span className="text-xs text-gray-400">—</span>
                       }
                     </td>
-                    <td className="px-4 py-2"><ComplianceBadge status={compliance?.vsc.status} /></td>
-                    <td className="px-4 py-2"><ComplianceBadge status={compliance?.vaccine.status} /></td>
+                    <td className="px-4 py-2"><ComplianceBadge status={user.vsc_status} /></td>
+                    <td className="px-4 py-2"><ComplianceBadge status={user.vaccine_status} /></td>
                     <td className="px-2 py-2 text-right">
                       {/* Review stays on the list so the "N awaiting review" banner remains a
                           workable queue — filter, review, move on — rather than forcing a detour
@@ -552,7 +536,7 @@ export default function AdminManageVolunteers({
                               id: user.id,
                               name: `${user.first_name} ${user.last_name}`,
                               record: compliance,
-                              dog: user.dog,
+                              dog: pendingDogs.get(user.id) ?? null,
                             });
                           }}
                           className="px-3 py-1 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-100 transition whitespace-nowrap"

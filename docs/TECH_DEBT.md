@@ -205,7 +205,19 @@ refinement is view-all / edit-own-region. Nothing to do until someone asks. *Siz
 
 **`AdminVisits.tsx` fetches every visit and filters client-side.** Fine at current scale. A concern
 for the largest regions (a few hundred volunteers), and exactly the class of problem a small pilot
-region will hide — so don't read a small pilot as evidence this is fine. *Size: M.*
+region will hide — so don't read a small pilot as evidence this is fine.
+
+The Manage Volunteers list had the same shape and was fixed on 22 Oct; that change is the template.
+Three things did it: a purpose-built endpoint returning only the columns the table renders
+(`GET /api/admin/volunteers?scope=list`) instead of reusing `approved-users`, which returns every
+role with ~48 columns and three joins; **server-side** region filtering, since a client-side filter
+means a PD with 30 volunteers still downloads the whole organisation; and attaching heavy
+per-row detail only to the rows that can actually use it. Measured result: **1,864 → 325 bytes per
+row**, and a PD's own-region load went from ~910 KB to ~9 KB at a projected 300 volunteers.
+
+`AdminVisits` can't copy it wholesale — its filters are status-based and it has no equivalent of the
+region default — but the principle holds: filter server-side, select narrowly, and don't make every
+row pay for what a handful need. *Size: M.*
 
 **Responsive layout at lower resolutions.** Every PD in the October testing sessions was on a
 smaller display than assumed; the UI squished more than expected. *Size: M.*
