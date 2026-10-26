@@ -25,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { formatVisitDate } from '@/utils/timeZone';
 import { appendInvoiceToSheet, uploadInvoicePdfToDrive } from '@/utils/googleInvoiceFiles';
-import { invoicePdfFilename, renderInvoicePdf } from '@/utils/invoicePdf';
+import { invoicePdfFilename, invoiceStorageKey, renderInvoicePdf } from '@/utils/invoicePdf';
 import {
   FEE_TIER_LABELS,
   formatMoney,
@@ -134,7 +134,10 @@ export async function issueInvoice(
 
   // ── 3. Store ──
   // Path includes the invoice number so a storage listing is self-describing without the DB.
-  const pdfPath = `${invoiceNumber}/${filename}`;
+  // Deliberately NOT `filename`: Supabase Storage rejects the em dash and ampersand that make the
+  // display name readable, and the rejection is non-fatal here, so reusing it meant the invoice
+  // sent correctly while the stored copy silently never existed.
+  const pdfPath = invoiceStorageKey(invoiceNumber, input.billToName, issuedAt);
   const { error: uploadError } = await supabase.storage
     .from(INVOICE_BUCKET)
     .upload(pdfPath, Buffer.from(pdf), { contentType: 'application/pdf', upsert: true });
@@ -153,15 +156,16 @@ export async function issueInvoice(
     warning = `Invoice #${invoiceNumber} was created but not sent — this organization has no email address on file.`;
   } else {
     try {
-      const isFree = total === 0;
+      // Always the invoice template. Free visits never reach this function at all — they raise no
+      // invoice, so their thank-you email is sent by the completion route instead. An earlier
+      // version branched on `total === 0` here, which meant the free-visit email could only be
+      // sent by a code path that free visits never took, and organizations got nothing.
       await sendTransactionalEmail({
         to: input.recipientTo,
         cc: input.recipientCc.length ? input.recipientCc : undefined,
         replyTo: SUPPORT_EMAIL,
-        subject: isFree
-          ? 'Thank you from Sunshine Therapy Dogs'
-          : `Invoice #${invoiceNumber} — Sunshine Therapy Dogs`,
-        templateName: isFree ? 'visitCompleteOrgFree' : 'visitCompleteOrgInvoice',
+        subject: `Invoice #${invoiceNumber} — Sunshine Therapy Dogs`,
+        templateName: 'visitCompleteOrgInvoice',
         data: {
           contactName: input.contactName,
           invoiceNumber,
@@ -170,8 +174,7 @@ export async function issueInvoice(
           orgName: input.billToName,
           year: issuedAt.getFullYear(),
         },
-        // A free visit has no invoice to attach — it gets the donation-request email instead.
-        attachments: isFree ? undefined : [{ filename, content: pdf }],
+        attachments: [{ filename, content: pdf }],
       });
       status = 'sent';
     } catch (err: any) {

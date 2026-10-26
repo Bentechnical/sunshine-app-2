@@ -48,7 +48,10 @@ function loadMapsScript(onReady: () => void) {
   };
 
   const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&callback=__mapsApiCallback`;
+  // `loading=async` is Google's recommended pattern and silences a console warning about
+  // suboptimal loading. It composes with `callback` — the callback still fires once the library
+  // is ready — so nothing about the flow below changes.
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=__mapsApiCallback`;
   script.async = true;
   document.head.appendChild(script);
 }

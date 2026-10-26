@@ -91,31 +91,58 @@ export async function POST(
       }
     }
 
-    // ── Invoice ──
+    // ── Organization follow-up ──
+    // Resolved unconditionally, not just when an invoice was requested. A free visit raises no
+    // invoice but still owes the organization a thank-you, and tying this lookup to the invoice
+    // branch is exactly how that email went missing.
+    let org: any = null;
+    let contactName = (visit as any).guest_contact_name || 'there';
+
+    if ((visit as any).organization_id) {
+      const { data: orgRow } = await supabase
+        .from('users')
+        .select('org_name, org_address, org_contact_name, email, additional_emails, first_name')
+        .eq('id', (visit as any).organization_id)
+        .single();
+      if (orgRow) {
+        org = orgRow;
+        contactName = orgRow.org_contact_name || orgRow.first_name || 'there';
+      }
+    }
+
+    // Recomputed server-side rather than trusting the browser. The client's figures are used —
+    // a human is allowed to change them, that's the point of the modal — but the difference
+    // against what the system computed is what sets `amount_overridden`. Without this, an
+    // edited amount and a computed one would be indistinguishable after the fact.
+    //
+    // Whether the visit is free is decided here too, never by the client: it follows from
+    // `fee_tier` and is not something a browser should be able to assert.
+    const computed = computeInvoiceDraft(visit as any, org);
+
     let invoiceResult: Awaited<ReturnType<typeof issueInvoice>> | null = null;
 
-    if (invoiceRequest) {
-      let org: any = null;
-      let contactName = (visit as any).guest_contact_name || 'there';
-
-      if ((visit as any).organization_id) {
-        const { data: orgRow } = await supabase
-          .from('users')
-          .select('org_name, org_address, org_contact_name, email, additional_emails, first_name')
-          .eq('id', (visit as any).organization_id)
-          .single();
-        if (orgRow) {
-          org = orgRow;
-          contactName = orgRow.org_contact_name || orgRow.first_name || 'there';
-        }
+    if (computed.isFreeVisit) {
+      // No invoice, but the donation-request email still goes out.
+      if (computed.recipients.to) {
+        sendTransactionalEmail({
+          to: computed.recipients.to,
+          cc: computed.recipients.cc.length ? computed.recipients.cc : undefined,
+          replyTo: 'info@sunshinetherapydogs.ca',
+          subject: 'Thank you from Sunshine Therapy Dogs',
+          templateName: 'visitCompleteOrgFree',
+          data: {
+            contactName,
+            orgName: computed.billToName,
+            visitDate: formatVisitDate((visit as any).visit_date),
+            year: new Date().getFullYear(),
+          },
+        }).catch(err =>
+          console.error(`[complete visit] Free-visit thank-you failed for visit ${visitId}:`, err?.message)
+        );
+      } else {
+        console.warn(`[complete visit] Visit ${visitId} is a free visit with no deliverable org email`);
       }
-
-      // Recomputed server-side rather than trusting the browser. The client's figures are used —
-      // a human is allowed to change them, that's the point of the modal — but the difference
-      // against what the system computed is what sets `amount_overridden`. Without this, an
-      // edited amount and a computed one would be indistinguishable after the fact.
-      const computed = computeInvoiceDraft(visit as any, org);
-
+    } else if (invoiceRequest) {
       const lineItems: InvoiceLineItem[] = Array.isArray(invoiceRequest.line_items)
         ? invoiceRequest.line_items
         : computed.lineItems;

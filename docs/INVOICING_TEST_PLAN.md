@@ -61,6 +61,11 @@ Then verify all six of these, because each is a different system and any one can
 - [ ] File exists in Supabase Storage (`invoices` bucket) — see §4
 - [ ] Internal note saved on the visit
 
+> **Regression check (bug found 26 Oct):** the storage upload failed with `Invalid key` because the
+> display filename contains an em dash, which Supabase Storage rejects. The failure is non-fatal by
+> design, so the email and Drive copy succeeded and nothing looked wrong. Storage now uses a
+> separate ASCII-only key. **Always verify `pdf_path` and the bucket, not just the email.**
+
 ### T2 — Free visit *(P2)*
 
 **Expect:** modal says *"Free visit — no invoice will be raised"*, with no editable line items.
@@ -70,6 +75,11 @@ Then verify all six of these, because each is a different system and any one can
 - [ ] Volunteers still receive thank-yous
 
 > This is the one case where "nothing happened" is correct. Verify the absence, don't assume it.
+
+> **Regression check (bug found 26 Oct):** the org received nothing. The donation email was being
+> sent from inside `issueInvoice`, which free visits never call — so the one path that could send
+> it was the one path free visits didn't take. The org follow-up is now decided in the completion
+> route, independently of whether an invoice exists.
 
 ### T3 — Guest visit *(P6)*
 
@@ -85,19 +95,43 @@ cc, not just that the modal claimed it would.
 
 ## 2. Edge cases
 
-### T5 — No fee tier *(P3)*
+### T5 — No fee tier *(P3)* — **DB-only, not reachable through the UI**
 
-**Expect:** amber warning, amount blank, and the submit button reads *"Enter an amount for every
-line"* and is **disabled**.
+Corrected after testing on 26 Oct: fee tier is enforced at both entry points — the admin visit
+form marks it required, and org self-signup validates it
+(`ProfileCompleteForm.tsx:310`). So a null `fee_tier` can no longer be produced by clicking.
+
+The column still permits null and legacy rows may carry it, so the guard is worth proving once:
+
+```sql
+UPDATE visits SET fee_tier = NULL WHERE id = <a test visit id>;
+```
+
+**Expect:** amber warning, amount blank, submit button reads *"Enter an amount for every line"*
+and is **disabled**.
 
 - [ ] Type an amount → button enables → invoice sends for that amount
 - [ ] `amount_overridden` is `true` (§4)
 
-### T6 — Custom amount, none set
+### T6 — Custom amount
 
-Set a visit to `fee_tier = 'custom'` with null `fee_amount`.
+Testing on 26 Oct found `custom` was missing from the visit *create* form while present in the
+**edit** form — an oversight, now fixed. Both forms offer **Custom amount** with a fee-amount input
+that appears when selected. Test both paths:
 
-**Expect:** the *custom-amount* warning, same disabled-until-filled behaviour as T5.
+**T6a — created as custom, amount set.** Create a visit with Custom amount = $350.
+**Expect:** modal pre-fills $350, no warning, sends normally.
+
+**T6b — created as custom, amount left blank.** The field says *"Leave blank to set at completion"*.
+**Expect:** the *custom-amount* warning in the modal, submit disabled until an amount is typed,
+and `amount_overridden = true` once it is.
+
+**T6c — switched to custom on an existing visit** via the edit form.
+**Expect:** same as above.
+
+> Leaving the amount blank at creation is a legitimate workflow, not an error state: the price may
+> genuinely not be agreed when the visit is booked. The modal is where it gets decided, and it
+> cannot be skipped — that is why this is safe to expose at creation.
 
 ### T7 — Don't invoice
 

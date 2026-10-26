@@ -203,6 +203,28 @@ refinement is view-all / edit-own-region. Nothing to do until someone asks. *Siz
 
 ## Front-end
 
+**`google.maps.places.Autocomplete` is a legacy API.** As of 1 March 2025 it is closed to new
+customers; Sunshine is an existing customer, so it keeps working and keeps receiving regression
+fixes, and Google has committed to at least 12 months' notice before any discontinuation. The
+replacement is `google.maps.places.PlaceAutocompleteElement`, a web component with a different API
+rather than a drop-in swap — so migrating means touching `PlacesAutocomplete.tsx` and re-testing
+every form that uses it (org address, visit location, region places, profile addresses). Not urgent,
+but it is a dependency on something Google has signalled it intends to retire. Surfaced by a console
+deprecation notice during beta testing, 26 Oct 2026.
+
+**`PlacesAutocomplete` fails silently when the Maps script doesn't load.** `loadMapsScript` has no
+`onerror` handler, and the component's `ready` flag simply stays false — so a bad API key, a
+referrer restriction, an enabled-API problem or a blocked request all produce the same outcome: the
+field degrades to a plain text input with no indication anything is wrong. This cost real debugging
+time on 26 Oct, when a `RefererNotAllowedMapError` on the `beta.sunshinedogs.app` domain presented
+simply as "autocomplete isn't appearing".
+
+It matters more in production than in testing: an org that silently loses autocomplete submits a
+free-text address with no `place_id` and no lat/lng, which then breaks region auto-assignment
+downstream (`autoAssignRegion` needs coordinates) — so one invisible front-end failure becomes an
+unassigned org that no PD can see. Fix is small: an `onerror` on the script tag plus a visible
+"Address lookup unavailable — please type the address manually" hint.
+
 **The visits list offers PDs a region filter that can't widen anything.** PD visit scoping is
 client-side on `assigned_pd_id === currentUserId`, so a PD only ever sees their own visits — but
 `AdminVisits` still shows a region selector including "All Regions". Choosing it changes nothing,

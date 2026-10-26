@@ -13,6 +13,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, FileText, AlertTriangle, Plus, Trash2, Info } from 'lucide-react';
 
 interface LineItem {
@@ -137,9 +138,16 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
 
   const inputClass = 'border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500';
 
-  return (
+  // Rendered into document.body rather than in place. `position: fixed` resolves against the
+  // nearest ancestor with a transform, filter or backdrop-filter rather than the viewport — and
+  // this modal is mounted deep inside the visit detail tree, so the backdrop was anchoring to the
+  // dashboard's content column and sitting offset beside the sidebar instead of covering the
+  // screen. A portal removes the dependency on whatever styling an ancestor happens to carry.
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
       onClick={e => { if (e.target === e.currentTarget && !busy) onClose(); }}
     >
       <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl max-h-[90dvh] flex flex-col">
@@ -332,6 +340,7 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

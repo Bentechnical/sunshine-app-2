@@ -317,9 +317,53 @@ export async function renderInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arr
  * chronologically by default.
  */
 export function invoicePdfFilename(invoiceNumber: number, billToName: string, issuedAt: Date): string {
-  // `&` is kept — it's legal in every filesystem and in Drive, and stripping it turns
-  // "Pratt & Whitney" into "Pratt Whitney", which reads as a different organization.
-  const safeName = billToName.replace(/[^\w\s&-]/g, '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  return buildInvoiceName(invoiceNumber, billToName, issuedAt, false);
+}
+
+/**
+ * Object key for Supabase Storage. **Not** the same string as the display filename.
+ *
+ * Storage rejects keys containing characters outside a conservative set — the em dash and the
+ * ampersand in `INV-1001 — Pratt & Whitney — 2026-10-26.pdf` both fail with a bare
+ * "Invalid key", which is logged but deliberately non-fatal, so the invoice sends and the stored
+ * copy silently never appears. That is the worst kind of bug this system can have, so the key is
+ * reduced to `[A-Za-z0-9._-]` and the pretty name is kept only for the email attachment and the
+ * Drive copy, where it is what a human actually reads.
+ */
+export function invoiceStorageKey(invoiceNumber: number, billToName: string, issuedAt: Date): string {
+  return `${invoiceNumber}/${buildInvoiceName(invoiceNumber, billToName, issuedAt, true)}`;
+}
+
+function buildInvoiceName(
+  invoiceNumber: number,
+  billToName: string,
+  issuedAt: Date,
+  asciiOnly: boolean,
+): string {
   const date = issuedAt.toISOString().slice(0, 10);
+
+  if (asciiOnly) {
+    const slug = billToName
+      .normalize('NFKD')                 // é -> e + combining accent
+      .replace(/[̀-ͯ]/g, '')   // drop the accents
+      .replace(/[^A-Za-z0-9]+/g, '-')    // everything else becomes a separator
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'organization';   // a name of only punctuation would otherwise empty out
+    return `INV-${invoiceNumber}-${slug}-${date}.pdf`;
+  }
+
+  return legacyDisplayName(invoiceNumber, billToName, date);
+}
+
+function legacyDisplayName(invoiceNumber: number, billToName: string, date: string): string {
+  // Strips only characters that are actually illegal in a filename. An earlier allowlist of
+  // `[\w\s&-]` turned "Café Noël" into "Caf Nol" and "Pratt & Whitney" into "Pratt Whitney" —
+  // both read as a different organization, which on a financial document is worse than an
+  // awkward filename. Drive, email clients and every modern filesystem handle accents fine.
+  const safeName = billToName
+    .replace(/[/\\:*?"<>|\u0000-\u001f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 60);
   return `INV-${invoiceNumber} — ${safeName} — ${date}.pdf`;
 }

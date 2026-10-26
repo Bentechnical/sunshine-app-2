@@ -325,6 +325,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     visitor_count_expected: '',
     approx_space_sqft: '',
     fee_tier: '',
+    fee_amount: '',
     parking_coverage: '',
     event_description: '',
     arrival_instructions: '',
@@ -444,6 +445,7 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           visitor_count_expected: form.visitor_count_expected ? Number(form.visitor_count_expected) : null,
           approx_space_sqft: form.approx_space_sqft ? Number(form.approx_space_sqft) : null,
           fee_tier: form.fee_tier || null,
+          fee_amount: form.fee_tier === 'custom' && form.fee_amount ? parseFloat(form.fee_amount) : null,
           parking_coverage: form.parking_coverage || null,
           guest_org_name: form.guest_org_name || null,
           guest_contact_name: form.guest_contact_name || null,
@@ -619,8 +621,17 @@ function CreateVisitForm({ onCreated, onCancel }: { onCreated: () => void; onCan
               <option value="tier_500">$500 — Corporate / for-profit</option>
               <option value="tier_200">$200 — Post-secondary / private</option>
               <option value="tier_0">$0 — Public / non-profit</option>
+              <option value="custom">Custom amount</option>
             </select>
           </div>
+          {form.fee_tier === 'custom' && (
+            <div>
+              <label className={labelClass}>Custom Amount ($)</label>
+              <input type="number" min={0} step="0.01" value={form.fee_amount}
+                onChange={e => set('fee_amount', e.target.value)}
+                className={inputClass} placeholder="Leave blank to set at completion" />
+            </div>
+          )}
         </div>
         <div>
           <label className={labelClass}>Parking</label>
