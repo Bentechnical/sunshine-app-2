@@ -58,6 +58,16 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
   const [note, setNote] = useState('');
   const [notifyVolunteers, setNotifyVolunteers] = useState(true);
 
+  // Recipients are editable here rather than only on the org profile. The profile is the more
+  // "correct" place to fix a missing address, but it's two screens away from where the problem
+  // becomes visible, and an admin who is mid-completion shouldn't have to abandon the task to
+  // solve it. Addresses added here are also persisted to the organization, so the correct path
+  // happens as a side effect of the convenient one.
+  const [recipients, setRecipients] = useState<string[]>([]);
+  const [addedEmails, setAddedEmails] = useState<string[]>([]);
+  const [newRecipient, setNewRecipient] = useState('');
+  const [recipientError, setRecipientError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -71,6 +81,7 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
         }
         setPreview(json);
         setLineItems(json.lineItems);
+        setRecipients(json.recipients.all ?? []);
         // Already invoiced, or genuinely free — either way there's nothing to issue, and the
         // checkbox would only invite someone to turn off something that isn't happening.
         if (json.existingInvoice || json.isFreeVisit) setSkipInvoice(true);
@@ -101,8 +112,29 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
   const removeLine = (i: number) =>
     setLineItems(prev => prev.filter((_, idx) => idx !== i));
 
+  const addRecipient = () => {
+    const email = newRecipient.trim().toLowerCase();
+    if (!email) return;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setRecipientError('That doesn’t look like an email address.');
+      return;
+    }
+    if (recipients.some(e => e.toLowerCase() === email)) {
+      setRecipientError('That address is already on the list.');
+      return;
+    }
+    setRecipients(prev => [...prev, email]);
+    setAddedEmails(prev => [...prev, email]);
+    setNewRecipient('');
+    setRecipientError(null);
+  };
+
+  const removeRecipient = (email: string) => {
+    setRecipients(prev => prev.filter(e => e !== email));
+    setAddedEmails(prev => prev.filter(e => e !== email));
+  };
+
   const willInvoice = !skipInvoice && !preview?.existingInvoice && !preview?.isFreeVisit;
-  const noRecipient = preview?.blockers.includes('no_recipient') ?? false;
   const needsAmount = willInvoice && lineItems.some(li => !li.description.trim() || !(li.amount > 0));
 
   const submit = async () => {
@@ -117,7 +149,13 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
           internal_note: note,
           notify_volunteers: notifyVolunteers,
           invoice: willInvoice
-            ? { line_items: lineItems, fee_tier: preview.feeTier }
+            ? {
+                line_items: lineItems,
+                fee_tier: preview.feeTier,
+                recipient_to: recipients[0] ?? null,
+                recipient_cc: recipients.slice(1),
+                added_emails: addedEmails,
+              }
             : null,
         }),
       });
@@ -271,21 +309,51 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
                   </div>
 
                   <div className="mt-4 bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Sending to</p>
-                    {noRecipient ? (
-                      <p className="text-sm text-amber-800">
-                        No email address on file for {preview.billToName}. The invoice will be created and saved,
-                        but not sent — add an address on the organization&rsquo;s profile and send it from the
-                        invoice list.
-                      </p>
-                    ) : (
-                      <p className="text-sm text-gray-800 break-all">
-                        {preview.recipients.to}
-                        {preview.recipients.cc.length > 0 && (
-                          <span className="text-gray-500"> · cc {preview.recipients.cc.join(', ')}</span>
-                        )}
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Sending to</p>
+
+                    {recipients.length === 0 && (
+                      <p className="text-sm text-amber-800 mb-2">
+                        No email address on file for {preview.billToName}. Add one below to send this invoice now —
+                        otherwise it will be created and saved, but not sent.
                       </p>
                     )}
+
+                    {recipients.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {recipients.map((email, i) => (
+                          <span key={email}
+                            className="inline-flex items-center gap-1 bg-white border border-gray-200 rounded-full pl-2.5 pr-1 py-1 text-xs text-gray-800">
+                            {i === 0
+                              ? <strong className="font-semibold">{email}</strong>
+                              : <>{email}<span className="text-gray-400">cc</span></>}
+                            <button onClick={() => removeRecipient(email)} aria-label={`Remove ${email}`}
+                              className="p-0.5 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50">
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        className={`${inputClass} flex-1 bg-white`}
+                        value={newRecipient}
+                        onChange={e => { setNewRecipient(e.target.value); setRecipientError(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRecipient(); } }}
+                        placeholder="Add another email address"
+                      />
+                      <button onClick={addRecipient} disabled={!newRecipient.trim()}
+                        className="px-3 py-2 text-sm font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:hover:text-blue-600">
+                        Add
+                      </button>
+                    </div>
+                    {recipientError && <p className="text-xs text-red-600 mt-1">{recipientError}</p>}
+                    <p className="text-xs text-gray-400 mt-1.5">
+                      The first address is the main recipient; the rest are copied. New addresses are saved to
+                      this organization for future visits.
+                    </p>
                   </div>
 
                 </div>
@@ -313,10 +381,15 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
 
         {/* Footer states exactly what pressing the button does. */}
         <div className="px-6 py-4 border-t border-gray-100 shrink-0">
-          {preview && willInvoice && !noRecipient && (
+          {preview && willInvoice && recipients.length > 0 && (
             <p className="text-xs text-gray-500 mb-3">
-              Invoice for <strong>${money(total)}</strong> will be emailed to {preview.recipients.to} immediately.
-              This cannot be unsent.
+              Invoice for <strong>${money(total)}</strong> will be emailed to {recipients[0]}
+              {recipients.length > 1 && ` (+${recipients.length - 1} cc'd)`} immediately. This cannot be unsent.
+            </p>
+          )}
+          {preview && willInvoice && recipients.length === 0 && (
+            <p className="text-xs text-amber-700 mb-3">
+              No recipient — the invoice will be saved but not sent.
             </p>
           )}
           <div className="flex gap-2">
@@ -330,7 +403,9 @@ export default function CompleteVisitModal({ visitId, onClose, onCompleted }: Pr
                 : needsAmount
                   ? 'Enter an amount for every line'
                   : willInvoice
-                    ? `Complete & send invoice ($${money(total)})`
+                    ? (recipients.length > 0
+                        ? `Complete & send invoice ($${money(total)})`
+                        : `Complete & save invoice ($${money(total)})`)
                     : 'Mark complete'}
             </button>
             <button onClick={onClose} disabled={busy}

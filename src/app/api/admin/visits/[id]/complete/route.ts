@@ -23,6 +23,7 @@ import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
 import { computeInvoiceDraft, totalFromLineItems, type InvoiceLineItem } from '@/utils/invoice';
+import { normalizeAdditionalEmails } from '@/utils/orgEmail';
 import { issueInvoice } from '@/utils/issueInvoice';
 import { formatVisitDate } from '@/utils/timeZone';
 
@@ -160,6 +161,33 @@ export async function POST(
         const recipientCc = Array.isArray(invoiceRequest.recipient_cc)
           ? invoiceRequest.recipient_cc
           : computed.recipients.cc;
+
+        // Addresses typed into the completion modal are saved back onto the organization, so the
+        // next invoice already knows about them. Done here rather than asking the admin to also
+        // edit the org profile: the "correct" path happens as a side effect of the convenient one.
+        //
+        // Best-effort and never blocking — failing to remember an address must not stop an
+        // invoice that is otherwise ready to send.
+        const addedEmails: string[] = Array.isArray(invoiceRequest.added_emails)
+          ? invoiceRequest.added_emails
+          : [];
+
+        if (addedEmails.length > 0 && org && (visit as any).organization_id) {
+          const merged = normalizeAdditionalEmails(
+            [...(org.additional_emails ?? []), ...addedEmails],
+            org.email,
+          );
+          const { error: saveError } = await supabase
+            .from('users')
+            .update({ additional_emails: merged.emails })
+            .eq('id', (visit as any).organization_id);
+          if (saveError) {
+            console.error(
+              `[complete visit] Could not save new addresses to org ${(visit as any).organization_id}:`,
+              saveError.message,
+            );
+          }
+        }
 
         invoiceResult = await issueInvoice(supabase, {
           visit: visit as any,

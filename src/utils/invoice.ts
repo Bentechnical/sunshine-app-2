@@ -13,7 +13,7 @@
 // override in the modal, not as a different default here.
 
 import { formatVisitDate } from '@/utils/timeZone';
-import { resolveOrgRecipients, type OrgRecipients } from '@/utils/orgEmail';
+import { isDeliverableEmail, resolveOrgRecipients, type OrgRecipients } from '@/utils/orgEmail';
 
 /** Fixed amounts per fee tier. `custom` has no fixed amount — it comes from `visits.fee_amount`. */
 export const TIER_AMOUNTS: Record<string, number> = {
@@ -124,12 +124,38 @@ export function computeInvoiceDraft(
     'Organization';
   const billToAddress = org?.org_address?.trim() || null;
 
-  // Guest visits have no org row, so their single contact address is the whole recipient list.
-  const recipients: OrgRecipients = org
-    ? resolveOrgRecipients(org)
-    : visit.guest_contact_email
-      ? { to: visit.guest_contact_email, cc: [], all: [visit.guest_contact_email] }
-      : { to: null, cc: [], all: [] };
+  // Recipients: the visit's own contact first, then the organization's addresses.
+  //
+  // The visit contact leads because it is the person who booked *this* visit, and because it is
+  // the only address an admin can correct from the visit page — which is where they are standing
+  // when they discover it's wrong. A managed org with no usable account email but a hand-entered
+  // contact on the visit should invoice that contact, not refuse to send.
+  //
+  // The org's addresses are kept as cc rather than replaced, which matters because
+  // `guest_contact_email` is usually *copied* from the org at visit creation
+  // (see AdminVisits' org prefill) and only sometimes edited deliberately. The column records no
+  // difference between the two, so a stale snapshot could otherwise quietly outrank a corrected
+  // org email. Keeping both means the worst case is a redundant cc, not a misdirected invoice.
+  //
+  // Deduplicated case-insensitively, so the common case — visit contact identical to the org
+  // email — produces one recipient rather than cc'ing someone on their own invoice.
+  const orgRecipients = org ? resolveOrgRecipients(org) : { to: null, cc: [], all: [] };
+  const visitContact = isDeliverableEmail(visit.guest_contact_email)
+    ? visit.guest_contact_email.trim()
+    : null;
+
+  const ordered: string[] = [];
+  for (const email of [visitContact, ...orgRecipients.all]) {
+    if (!email) continue;
+    if (ordered.some(e => e.toLowerCase() === email.toLowerCase())) continue;
+    ordered.push(email);
+  }
+
+  const recipients: OrgRecipients = {
+    to: ordered[0] ?? null,
+    cc: ordered.slice(1),
+    all: ordered,
+  };
 
   if (!recipients.to) blockers.push('no_recipient');
 
