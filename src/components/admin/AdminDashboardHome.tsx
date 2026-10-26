@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useAdminData } from '@/contexts/AdminDataContext';
 import { useUser } from '@clerk/nextjs';
 import {
-  AlertTriangle, Building2, CalendarClock, CheckCircle2, ChevronRight, ClipboardCheck,
-  FileText, Inbox, MapPin, UserPlus, UserX,
+  AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, MapPin,
 } from 'lucide-react';
 import { formatCardTime } from '@/utils/timeZone';
 import { getVisitAlerts, daysUntilVisit } from '@/utils/visitSlots';
 import { StaffingStatus } from '@/components/visits/VolunteerSlotBar';
+import AdminActivityFeed from './AdminActivityFeed';
 
 const UPCOMING_WINDOW_DAYS = 7;
 const MAX_ROWS = 8;
@@ -43,14 +43,6 @@ interface Props {
   onOpenTab: (param: string, filter?: string) => void;
 }
 
-interface ReviewCounts {
-  visitRequests: number;
-  pendingCompletion: number;
-  volunteerRequests: number;
-  orgRequests: number;
-  docReviews: number;
-  unassigned: number;
-}
 
 function visitLabel(v: HomeVisit) {
   return v.guest_org_name || v.org_name || v.title || 'Visit';
@@ -71,7 +63,6 @@ function greeting() {
 export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpenTab }: Props) {
   const { user } = useUser();
   const [activeVisits, setActiveVisits] = useState<HomeVisit[] | null>(null);
-  const [counts, setCounts] = useState<ReviewCounts | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const [regionFilter, setRegionFilter] = useState('all');
   const [error, setError] = useState(false);
@@ -92,22 +83,9 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
 
     const derive = (
       activeRows: any[],
-      reviewRows: any[],
-      completionRows: any[],
-      pendingUsers: { role: string }[],
-      docReviews: number,
       regionRows: (Region & { is_active: boolean })[],
     ) => {
-      const active = mine(activeRows as HomeVisit[]);
-      setActiveVisits(active);
-      setCounts({
-        visitRequests: mine(reviewRows).length,
-        pendingCompletion: mine(completionRows).length,
-        volunteerRequests: pendingUsers.filter(u => u.role === 'volunteer').length,
-        orgRequests: pendingUsers.filter(u => u.role === 'organization').length,
-        docReviews,
-        unassigned: pdMode ? 0 : active.filter(v => !v.assigned_pd_id).length,
-      });
+      setActiveVisits(mine(activeRows as HomeVisit[]));
       setRegions(regionRows.filter(r => r.is_active));
     };
 
@@ -115,10 +93,6 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
       json('/api/admin/regions')
         .then(regionsJson => derive(
           shared.activeVisits,
-          shared.pendingReviewVisits,
-          shared.pendingCompletionVisits,
-          shared.pendingUsers,
-          shared.docReviewCount,
           (regionsJson.regions ?? []) as (Region & { is_active: boolean })[],
         ))
         .catch(() => setError(true));
@@ -126,19 +100,14 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
     }
 
     // Fallback for being rendered outside DashboardLayout, or before the shared fetch resolves.
+    // Down from six requests to two: the pending-review, pending-completion, pending-users and
+    // doc-review counts were only ever feeding the "To review" tiles, which the nav badges already
+    // duplicated and which the activity feed has now replaced.
     Promise.all([
       json('/api/admin/visits?scope=active'),
-      json('/api/admin/visits?status=pending_review'),
-      json('/api/admin/visits?scope=pending_completion'),
-      json('/api/admin/pending-users'),
-      json('/api/admin/pending-doc-reviews-count'),
       json('/api/admin/regions'),
-    ]).then(([activeJson, reviewJson, completionJson, usersJson, docsJson, regionsJson]) => derive(
+    ]).then(([activeJson, regionsJson]) => derive(
       activeJson.visits ?? [],
-      reviewJson.visits ?? [],
-      completionJson.visits ?? [],
-      usersJson.users ?? [],
-      docsJson.count ?? 0,
       (regionsJson.regions ?? []) as (Region & { is_active: boolean })[],
     )).catch(() => setError(true));
   }, [pdMode, user?.id, shared]);
@@ -153,15 +122,6 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
     .map(v => ({ visit: v, alerts: getVisitAlerts(v) }))
     .filter(({ alerts }) => alerts.needsAttention);
   const comingUp = visits.filter(v => daysUntilVisit(v.visit_date) <= UPCOMING_WINDOW_DAYS);
-
-  const reviewTiles = counts ? [
-    { key: 'visit-requests', label: 'Visit requests', count: counts.visitRequests, icon: Inbox, onClick: () => onOpenTab('group-visits', 'pending_review') },
-    { key: 'completion', label: 'Mark as complete', count: counts.pendingCompletion, icon: ClipboardCheck, onClick: () => onOpenTab('group-visits', 'pending_completion') },
-    { key: 'volunteers', label: 'Volunteer requests', count: counts.volunteerRequests, icon: UserPlus, onClick: () => onOpenTab('volunteer-requests') },
-    { key: 'orgs', label: 'Org requests', count: counts.orgRequests, icon: Building2, onClick: () => onOpenTab('org-requests') },
-    { key: 'docs', label: 'Documents to review', count: counts.docReviews, icon: FileText, onClick: () => onOpenTab('manage-volunteers') },
-    ...(!pdMode ? [{ key: 'unassigned', label: 'Visits without a PD', count: counts.unassigned, icon: UserX, onClick: () => onOpenTab('group-visits', 'unassigned') }] : []),
-  ] : [];
 
   const loading = activeVisits === null && !error;
 
@@ -262,35 +222,12 @@ export default function AdminDashboardHome({ pdMode = false, onOpenVisit, onOpen
           )}
         </section>
 
-        {/* 2. To review */}
-        <section>
-          <h2 className="text-sm font-semibold text-gray-800 mb-2">To review</h2>
-          <div className={`grid gap-3 ${
-            reviewTiles.length >= 6
-              ? 'grid-cols-2 sm:grid-cols-3'
-              : reviewTiles.length === 5
-                ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
-                : 'grid-cols-2 sm:grid-cols-4'
-          }`}>
-            {reviewTiles.map(t => {
-              const Icon = t.icon;
-              const active = t.count > 0;
-              return (
-                <button key={t.key} onClick={t.onClick}
-                  className={`text-left bg-white rounded-xl border shadow-sm p-4 transition hover:shadow-md ${
-                    active ? 'border-gray-200 hover:border-blue-200' : 'border-gray-100'
-                  }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <Icon size={18} className={active ? 'text-[#0e62ae]' : 'text-gray-300'} />
-                    {active && <span className="w-2 h-2 rounded-full bg-red-500" />}
-                  </div>
-                  <p className={`text-2xl font-bold ${active ? 'text-gray-900' : 'text-gray-300'}`}>{t.count}</p>
-                  <p className={`text-xs font-medium ${active ? 'text-gray-600' : 'text-gray-400'}`}>{t.label}</p>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        {/* 2. Recent activity */}
+        {/* Replaces the "To review" count tiles, which duplicated the nav badges exactly — the
+            same five numbers were shown twice on screen. PD testing said the dashboard was too
+            noisy *and* that sign-ups were invisible; removing the duplicate and spending the space
+            on activity addresses both with one change. */}
+        <AdminActivityFeed onOpenVisit={onOpenVisit} />
 
         {/* 3. Coming up this week */}
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm">

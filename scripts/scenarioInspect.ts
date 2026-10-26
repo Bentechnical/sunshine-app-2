@@ -251,7 +251,9 @@ async function main() {
     });
     h2('Distinct compliance states present');
     Object.entries(states).sort().forEach(([k, v]) => console.log(`  ${pad(k, 44)} ${v} volunteer(s)`));
-    for (const want of ['pending_review', 'rejected']) {
+    // Only 'pending_review' is expected now: the scenario no longer plants a rejected document,
+    // because a rejection sits in nobody's queue and only made the roster look worse.
+    for (const want of ['pending_review']) {
       const has = vols.some(v => v.vsc_verification_status === want) || dogs.some(d => d.vaccine_verification_status === want);
       if (!has) flag(`No volunteer/dog has a '${want}' document — needed for the compliance review scenario.`);
     }
