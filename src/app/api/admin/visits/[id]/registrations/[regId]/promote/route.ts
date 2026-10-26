@@ -2,6 +2,7 @@
 // Move a waitlisted volunteer into an open spot (admin/PD only). Sends the visitWaitlistPromoted email.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logRegistrationEvent } from '@/utils/registrationEvents';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { promoteWaitlistedRegistration } from '@/utils/promoteWaitlisted';
@@ -84,6 +85,16 @@ export async function POST(
     if (!promoted) {
       return NextResponse.json({ error: 'Failed to promote volunteer' }, { status: 500 });
     }
+
+    // History (Migration 42). Logged from the route rather than promoteWaitlistedRegistration,
+    // because the helper has no idea who triggered it — and the actor is the point.
+    await logRegistrationEvent(supabase, {
+      visitId,
+      volunteerId: registration.volunteer_id,
+      eventType: 'promoted',
+      actorId: check.userId,
+      actorRole: check.role,
+    });
 
     await recalcVisitStaffing(supabase, visitId);
 

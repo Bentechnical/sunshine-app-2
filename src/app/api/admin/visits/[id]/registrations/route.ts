@@ -2,6 +2,7 @@
 // POST /api/admin/visits/[id]/registrations — admin-assign a volunteer to a visit
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logRegistrationEvent, placeEventType } from '@/utils/registrationEvents';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { sendTransactionalEmail } from '@/app/utils/mailer';
@@ -141,6 +142,17 @@ export async function POST(
       console.error('[POST registrations] Supabase error:', writeError);
       return NextResponse.json({ error: 'Failed to add volunteer' }, { status: 500 });
     }
+
+    // History (Migration 42). Same event type as a self-signup, but actorId is the staff member,
+    // not the volunteer — so "did they choose this visit or were they put on it?" is answerable.
+    await logRegistrationEvent(supabase, {
+      visitId,
+      volunteerId: volunteer_id,
+      eventType: placeEventType(status as 'confirmed' | 'waitlisted'),
+      actorId: check.userId,
+      actorRole: check.role,
+      reason: 'Added directly by staff',
+    });
 
     // Add volunteer to Google Calendar event and refresh description (confirmed only)
     // Runs in background — sequential to avoid rate limits, but doesn't block the response.

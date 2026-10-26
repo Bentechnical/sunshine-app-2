@@ -193,10 +193,12 @@ async function listVolunteers(
   // Fetched in a second, narrow query rather than widening the select above: the heavy compliance
   // columns (document urls, comments, rejection reasons, verifier ids) would otherwise be paid for
   // on every row to serve a handful. The pending set is a work queue, so it stays short.
-  const pendingIds = (users ?? [])
-    .filter(u => u.vsc_verification_status === 'pending_review'
-      || dogByVolunteer.get(u.id)?.vaccine_verification_status === 'pending_review')
-    .map(u => u.id);
+  // Derived status rather than the raw column, matching the client: a row can carry
+  // vsc_verification_status = 'pending_review' with no document attached, and there is nothing to
+  // review in that case.
+  const pendingIds = rows
+    .filter(r => r.vsc_status === 'pending_review' || r.vaccine_status === 'pending_review')
+    .map(r => r.id);
 
   const details: Record<string, unknown> = {};
 

@@ -11,6 +11,7 @@ import { recalcVisitStaffing } from '@/utils/recalcVisitStaffing';
 import { isWaitlistOnly } from '@/utils/visitSlots';
 import { formatTimeRange, formatVisitDate } from '@/utils/timeZone';
 import { checkVisitEligibility } from '@/utils/visitEligibility';
+import { logRegistrationEvent, placeEventType } from '@/utils/registrationEvents';
 
 export async function POST(
   req: NextRequest,
@@ -129,6 +130,18 @@ export async function POST(
       console.error('[POST /api/visits/[id]/register] Supabase error:', regError);
       return NextResponse.json({ error: 'Failed to register for visit' }, { status: 500 });
     }
+
+    // History (Migration 42). Logged even when `existing` meant we revived a cancelled row —
+    // that's a genuine second sign-up, and recording it is the point: the row itself loses the
+    // earlier cancellation when `cancelled_at` is nulled above, so without this event the fact
+    // that they withdrew and came back would vanish entirely.
+    await logRegistrationEvent(supabase, {
+      visitId,
+      volunteerId: userId,
+      eventType: placeEventType(newStatus),
+      actorId: userId,
+      actorRole: 'volunteer',
+    });
 
     // Add volunteer as attendee on Google Calendar event and refresh description (confirmed only)
     // Runs in background — sequential to avoid rate limits, but doesn't block the response.

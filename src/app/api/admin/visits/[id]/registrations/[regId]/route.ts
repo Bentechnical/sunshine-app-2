@@ -3,6 +3,7 @@
 // Body: { admin_note?: string }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logRegistrationEvent } from '@/utils/registrationEvents';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
@@ -60,6 +61,17 @@ export async function DELETE(
       console.error('[DELETE registration] Supabase error:', error);
       return NextResponse.json({ error: 'Failed to remove volunteer from visit' }, { status: 500 });
     }
+
+    // History (Migration 42). A removal is explicitly NOT a withdrawal: it must never count
+    // against the volunteer's reliability, which is the distinction the old schema couldn't make.
+    await logRegistrationEvent(supabase, {
+      visitId,
+      volunteerId: registration.volunteer_id,
+      eventType: 'removed_by_staff',
+      actorId: check.userId,
+      actorRole: check.role,
+      reason: adminNote,
+    });
 
     // TODO: Send notification email to volunteer (removed from visit)
 

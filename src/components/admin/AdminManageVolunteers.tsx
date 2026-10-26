@@ -477,11 +477,11 @@ export default function AdminManageVolunteers({
 
         {/* Active Volunteers Table */}
         {!loading && !error && viewMode === 'active' && (
-          <table className="w-full text-sm border border-gray-200 rounded-md">
+          <div className="overflow-x-auto"><table className="w-full text-sm border border-gray-200 rounded-md min-w-[720px]">
             <thead className="bg-gray-100 text-left">
               <tr className="group">
                 {([
-                  ['Name', 'name'], ['Email', 'email'], ['City', 'city'],
+                  ['Name', 'name'], ['City', 'city'],
                   ['Region', 'region'], ['Tier', 'tier'], ['VSC', 'vsc'], ['Vaccine', 'vaccine'],
                 ] as [string, SortKey][]).map(([label, column]) => (
                   <SortableHeader
@@ -499,15 +499,19 @@ export default function AdminManageVolunteers({
             <tbody>
               {filteredVolunteers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     {complianceFilter !== 'none' ? 'No volunteers match this filter.' : 'No volunteers found.'}
                   </td>
                 </tr>
               ) : filteredVolunteers.map(user => {
                 const compliance = complianceMap.get(user.id);
                 const rowHasIssue = hasComplianceIssue(user.id);
-                const needsReview = user.vsc_verification_status === 'pending_review'
-                  || user.vaccine_verification_status === 'pending_review';
+                // Derived status, not the raw verification column: getComplianceStatus only
+                // reports 'pending_review' when a document actually exists. A row with
+                // vsc_verification_status = 'pending_review' but no vsc_document_url — which real
+                // data does contain — would otherwise offer a Review button with nothing to review.
+                const needsReview = user.vsc_status === 'pending_review'
+                  || user.vaccine_status === 'pending_review';
                 const tierBadge = TIER_BADGE[(user.volunteer_tier ?? 'regular') as VolunteerTier];
                 return (
                   <tr
@@ -516,11 +520,10 @@ export default function AdminManageVolunteers({
                     onClick={() => onSelectVolunteer?.(user.id)}
                   >
                     <td className="px-4 py-2">
-                      <span className={onSelectVolunteer ? 'font-medium text-[#0e62ae]' : ''}>
+                      <span className={`whitespace-nowrap ${onSelectVolunteer ? 'font-medium text-[#0e62ae]' : ''}`}>
                         {user.first_name} {user.last_name}
                       </span>
                     </td>
-                    <td className="px-4 py-2">{user.email}</td>
                     <td className="px-4 py-2">{user.city}</td>
                     <td className="px-4 py-2">
                       {user.assigned_region_id
@@ -561,12 +564,12 @@ export default function AdminManageVolunteers({
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
 
         {/* Archived Volunteers Table */}
         {!loading && !error && viewMode === 'archived' && !archivedLoading && (
-          <table className="w-full text-sm border border-gray-200 rounded-md">
+          <div className="overflow-x-auto"><table className="w-full text-sm border border-gray-200 rounded-md min-w-[720px]">
             <thead className="bg-gray-100 text-left">
               <tr>
                 <th className="px-4 py-2">Name</th>
@@ -598,7 +601,7 @@ export default function AdminManageVolunteers({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

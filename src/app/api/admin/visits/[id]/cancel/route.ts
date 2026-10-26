@@ -4,6 +4,7 @@
 // Body: { admin_note?: string, notify_org?: boolean }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logRegistrationEvents } from '@/utils/registrationEvents';
 import { isDeliverableEmail } from '@/utils/orgEmail';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
@@ -103,12 +104,24 @@ export async function POST(
         console.log(`[cancel visit] Sent cancellation emails to ${volunteers.length} volunteer(s)`);
       }
 
-      // Mark registrations as cancelled
-      await supabase
+      // Mark registrations as cancelled — see the org-side cancel route for why `.select()`
+      // drives the history rather than a separate query.
+      const { data: cancelledRegs } = await supabase
         .from('visit_registrations')
         .update({ status: 'cancelled', cancellation_reason: 'Visit cancelled by administrator', cancelled_at: new Date().toISOString() })
         .eq('visit_id', visitId)
-        .in('status', ['confirmed', 'waitlisted']);
+        .in('status', ['confirmed', 'waitlisted'])
+        .select('volunteer_id');
+
+      // History (Migration 42). Not the volunteers' doing, so never attributed to them.
+      await logRegistrationEvents(supabase, (cancelledRegs ?? []).map(r => ({
+        visitId,
+        volunteerId: r.volunteer_id as string,
+        eventType: 'visit_cancelled' as const,
+        actorId: check.userId,
+        actorRole: check.role,
+        reason: 'Visit cancelled by staff',
+      })));
     }
 
     // Optionally notify the organization

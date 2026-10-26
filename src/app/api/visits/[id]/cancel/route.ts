@@ -3,6 +3,7 @@
 // Body: { action: 'cancel' | 'delete' }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logRegistrationEvents } from '@/utils/registrationEvents';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { cancelVisitEvent } from '@/utils/googleCalendar';
@@ -143,12 +144,27 @@ export async function POST(
         }
       }
 
-      // Mark registrations as cancelled
-      await supabase
+      // Mark registrations as cancelled. `.select()` returns exactly the rows that changed, so
+      // the history below covers precisely those volunteers — no re-query, and no risk of logging
+      // someone whose registration was already cancelled.
+      const { data: cancelledRegs } = await supabase
         .from('visit_registrations')
         .update({ status: 'cancelled', cancellation_reason: 'Visit cancelled by organization', cancelled_at: new Date().toISOString() })
         .eq('visit_id', visitId)
-        .in('status', ['confirmed', 'waitlisted']);
+        .in('status', ['confirmed', 'waitlisted'])
+        .select('volunteer_id');
+
+      // History (Migration 42). 'visit_cancelled' is its own type so this never reads as the
+      // volunteers' doing — they lost their place, they didn't give it up. One insert for the
+      // whole roster rather than one round trip each.
+      await logRegistrationEvents(supabase, (cancelledRegs ?? []).map(r => ({
+        visitId,
+        volunteerId: r.volunteer_id as string,
+        eventType: 'visit_cancelled' as const,
+        actorId: userId,
+        actorRole: 'organization' as const,
+        reason: 'Visit cancelled by the organization',
+      })));
     }
 
     console.log(`[org cancel] Visit ${visitId} cancelled by org ${userId}, ${registrations?.length ?? 0} volunteers notified`);

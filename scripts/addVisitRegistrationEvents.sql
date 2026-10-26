@@ -1,0 +1,107 @@
+-- Migration 42 — Create `visit_registration_events`
+--
+-- WHY: `visit_registrations` is one mutable row per (visit, volunteer) whose status flips in
+-- place — confirmed → cancelled → confirmed. It answers "what is this person's relationship to
+-- this visit right now" and nothing about how it got there. Four consequences today:
+--
+--   1. A cancellation can't be attributed. A volunteer withdrawing, a PD removing them, and an org
+--      cancelling the whole visit all leave status = 'cancelled'. The only way to tell them apart
+--      is guessing from which nullable text column happens to be populated, which is why the
+--      "Withdrew" figure was dropped from the volunteer profile rather than shown untrustworthy.
+--   2. Re-registering after cancelling erases the cancellation — both reactivation paths null
+--      `cancelled_at`.
+--   3. There is no attendance or no-show record; "attended" is inferred as a confirmed
+--      registration on a completed visit.
+--   4. There is no audit trail of who did what.
+--
+-- This table is the history; `visit_registrations` stays the current-state read. Do NOT try to
+-- derive current state from this log — that's the over-engineering trap, and the mutable row is
+-- what every existing query already uses.
+--
+-- `actor_id` is the point of the whole design: "did she withdraw or was she removed?" becomes
+-- `actor_id = volunteer_id`, comparing two ids rather than inferring intent.
+
+CREATE TABLE IF NOT EXISTS visit_registration_events (
+  id           bigserial PRIMARY KEY,
+
+  -- Who the event is ABOUT.
+  visit_id     integer NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
+  volunteer_id text    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  event_type   text NOT NULL,
+
+  -- Who DID it. Usually the volunteer themselves; differs when staff act on their behalf.
+  -- SET NULL rather than CASCADE: a PD leaving must not delete the record of what they did.
+  actor_id     text REFERENCES users(id) ON DELETE SET NULL,
+  -- Snapshot, so attribution survives a later role change and reading the log needs no join.
+  actor_role   text,
+
+  reason       text,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE visit_registration_events DROP CONSTRAINT IF EXISTS visit_registration_events_type_check;
+ALTER TABLE visit_registration_events
+  ADD CONSTRAINT visit_registration_events_type_check
+  CHECK (event_type IN (
+    'signed_up',         -- took a confirmed place
+    'waitlisted',        -- joined the queue
+    'promoted',          -- waitlist → confirmed
+    'withdrew',          -- gave up their own place
+    'removed_by_staff',  -- an admin or PD took them off
+    'visit_cancelled'    -- the visit itself was cancelled; never the volunteer's doing
+    -- 'attended' / 'no_show' will join this list when attendance is recorded; that needs no
+    -- schema change, which is a large part of why the log is shaped this way.
+  ));
+
+ALTER TABLE visit_registration_events DROP CONSTRAINT IF EXISTS visit_registration_events_actor_role_check;
+ALTER TABLE visit_registration_events
+  ADD CONSTRAINT visit_registration_events_actor_role_check
+  CHECK (actor_role IS NULL OR actor_role IN ('volunteer', 'pd', 'admin', 'organization', 'system'));
+
+-- Per-volunteer history (the profile) and per-visit history (the activity feed) are the two
+-- read patterns; both want newest first.
+CREATE INDEX IF NOT EXISTS visit_registration_events_volunteer_idx
+  ON visit_registration_events (volunteer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS visit_registration_events_visit_idx
+  ON visit_registration_events (visit_id, created_at DESC);
+
+ALTER TABLE visit_registration_events ENABLE ROW LEVEL SECURITY;
+
+-- Admin/PD read only. No write policy and no volunteer-facing policy: every write goes through
+-- the service role in the API layer, and nothing should ever edit history from a client.
+DROP POLICY IF EXISTS "Admins and PDs can view registration events" ON visit_registration_events;
+CREATE POLICY "Admins and PDs can view registration events"
+  ON visit_registration_events FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = (auth.uid())::text AND users.role IN ('admin', 'pd')
+  ));
+
+DROP POLICY IF EXISTS "Service role full access to visit_registration_events" ON visit_registration_events;
+CREATE POLICY "Service role full access to visit_registration_events"
+  ON visit_registration_events FOR ALL
+  USING (auth.role() = 'service_role');
+
+
+-- ─── No backfill, deliberately ───────────────────────────────────────────────────────────────
+--
+-- Considered and rejected. The prod reset (see the prod-db-reset-plan note) rebuilds the public
+-- schema from a dev dump rather than replaying migrations, so this file never runs against prod —
+-- the table definition travels, the rows don't. Prod also starts with no registrations at all,
+-- since the Clerk user pool is purged in the same operation.
+--
+-- That leaves dev, which is regenerated by `npm run scenario:build` anyway. Synthesising events
+-- there would mean rows that look like history but carry no real `actor_id` — the one thing the
+-- old schema failed to record, and the reason this table exists. Better an empty log that is
+-- entirely trustworthy than a populated one that is half-invented.
+--
+-- Everything from here on is real.
+
+
+-- ─── Verify ───────────────────────────────────────────────────────────────────────────────────
+
+SELECT event_type, actor_role, count(*)
+FROM visit_registration_events
+GROUP BY event_type, actor_role
+ORDER BY event_type;

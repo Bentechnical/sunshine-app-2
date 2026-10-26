@@ -203,6 +203,24 @@ refinement is view-all / edit-own-region. Nothing to do until someone asks. *Siz
 
 ## Front-end
 
+**The visits list offers PDs a region filter that can't widen anything.** PD visit scoping is
+client-side on `assigned_pd_id === currentUserId`, so a PD only ever sees their own visits — but
+`AdminVisits` still shows a region selector including "All Regions". Choosing it changes nothing,
+which reads as a bug: during testing on 26 Oct a PD went looking for a visit across "all regions"
+and concluded it had vanished, when it was simply an Oakville visit belonging to the Oakville PD.
+
+Worth understanding *why* this arises rather than just hiding the control, because the underlying
+behaviour is correct and deliberate: **volunteers are not region-siloed** (encouraged to sign up
+across regions) while **PDs are**. So a Toronto volunteer can hold a place on a visit her own PD
+can never see. The volunteer's profile *does* show it — `GET /api/admin/volunteers/[id]` has no
+region filter by design, since judging a person means seeing all their visits — so the information
+isn't lost, just absent from the visits list.
+
+Fix: hide the region selector in PD mode. A control that cannot change the result is worse than no
+control. (Keeping it and relabelling it is the alternative, but "filter within your own visits"
+isn't a useful axis when a PD has one region.) *Size: S.*
+
+
 **`AdminVisits.tsx` fetches every visit and filters client-side.** Fine at current scale. A concern
 for the largest regions (a few hundred volunteers), and exactly the class of problem a small pilot
 region will hide — so don't read a small pilot as evidence this is fine.

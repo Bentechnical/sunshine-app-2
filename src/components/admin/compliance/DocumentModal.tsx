@@ -142,9 +142,13 @@ export function DocumentModal({
   const [error, setError] = useState<string | null>(null);
   const [localRecord, setLocalRecord] = useState(record);
 
-  const vscHasDoc = !!(docs?.vsc_signed_url);
-  const vaccineHasDoc = !!(docs?.vaccine_signed_url);
-  const showTabs = vscHasDoc && vaccineHasDoc;
+  // Tabs follow what's *on record*, not what we managed to sign a URL for. If a document exists
+  // in the database but its file can't be fetched — a bad path, a deleted object, a storage
+  // outage — hiding the tab makes it look like nothing was ever uploaded, which is a very
+  // different and much more reassuring thing than the truth.
+  const vscOnRecord = !!record.vsc.document_url;
+  const vaccineOnRecord = !!record.vaccine.document_url;
+  const showTabs = vscOnRecord && vaccineOnRecord;
   const defaultTab = record.vsc.verification_status === 'pending_review' && record.vsc.document_url ? 'vsc' : 'vaccine';
   const [activeTab, setActiveTab] = useState<'vsc' | 'vaccine'>(defaultTab);
 
@@ -241,6 +245,16 @@ export function DocumentModal({
             <div className="flex-1 bg-gray-100 min-h-0">
               {activeUrl ? (
                 <iframe key={activeUrl} src={activeUrl} className="w-full h-full border-0" title="Compliance document preview" />
+              ) : (activeTab === 'vsc' ? vscOnRecord : vaccineOnRecord) ? (
+                <div className="w-full h-full flex items-center justify-center p-8">
+                  <div className="text-center max-w-sm">
+                    <p className="text-sm font-semibold text-red-700">This document couldn&apos;t be loaded.</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      It&apos;s recorded against this volunteer, but the file is missing from storage.
+                      Ask them to upload it again, and report it if it keeps happening.
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <p className="text-sm text-gray-400 italic">No document uploaded</p>

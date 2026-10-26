@@ -3,6 +3,7 @@
 // Body: { reason?: string }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logRegistrationEvent } from '@/utils/registrationEvents';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { removeAttendeeFromEvent, refreshVisitEventDescription } from '@/utils/googleCalendar';
@@ -59,6 +60,18 @@ export async function POST(
       console.error('[POST cancel-registration] Supabase error:', cancelError);
       return NextResponse.json({ error: 'Failed to cancel registration' }, { status: 500 });
     }
+
+    // History (Migration 42). actorId === volunteerId is what makes this a withdrawal rather than
+    // a staff removal — the distinction the old schema could only guess at from whether
+    // `admin_note` happened to be set.
+    await logRegistrationEvent(supabase, {
+      visitId,
+      volunteerId: userId,
+      eventType: 'withdrew',
+      actorId: userId,
+      actorRole: 'volunteer',
+      reason,
+    });
 
     // If the cancelled registration was confirmed, update GCal and staffing state
     if (wasConfirmed) {
