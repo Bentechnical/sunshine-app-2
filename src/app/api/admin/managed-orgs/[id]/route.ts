@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { autoAssignRegion } from '@/utils/autoAssignRegion';
+import { normalizeAdditionalEmails } from '@/utils/orgEmail';
 
 const VALID_TIERS = ['tier_500', 'tier_200', 'tier_0'];
 
@@ -23,7 +24,7 @@ export async function PATCH(
     // Verify the target is an admin-managed org
     const { data: existing, error: fetchErr } = await supabase
       .from('users')
-      .select('id')
+      .select('id, email')
       .eq('id', id)
       .eq('role', 'organization')
       .eq('is_admin_managed', true)
@@ -53,6 +54,17 @@ export async function PATCH(
 
     if (updateData.fee_tier && !VALID_TIERS.includes(updateData.fee_tier)) {
       return NextResponse.json({ error: 'Invalid fee_tier value' }, { status: 400 });
+    }
+
+    // Unlike a real org, a managed org's primary email is editable in this same request — so
+    // normalize against the incoming one where present, or a newly-set primary would be allowed
+    // to sit in the cc list as well.
+    let rejectedEmails: string[] = [];
+    if ('additional_emails' in body) {
+      const primary = 'email' in body ? (body.email ?? null) : existing.email;
+      const result = normalizeAdditionalEmails(body.additional_emails, primary);
+      updateData.additional_emails = result.emails;
+      rejectedEmails = result.rejected;
     }
 
     // Keep first_name in sync with contact name or org name
@@ -100,7 +112,11 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ success: true, assigned_region_id });
+    return NextResponse.json({
+      success: true,
+      assigned_region_id,
+      ...(rejectedEmails.length ? { rejected_emails: rejectedEmails } : {}),
+    });
   } catch (err: any) {
     console.error('[PATCH /api/admin/managed-orgs] Unexpected error:', err.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

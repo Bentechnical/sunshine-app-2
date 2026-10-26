@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
+import { normalizeAdditionalEmails } from '@/utils/orgEmail';
 import { autoAssignRegion } from '@/utils/autoAssignRegion';
 import { randomUUID } from 'crypto';
 
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
       org_contact_name,
       org_contact_phone,
       email,
+      additional_emails,
       fee_tier,
       profile_image,
       default_parking_coverage,
@@ -47,6 +49,14 @@ export async function POST(req: NextRequest) {
     }
 
     const syntheticId = `managed_${randomUUID()}`;
+
+    // Normalize against the primary we're about to store, not the raw input — an org created
+    // without an email gets the `@managed.local` placeholder, and nothing should be deduped
+    // against an address that was never real.
+    const primaryEmail = email || `${syntheticId}@managed.local`;
+    const { emails: additionalEmailList, rejected: rejectedEmails } =
+      normalizeAdditionalEmails(additional_emails, primaryEmail);
+
     const supabase = createSupabaseAdminClient();
 
     const { error } = await supabase.from('users').insert({
@@ -64,7 +74,8 @@ export async function POST(req: NextRequest) {
       postal_code: postal_code || null,
       org_contact_name: org_contact_name || null,
       org_contact_phone: org_contact_phone || null,
-      email: email || `${syntheticId}@managed.local`,
+      email: primaryEmail,
+      additional_emails: additionalEmailList,
       fee_tier: fee_tier || null,
       profile_image: profile_image || null,
       first_name: org_contact_name || org_name.trim(),
@@ -105,7 +116,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, id: syntheticId, assigned_region_id }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      id: syntheticId,
+      assigned_region_id,
+      ...(rejectedEmails.length ? { rejected_emails: rejectedEmails } : {}),
+    }, { status: 201 });
   } catch (err: any) {
     console.error('[POST /api/admin/managed-orgs] Unexpected error:', err.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

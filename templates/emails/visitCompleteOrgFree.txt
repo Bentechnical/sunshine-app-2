@@ -1,0 +1,23 @@
+Hi {{contactName}},
+
+We hope your community enjoyed spending time with our Sunshine doggies on {{visitDate}}!
+
+If you have a moment, we would be grateful for a Google review. And if there is anything
+we could do better, please tell us at info@sunshinetherapydogs.ca -- we read every message.
+
+We provide our services to not-for-profit organizations free of charge. If you have budget
+for a donation of any amount, it is genuinely appreciated -- we exist because of donations,
+and they are what allow us to keep visits like yours free.
+
+Ways to donate:
+  Online     - https://www.canadahelps.org/en/charities/sunshine-therapy-dogs/
+  Cheque     - payable to Sunshine Therapy Dogs
+               19 Kingswood Road, Toronto, Ontario, M4E 3N4
+  E-transfer - info@sunshinetherapydogs.ca
+
+A charitable tax receipt is available on request for donations over $20.
+
+Thank you!
+Alan Harman
+Founder & President, Sunshine Therapy Dogs
+www.sunshinetherapydogs.ca

@@ -48,6 +48,28 @@ export async function DELETE(
       );
     }
 
+    // An invoiced visit cannot be deleted. `invoices.visit_id` is ON DELETE RESTRICT, so the
+    // database would refuse this anyway — but it would surface as an opaque FK violation. Check
+    // first so the answer is readable and says what to do about it.
+    //
+    // A voided invoice does not block deletion: voiding is the act of saying the bill should
+    // never have existed, so there is nothing left to preserve a link to.
+    const { data: liveInvoices } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .eq('visit_id', visitId)
+      .neq('status', 'void')
+      .limit(1);
+
+    if (liveInvoices && liveInvoices.length > 0) {
+      return NextResponse.json(
+        {
+          error: `This visit has been invoiced (#${liveInvoices[0].invoice_number}) and cannot be deleted. Void the invoice first if it was issued in error.`,
+        },
+        { status: 409 }
+      );
+    }
+
     // Remove Google Calendar event if exists
     if ((visit as any).google_calendar_event_id) {
       await cancelVisitEvent((visit as any).google_calendar_event_id);

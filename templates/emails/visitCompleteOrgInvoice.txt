@@ -1,0 +1,26 @@
+Hi {{contactName}},
+
+We hope your community enjoyed spending time with our Sunshine doggies on {{visitDate}}!
+
+If you have a moment, we would be grateful for a Google review. And if there is anything
+we could do better, please tell us at info@sunshinetherapydogs.ca -- we read every message.
+
+INVOICE #{{invoiceNumber}} -- ${{total}}
+Your invoice for this visit is attached to this email as a PDF.
+
+Your payment helps fund our services to schools, social agencies and individuals for whom
+we provide visits at no cost. So, thank you.
+
+Payment methods:
+  Cheque     - payable to Sunshine Therapy Dogs
+               19 Kingswood Road, Toronto, Ontario, M4E 3N4
+  E-transfer - info@sunshinetherapydogs.ca
+  PayPal     - https://www.paypal.com/ncp/payment/NT7H2RGBLQ3P4
+
+Donations are welcome too, separate from any fee for service. A tax receipt is
+provided: https://www.canadahelps.org/en/charities/sunshine-therapy-dogs/
+
+Thank you!
+Alan Harman
+Founder & President, Sunshine Therapy Dogs
+www.sunshinetherapydogs.ca

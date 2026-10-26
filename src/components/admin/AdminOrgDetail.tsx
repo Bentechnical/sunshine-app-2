@@ -12,6 +12,7 @@ import {
 import { formatCardTime } from '@/utils/timeZone';
 import { VolunteerSlotBar } from '@/components/visits/VolunteerSlotBar';
 import { formatPhoneDisplay } from '@/utils/formatPhone';
+import { isDeliverableEmail } from '@/utils/orgEmail';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ interface OrgData {
   org_address: string;
   org_contact_name: string;
   org_contact_phone: string;
+  additional_emails: string[];
   assigned_region_id: number | null;
   fee_tier: string | null;
   is_admin_managed: boolean;
@@ -110,6 +112,7 @@ export default function AdminOrgDetail({
 
   const assignedRegion = regions.find(r => r.id === org.assigned_region_id);
   const feeTier = org.fee_tier ? FEE_TIER_LABELS[org.fee_tier] : null;
+  const additionalEmails = org.additional_emails ?? [];
 
   // Fetch visits for this org
   useEffect(() => {
@@ -197,7 +200,24 @@ export default function AdminOrgDetail({
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account Email</p>
-            <p className="text-gray-900">{org.email || '—'}</p>
+            {/* A managed org's placeholder address is undeliverable. Say so here rather than
+                letting it read as a real address that mail is quietly failing to reach. */}
+            {isDeliverableEmail(org.email) ? (
+              <p className="text-gray-900 break-all">{org.email}</p>
+            ) : (
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                No email on file
+              </span>
+            )}
+            {additionalEmails.length > 0 && (
+              <div className="mt-1.5 space-y-0.5">
+                {additionalEmails.map(email => (
+                  <p key={email} className="text-xs text-gray-500 break-all">
+                    {email} <span className="text-gray-400">(cc)</span>
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Fee Tier</p>

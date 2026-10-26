@@ -35,6 +35,7 @@ interface OrganizationUser {
   postal_code: string;
   org_contact_name: string;
   org_contact_phone: string;
+  additional_emails: string[];
   assigned_region_id: number | null;
   fee_tier: string | null;
   is_admin_managed: boolean;
@@ -144,6 +145,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
             postal_code: u.postal_code || '',
             org_contact_name: u.org_contact_name || '',
             org_contact_phone: u.org_contact_phone || '',
+            additional_emails: u.additional_emails ?? [],
             assigned_region_id: u.assigned_region_id ?? null,
             fee_tier: u.fee_tier ?? null,
             is_admin_managed: u.is_admin_managed ?? false,
@@ -281,6 +283,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
         postal_code: data.postal_code || '',
         org_contact_name: data.org_contact_name,
         org_contact_phone: data.org_contact_phone,
+        additional_emails: data.additional_emails ?? [],
         assigned_region_id: data.assigned_region_id ?? null,
         fee_tier: data.fee_tier || null,
         is_admin_managed: true,
@@ -310,6 +313,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
               org_contact_name: data.org_contact_name,
               org_contact_phone: data.org_contact_phone,
               email: data.email || o.email,
+              additional_emails: data.additional_emails ?? o.additional_emails,
               fee_tier: data.fee_tier || o.fee_tier,
               assigned_region_id: data.assigned_region_id ?? o.assigned_region_id,
               default_parking_coverage: data.default_parking_coverage || null,
@@ -368,6 +372,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
             postal_code: u.postal_code || '',
             org_contact_name: u.org_contact_name || '',
             org_contact_phone: u.org_contact_phone || '',
+            additional_emails: u.additional_emails ?? [],
             assigned_region_id: u.assigned_region_id ?? null,
             fee_tier: u.fee_tier ?? null,
             is_admin_managed: u.is_admin_managed ?? false,
@@ -681,6 +686,7 @@ export default function AdminGroupVisits({ selectedVisitId, onSelectVisit, onBac
             org_contact_name: managedOrgModal.org.org_contact_name,
             org_contact_phone: managedOrgModal.org.org_contact_phone,
             email: managedOrgModal.org.email,
+            additional_emails: managedOrgModal.org.additional_emails ?? [],
             fee_tier: managedOrgModal.org.fee_tier || '',
             profile_image: managedOrgModal.org.org_logo || '',
             assigned_region_id: managedOrgModal.org.assigned_region_id,

@@ -2,9 +2,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Save, Building2, CalendarCog } from 'lucide-react';
+import { X, Save, Building2, CalendarCog, Plus } from 'lucide-react';
 import AvatarUpload from '@/components/profile/AvatarUpload';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
+import { MAX_ADDITIONAL_EMAILS } from '@/utils/orgEmail';
 
 const formatPhoneNumber = (value: string) => {
   const cleaned = value.replace(/\D/g, '').slice(0, 10);
@@ -60,6 +61,8 @@ export interface ManagedOrgData {
   org_contact_name: string;
   org_contact_phone: string;
   email: string;
+  /** Extra addresses cc'd on this org's mail. The primary `email` stays the addressee. */
+  additional_emails: string[];
   fee_tier: string;
   profile_image: string;
   assigned_region_id: number | null;
@@ -84,6 +87,7 @@ const EMPTY_FORM: ManagedOrgData = {
   org_contact_name: '',
   org_contact_phone: '',
   email: '',
+  additional_emails: [],
   fee_tier: '',
   profile_image: '',
   assigned_region_id: null,
@@ -117,6 +121,22 @@ export default function ManagedOrgModal({ mode, context = 'managed', initialData
 
   const isLinked = context === 'linked';
 
+  // Blank rows are kept in the form so a half-typed address isn't yanked out from under the
+  // cursor; they're stripped on save, and the server normalizes whatever survives.
+  const additionalEmails = form.additional_emails ?? [];
+  const setAdditionalEmail = (index: number, value: string) =>
+    setForm(prev => ({
+      ...prev,
+      additional_emails: (prev.additional_emails ?? []).map((e, i) => (i === index ? value : e)),
+    }));
+  const removeAdditionalEmail = (index: number) =>
+    setForm(prev => ({
+      ...prev,
+      additional_emails: (prev.additional_emails ?? []).filter((_, i) => i !== index),
+    }));
+  const addAdditionalEmail = () =>
+    setForm(prev => ({ ...prev, additional_emails: [...(prev.additional_emails ?? []), ''] }));
+
   const set =
     (field: keyof ManagedOrgData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -149,10 +169,14 @@ export default function ManagedOrgModal({ mode, context = 'managed', initialData
           ? '/api/admin/managed-orgs'
           : `/api/admin/managed-orgs/${initialData?.id}`;
 
+      const cleanedEmails = (form.additional_emails ?? [])
+        .map(e => e.trim())
+        .filter(Boolean);
+
       const res = await fetch(url, {
         method: mode === 'create' ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, additional_emails: cleanedEmails }),
       });
 
       const json = await res.json();
@@ -161,8 +185,15 @@ export default function ManagedOrgModal({ mode, context = 'managed', initialData
         return;
       }
 
+      // The save succeeded; some addresses just didn't survive validation. Say which, rather
+      // than closing on a silent partial result.
+      if (Array.isArray(json.rejected_emails) && json.rejected_emails.length > 0) {
+        setError(`Saved, but these addresses weren't valid and were not kept: ${json.rejected_emails.join(', ')}`);
+      }
+
       onSaved({
         ...form,
+        additional_emails: cleanedEmails,
         id: mode === 'create' ? json.id : initialData!.id!,
         assigned_region_id: form.assigned_region_id ?? json.assigned_region_id ?? null,
       });
@@ -274,6 +305,50 @@ export default function ManagedOrgModal({ mode, context = 'managed', initialData
               </>
             ) : (
               <input type="email" className={ic} value={form.email} onChange={set('email')} placeholder="contact@organization.com" />
+            )}
+          </div>
+
+          <div>
+            <label className={lc}>Additional Emails</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Copied on invoices and visit follow-ups — a billing contact, for example. The contact
+              email above stays the main recipient.
+            </p>
+            {additionalEmails.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {additionalEmails.map((email, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      className={ic}
+                      value={email}
+                      onChange={e => setAdditionalEmail(i, e.target.value)}
+                      placeholder="billing@organization.com"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAdditionalEmail(i)}
+                      aria-label="Remove email address"
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition shrink-0"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {additionalEmails.length < MAX_ADDITIONAL_EMAILS ? (
+              <button
+                type="button"
+                onClick={addAdditionalEmail}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700"
+              >
+                <Plus size={15} /> Add email address
+              </button>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Maximum of {MAX_ADDITIONAL_EMAILS} additional addresses.
+              </p>
             )}
           </div>
 

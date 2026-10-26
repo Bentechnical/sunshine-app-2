@@ -9,6 +9,7 @@ import {
 import { VISIT_TIME_OPTIONS, VISIT_DURATION_OPTIONS, computeEndTime, formatTime } from '@/utils/timeOptions';
 import { formatCardTime } from '@/utils/timeZone';
 import PlacesAutocomplete, { PlaceResult } from '@/components/ui/PlacesAutocomplete';
+import CompleteVisitModal from './CompleteVisitModal';
 import VisitMap from '@/components/ui/VisitMap';
 import { VolunteerSlotBar, StaffingStatus } from '@/components/visits/VolunteerSlotBar';
 import { getVisitAlerts } from '@/utils/visitSlots';
@@ -708,7 +709,6 @@ function VisitDetailView({
   const [showApproveForm, setShowApproveForm] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showCompleteForm, setShowCompleteForm] = useState(false);
-  const [completionNote, setCompletionNote] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notifyOrg, setNotifyOrg] = useState(false);
@@ -836,11 +836,7 @@ function VisitDetailView({
       if (!res.ok) { setError(json.error || 'Action failed'); return; }
       await load();
       onUpdated();
-      if (json.note_saved === false) {
-        setError('Visit marked complete, but the note could not be saved. Please add it below.');
-      }
       setActionNote('');
-      setCompletionNote('');
       setShowDeclineForm(false);
       setShowApproveForm(false);
       setShowCancelForm(false);
@@ -1312,9 +1308,9 @@ function VisitDetailView({
                 <>
                   {new Date(visit.end_time) <= new Date() && (
                     <button
-                      onClick={() => { setShowCompleteForm(v => !v); setShowCancelForm(false); }}
+                      onClick={() => { setShowCompleteForm(true); setShowCancelForm(false); }}
                       disabled={busy}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg text-white disabled:opacity-50 transition ${showCompleteForm ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}`}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg text-white disabled:opacity-50 transition bg-green-600 hover:bg-green-700"
                     >
                       Mark as Complete
                     </button>
@@ -1357,28 +1353,6 @@ function VisitDetailView({
                 {busy ? 'Approving…' : 'Confirm Approval'}
               </button>
               <button onClick={() => { setShowApproveForm(false); setActionNote(''); }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
-            </div>
-          </div>
-        )}
-        {showCompleteForm && (
-          <div className="mb-4 border-b border-gray-100 pb-4 space-y-3">
-            <p className="text-sm font-semibold text-green-800">Mark visit as complete</p>
-            <div>
-              <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
-                Internal note
-                <span className="font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Optional</span>
-              </label>
-              <textarea value={completionNote} onChange={e => setCompletionNote(e.target.value)} rows={3}
-                className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                placeholder="How did the visit go? Any follow-ups, issues, or notes for next time…" />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => doAction('complete', { internal_note: completionNote })} disabled={busy}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 hover:bg-green-700">
-                {busy ? 'Completing…' : completionNote.trim() ? 'Complete & Save Note' : 'Mark Complete'}
-              </button>
-              <button onClick={() => { setShowCompleteForm(false); setCompletionNote(''); }}
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Dismiss</button>
             </div>
           </div>
@@ -1966,7 +1940,21 @@ function VisitDetailView({
         </div>
       </div>
 
-
+      {showCompleteForm && (
+        <CompleteVisitModal
+          visitId={visitId}
+          onClose={() => setShowCompleteForm(false)}
+          onCompleted={async (warning) => {
+            setShowCompleteForm(false);
+            // The visit completed regardless; a warning means the invoice or the note didn't go
+            // the way it should have. Shown rather than swallowed — "completed" and "completed,
+            // but the invoice email failed" need to look different to whoever pressed the button.
+            if (warning) setError(warning);
+            await load();
+            onUpdated();
+          }}
+        />
+      )}
     </div>
   );
 }

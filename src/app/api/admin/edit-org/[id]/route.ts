@@ -1,11 +1,13 @@
 // PATCH /api/admin/edit-org/[id]
 // Admin edits a real (non-managed) organization's profile and visit defaults.
-// Email is excluded — it's tied to the Clerk account and cannot be changed here.
+// Email is excluded — it's tied to the Clerk account and cannot be changed here. `additional_emails`
+// is not: those addresses are notification targets, not identities, so they're freely editable.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminOrPd } from '@/utils/requireAdminOrPd';
 import { createSupabaseAdminClient } from '@/utils/supabase/admin';
 import { autoAssignRegion } from '@/utils/autoAssignRegion';
+import { normalizeAdditionalEmails } from '@/utils/orgEmail';
 
 const VALID_TIERS = ['tier_500', 'tier_200', 'tier_0'];
 
@@ -34,7 +36,7 @@ export async function PATCH(
     // Verify the target is a real org (not admin-managed)
     const { data: existing, error: fetchErr } = await supabase
       .from('users')
-      .select('id, org_name')
+      .select('id, org_name, email')
       .eq('id', id)
       .eq('role', 'organization')
       .single();
@@ -54,6 +56,16 @@ export async function PATCH(
 
     if (updateData.fee_tier && !VALID_TIERS.includes(updateData.fee_tier)) {
       return NextResponse.json({ error: 'Invalid fee_tier value' }, { status: 400 });
+    }
+
+    // Normalized rather than passed through: the DB CHECK would reject a bad entry with a 500,
+    // and the caller deserves to know which address was refused. Rejections are reported back,
+    // not swallowed — an address that silently vanishes isn't noticed until mail doesn't arrive.
+    let rejectedEmails: string[] = [];
+    if ('additional_emails' in body) {
+      const result = normalizeAdditionalEmails(body.additional_emails, existing.email);
+      updateData.additional_emails = result.emails;
+      rejectedEmails = result.rejected;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -95,7 +107,11 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ success: true, assigned_region_id });
+    return NextResponse.json({
+      success: true,
+      assigned_region_id,
+      ...(rejectedEmails.length ? { rejected_emails: rejectedEmails } : {}),
+    });
   } catch (err: any) {
     console.error('[PATCH /api/admin/edit-org] Unexpected error:', err.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -1,0 +1,15 @@
+Hi {{firstName}},
+
+Thank you so much for your time at {{visitTitle}} on {{visitDate}}. We hope it was a
+fulfilling visit for you and your Sunshine pup.
+
+Have feedback? We are always looking for volunteer insights -- email
+info@sunshinetherapydogs.ca.
+
+Took photos? If you are allowed to share them, send them to sunshinedogpics@gmail.com.
+Short videos (10-20 seconds) are especially welcome.
+
+We appreciate your time, energy and commitment.
+
+Alan & the Sunshine Therapy Dogs Team
+www.sunshinetherapydogs.ca

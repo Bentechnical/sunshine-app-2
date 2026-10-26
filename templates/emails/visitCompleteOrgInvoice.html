@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Your Invoice</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #e3f0f1; font-family: Arial, Helvetica, sans-serif;">
+    <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 6px; overflow: hidden;">
+      <tr>
+        <td align="center" style="padding: 24px; background-color: #ffffff;">
+          <img src="https://rodqnqzfjixznlblnlpe.supabase.co/storage/v1/object/public/sunshine-pics/profile-pictures/assets/Sunshine-Therapy-Dogs-horiz.png"
+               alt="Sunshine Therapy Dogs" style="max-width: 250px; height: auto;" />
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 30px;">
+          <h2 style="color: #0e62ae; margin-bottom: 16px;">Thank You for Having Us</h2>
+          <p style="margin: 0 0 16px 0;">Hi {{contactName}},</p>
+          <p style="margin: 0 0 16px 0;">We hope your community enjoyed spending time with our Sunshine doggies on {{visitDate}}!</p>
+          <p style="margin: 0 0 16px 0;">If you have a moment, we would be grateful for a
+            <a href="https://www.google.com/search?q=Sunshine+Therapy+Dogs" style="color: #0e62ae; text-decoration: none;">Google review</a>.
+            And if there is anything we could do better, please tell us at
+            <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a> — we read every message.</p>
+          <div style="background-color: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 16px; margin: 0 0 16px 0;">
+            <p style="margin: 0 0 6px 0; font-weight: bold; color: #5d4037;">Invoice #{{invoiceNumber}} &mdash; ${{total}}</p>
+            <p style="margin: 0; color: #5d4037;">Your invoice for this visit is attached to this email as a PDF.</p>
+          </div>
+          <p style="margin: 0 0 16px 0;">Your payment helps fund our services to schools, social agencies and individuals for whom we provide visits at no cost. So, thank you.</p>
+          <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin: 0 0 16px 0;">
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #0e62ae;">Payment methods</p>
+            <p style="margin: 0 0 8px 0;"><strong>Cheque</strong> — payable to Sunshine Therapy Dogs<br/>
+              <span style="color: #6c757d;">19 Kingswood Road, Toronto, Ontario, M4E 3N4</span></p>
+            <p style="margin: 0 0 8px 0;"><strong>E-transfer</strong> — <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">info@sunshinetherapydogs.ca</a></p>
+            <p style="margin: 0;"><strong>PayPal</strong> — <a href="https://www.paypal.com/ncp/payment/NT7H2RGBLQ3P4" style="color: #0e62ae; text-decoration: none;">pay online</a></p>
+          </div>
+          <p style="margin: 0 0 16px 0;">Donations are welcome too, separate from any fee for service &mdash; you can give at
+            <a href="https://www.canadahelps.org/en/charities/sunshine-therapy-dogs/" style="color: #0e62ae; text-decoration: none;">CanadaHelps</a>, and a tax receipt is provided.</p>
+          <p style="margin: 0 0 16px 0;">Thank you!<br/>Alan Harman<br/><span style="color: #6c757d;">Founder &amp; President, Sunshine Therapy Dogs</span></p>
+
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="padding: 20px; background-color: #ffffff; font-size: 12px; color: #999;">
+          &copy; {{year}} Sunshine Therapy Dogs. All rights reserved.<br/>
+          <a href="https://www.sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Visit our website</a> |
+          <a href="mailto:info@sunshinetherapydogs.ca" style="color: #0e62ae; text-decoration: none;">Contact Support</a>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
